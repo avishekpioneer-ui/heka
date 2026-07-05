@@ -44,16 +44,16 @@ const OpdConsultations = () => {
       const headers = { 'x-user-id': userId };
 
       // Load scheduled appointments for doctor dropdown
-      const apptsRes = await axios.get('http://localhost:5001/api/opd/appointments', { headers });
+      const apptsRes = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/appointments', { headers });
       const activeAppts = apptsRes.data.filter(a => a.status === 'Scheduled');
       setAppointments(activeAppts);
 
       // Load medicines database for prescription autocomplete/selector
-      const medsRes = await axios.get('http://localhost:5001/api/opd/medicines', { headers });
+      const medsRes = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/medicines', { headers });
       setMedicinesList(medsRes.data);
 
       // Load clinical consultation history logs
-      const consultsRes = await axios.get('http://localhost:5001/api/opd/consultations', { headers });
+      const consultsRes = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/consultations', { headers });
       setConsultations(consultsRes.data);
     } catch (err) {
       console.error('Error loading consultation parameters:', err);
@@ -117,7 +117,7 @@ const OpdConsultations = () => {
         followUpDate: followUpDate || null
       };
 
-      await axios.post('http://localhost:5001/api/opd/consultations', payload, { headers });
+      await axios.post((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/consultations', payload, { headers });
 
       setSuccess('Consultation completed successfully! Prescription saved, appointment updated.');
       

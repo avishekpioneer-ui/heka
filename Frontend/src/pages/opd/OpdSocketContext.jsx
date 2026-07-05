@@ -9,7 +9,7 @@ export const OpdSocketProvider = ({ userId, children }) => {
   useEffect(() => {
     if (!userId) return;
 
-    const socket = io('http://localhost:5001', {
+    const socket = io((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '', {
       path: '/api/opd/socket.io',
       auth: { userId }
     });

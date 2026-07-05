@@ -27,14 +27,14 @@ const OpdDashboard = () => {
       // Fetch patients count
       let patientsCount = 0;
       if (hasPermission('manage_patients')) {
-        const res = await axios.get('http://localhost:5001/api/opd/patients', { headers });
+        const res = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/patients', { headers });
         patientsCount = res.data.length;
       }
 
       // Fetch appointments list
       let appts = [];
       if (hasPermission('manage_appointments') || hasPermission('manage_consultations')) {
-        const res = await axios.get('http://localhost:5001/api/opd/appointments', { headers });
+        const res = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/appointments', { headers });
         appts = res.data;
         setAppointments(appts.slice(0, 5)); // show recent 5
       }
@@ -42,7 +42,7 @@ const OpdDashboard = () => {
       // Fetch consultations count
       let consultsCount = 0;
       if (hasPermission('manage_consultations') || hasPermission('manage_billing')) {
-        const res = await axios.get('http://localhost:5001/api/opd/consultations', { headers });
+        const res = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/consultations', { headers });
         consultsCount = res.data.length;
       }
 
@@ -50,7 +50,7 @@ const OpdDashboard = () => {
       let pending = 0;
       let paid = 0;
       if (hasPermission('manage_billing')) {
-        const res = await axios.get('http://localhost:5001/api/opd/billing', { headers });
+        const res = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/billing', { headers });
         const bills = res.data;
         pending = bills.filter(b => b.status === 'Pending').length;
         paid = bills.filter(b => b.status === 'Paid').length;

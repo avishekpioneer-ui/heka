@@ -43,15 +43,15 @@ const OpdAppointments = () => {
       const headers = { 'x-user-id': userId };
       
       // Load patients for the selector
-      const patientsRes = await axios.get('http://localhost:5001/api/opd/patients', { headers });
+      const patientsRes = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/patients', { headers });
       setPatients(patientsRes.data);
 
       // Load registered doctors for the selector
-      const doctorsRes = await axios.get('http://localhost:5001/api/opd/staff/doctors', { headers });
+      const doctorsRes = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/staff/doctors', { headers });
       setDoctors(doctorsRes.data);
 
       // Load appointments list
-      const appointmentsRes = await axios.get('http://localhost:5001/api/opd/appointments', { headers });
+      const appointmentsRes = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/appointments', { headers });
       setAppointments(appointmentsRes.data);
     } catch (err) {
       console.error('Error fetching appointment data:', err);
@@ -75,7 +75,7 @@ const OpdAppointments = () => {
 
     try {
       const headers = { 'x-user-id': userId };
-      await axios.post('http://localhost:5001/api/opd/appointments', formData, { headers });
+      await axios.post((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/appointments', formData, { headers });
       
       setSuccess('Appointment booked successfully! Pending bill generated.');
       setFormData({
@@ -96,7 +96,7 @@ const OpdAppointments = () => {
   const handleStatusChange = async (id, status) => {
     try {
       const headers = { 'x-user-id': userId };
-      await axios.put(`http://localhost:5001/api/opd/appointments/${id}/status`, { status }, { headers });
+      await axios.put(`${import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001'}/api/opd/appointments/${id}/status`, { status }, { headers });
       fetchData(); // reload
     } catch (err) {
       console.error('Error updating appointment status:', err);

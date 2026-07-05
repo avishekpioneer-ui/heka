@@ -17,7 +17,7 @@ const AdminLogin = () => {
         setLoading(true);
 
         try {
-            const response = await axios.post('http://localhost:5001/api/auth/login', formData);
+            const response = await axios.post((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/auth/login', formData);
 
             // Check if user is admin
             if (response.data.user.category !== 'admin') {

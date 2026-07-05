@@ -33,7 +33,7 @@ const OpdDiagnosticTests = () => {
     try {
       setLoading(true);
       const headers = { 'x-user-id': userId };
-      const res = await axios.get('http://localhost:5001/api/opd/tests', { headers });
+      const res = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/tests', { headers });
       setTests(res.data);
     } catch (err) {
       console.error('Error fetching tests catalog:', err);
@@ -46,9 +46,9 @@ const OpdDiagnosticTests = () => {
     try {
       setOrderLoading(true);
       const headers = { 'x-user-id': userId };
-      const patientsRes = await axios.get('http://localhost:5001/api/opd/patients', { headers });
+      const patientsRes = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/patients', { headers });
       setPatients(patientsRes.data);
-      const ordersRes = await axios.get('http://localhost:5001/api/opd/test-orders', { headers });
+      const ordersRes = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/test-orders', { headers });
       setTestOrders(ordersRes.data);
     } catch (err) {
       console.error('Error fetching test orders:', err);
@@ -72,7 +72,7 @@ const OpdDiagnosticTests = () => {
 
     try {
       const headers = { 'x-user-id': userId };
-      await axios.post('http://localhost:5001/api/opd/test-orders', {
+      await axios.post((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/test-orders', {
         patientId: orderPatientId,
         testId: orderTestId,
         scheduledDate: orderScheduledDate || null,
@@ -93,7 +93,7 @@ const OpdDiagnosticTests = () => {
   const handleOrderStatusChange = async (id, status) => {
     try {
       const headers = { 'x-user-id': userId };
-      await axios.put(`http://localhost:5001/api/opd/test-orders/${id}/status`, { status }, { headers });
+      await axios.put(`${import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001'}/api/opd/test-orders/${id}/status`, { status }, { headers });
       fetchOrderData();
     } catch (err) {
       console.error('Error updating test order status:', err);
@@ -108,7 +108,7 @@ const OpdDiagnosticTests = () => {
 
     try {
       const headers = { 'x-user-id': userId };
-      await axios.post('http://localhost:5001/api/opd/tests', { name, price: parseFloat(price) }, { headers });
+      await axios.post((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/tests', { name, price: parseFloat(price) }, { headers });
       setSuccess('Test added successfully!');
       setName('');
       setPrice('');
@@ -131,7 +131,7 @@ const OpdDiagnosticTests = () => {
 
     try {
       const headers = { 'x-user-id': userId };
-      await axios.put(`http://localhost:5001/api/opd/tests/${id}`, { name: editName, price: parseFloat(editPrice) }, { headers });
+      await axios.put(`${import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001'}/api/opd/tests/${id}`, { name: editName, price: parseFloat(editPrice) }, { headers });
       setSuccess('Test updated successfully!');
       setEditingId(null);
       fetchTests();
@@ -147,7 +147,7 @@ const OpdDiagnosticTests = () => {
 
     try {
       const headers = { 'x-user-id': userId };
-      await axios.delete(`http://localhost:5001/api/opd/tests/${id}`, { headers });
+      await axios.delete(`${import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001'}/api/opd/tests/${id}`, { headers });
       setSuccess('Test deleted successfully!');
       fetchTests();
     } catch (err) {

@@ -29,7 +29,7 @@ const OpdPatients = () => {
     try {
       setLoading(true);
       const headers = { 'x-user-id': userId };
-      const url = query ? `http://localhost:5001/api/opd/patients?search=${query}` : 'http://localhost:5001/api/opd/patients';
+      const url = query ? `${import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001'}/api/opd/patients?search=${query}` : (import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/patients';
       const res = await axios.get(url, { headers });
       setPatients(res.data);
     } catch (err) {
@@ -57,7 +57,7 @@ const OpdPatients = () => {
 
     try {
       const headers = { 'x-user-id': userId };
-      const res = await axios.post('http://localhost:5001/api/opd/patients', formData, { headers });
+      const res = await axios.post((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/patients', formData, { headers });
 
       setSuccess('Patient registered successfully!');
       setFormData({

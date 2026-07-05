@@ -15,7 +15,7 @@ const OpdReminders = () => {
     try {
       setLoading(true);
       const headers = { 'x-user-id': userId };
-      const res = await axios.get('http://localhost:5001/api/opd/reminders', { headers });
+      const res = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/reminders', { headers });
       setReminders(res.data);
     } catch (err) {
       console.error('Error fetching reminders:', err);
@@ -39,7 +39,7 @@ const OpdReminders = () => {
 
     try {
       const headers = { 'x-user-id': userId };
-      const res = await axios.post('http://localhost:5001/api/opd/reminders/scan', {}, { headers });
+      const res = await axios.post((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/reminders/scan', {}, { headers });
       
       setSuccess(`Scan executed! Simulated notifications sent to ${res.data.remindersSent} patients due for follow-ups.`);
       fetchReminders(); // reload logs

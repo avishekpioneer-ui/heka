@@ -13,7 +13,7 @@ const AdminCourses = () => {
         certificateAvailable: false
     });
 
-    const API_URL = 'http://localhost:5001/api/admin';
+    const API_URL = (import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/admin';
     const userId = localStorage.getItem('userId');
 
     useEffect(() => {

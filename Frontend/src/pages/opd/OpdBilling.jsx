@@ -35,19 +35,19 @@ const OpdBilling = () => {
       const headers = { 'x-user-id': userId };
 
       // Load bills
-      const billsRes = await axios.get('http://localhost:5001/api/opd/billing', { headers });
+      const billsRes = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/billing', { headers });
       setBills(billsRes.data);
 
       // Load patients
-      const patientsRes = await axios.get('http://localhost:5001/api/opd/patients', { headers });
+      const patientsRes = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/patients', { headers });
       setPatients(patientsRes.data);
 
       // Load tests catalog
-      const testsRes = await axios.get('http://localhost:5001/api/opd/tests', { headers });
+      const testsRes = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/tests', { headers });
       setTestsCatalog(testsRes.data);
 
       // Load medicines catalog
-      const medsRes = await axios.get('http://localhost:5001/api/opd/medicines', { headers });
+      const medsRes = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/medicines', { headers });
       setMedicinesCatalog(medsRes.data);
     } catch (err) {
       console.error('Error loading billing records:', err);
@@ -76,7 +76,7 @@ const OpdBilling = () => {
     try {
       // Find if they have any pending consultation bills we can merge or get consultation fee from recent appts
       const headers = { 'x-user-id': userId };
-      const apptsRes = await axios.get('http://localhost:5001/api/opd/appointments', { headers });
+      const apptsRes = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/appointments', { headers });
       const patientAppts = apptsRes.data.filter(a => a.patientId?._id === patientId && a.status === 'Completed');
       
       if (patientAppts.length > 0) {
@@ -181,7 +181,7 @@ const OpdBilling = () => {
         status
       };
 
-      await axios.post('http://localhost:5001/api/opd/billing', payload, { headers });
+      await axios.post((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/billing', payload, { headers });
       
       setSuccess(`Invoice generated successfully in '${status}' state!`);
       setSelectedPatientId('');
@@ -200,7 +200,7 @@ const OpdBilling = () => {
     if (!confirm('Mark this invoice as Paid? This process cannot be undone.')) return;
     try {
       const headers = { 'x-user-id': userId };
-      await axios.put(`http://localhost:5001/api/opd/billing/${billId}/pay`, {}, { headers });
+      await axios.put(`${import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001'}/api/opd/billing/${billId}/pay`, {}, { headers });
       fetchData(); // reload
     } catch (err) {
       console.error('Error processing payment:', err);

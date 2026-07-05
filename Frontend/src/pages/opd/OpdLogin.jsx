@@ -17,7 +17,7 @@ const OpdLogin = () => {
         setLoading(true);
 
         try {
-            const response = await axios.post('http://localhost:5001/api/opd/auth/login', formData);
+            const response = await axios.post((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/auth/login', formData);
 
             // Store credentials in localStorage
             localStorage.setItem('userId', response.data.user.id);

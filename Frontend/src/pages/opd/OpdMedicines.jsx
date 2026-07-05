@@ -25,7 +25,7 @@ const OpdMedicines = () => {
     try {
       setLoading(true);
       const headers = { 'x-user-id': userId };
-      const res = await axios.get('http://localhost:5001/api/opd/medicines', { headers });
+      const res = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/medicines', { headers });
       setMedicines(res.data);
     } catch (err) {
       console.error('Error fetching medicines catalog:', err);
@@ -45,7 +45,7 @@ const OpdMedicines = () => {
 
     try {
       const headers = { 'x-user-id': userId };
-      await axios.post('http://localhost:5001/api/opd/medicines', { name, price: parseFloat(price), stock: parseInt(stock) || 0 }, { headers });
+      await axios.post((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/medicines', { name, price: parseFloat(price), stock: parseInt(stock) || 0 }, { headers });
       setSuccess('Medicine added successfully!');
       setName('');
       setPrice('');
@@ -70,7 +70,7 @@ const OpdMedicines = () => {
 
     try {
       const headers = { 'x-user-id': userId };
-      await axios.put(`http://localhost:5001/api/opd/medicines/${id}`, { name: editName, price: parseFloat(editPrice), stock: parseInt(editStock) }, { headers });
+      await axios.put(`${import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001'}/api/opd/medicines/${id}`, { name: editName, price: parseFloat(editPrice), stock: parseInt(editStock) }, { headers });
       setSuccess('Medicine updated successfully!');
       setEditingId(null);
       fetchMedicines();
@@ -86,7 +86,7 @@ const OpdMedicines = () => {
 
     try {
       const headers = { 'x-user-id': userId };
-      await axios.put(`http://localhost:5001/api/opd/medicines/${id}/restock`, { quantity: parseInt(restockQty) }, { headers });
+      await axios.put(`${import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001'}/api/opd/medicines/${id}/restock`, { quantity: parseInt(restockQty) }, { headers });
       setSuccess('Stock updated successfully!');
       setRestockId(null);
       setRestockQty('');
@@ -103,7 +103,7 @@ const OpdMedicines = () => {
 
     try {
       const headers = { 'x-user-id': userId };
-      await axios.delete(`http://localhost:5001/api/opd/medicines/${id}`, { headers });
+      await axios.delete(`${import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001'}/api/opd/medicines/${id}`, { headers });
       setSuccess('Medicine deleted successfully!');
       fetchMedicines();
     } catch (err) {

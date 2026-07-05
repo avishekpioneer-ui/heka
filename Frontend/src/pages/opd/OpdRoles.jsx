@@ -41,10 +41,10 @@ const OpdRoles = () => {
       setLoading(true);
       const headers = { 'x-user-id': userId };
       
-      const rolesRes = await axios.get('http://localhost:5001/api/opd/staff/roles', { headers });
+      const rolesRes = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/staff/roles', { headers });
       setRoles(rolesRes.data);
 
-      const staffRes = await axios.get('http://localhost:5001/api/opd/staff/staff', { headers });
+      const staffRes = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/staff/staff', { headers });
       setStaffList(staffRes.data);
     } catch (err) {
       console.error('Error loading roles settings data:', err);
@@ -74,13 +74,13 @@ const OpdRoles = () => {
       const headers = { 'x-user-id': userId };
 
       if (editingRoleId) {
-        await axios.put(`http://localhost:5001/api/opd/staff/roles/${editingRoleId}`, {
+        await axios.put(`${import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001'}/api/opd/staff/roles/${editingRoleId}`, {
           name: roleName,
           permissions: selectedPermissions
         }, { headers });
         setRoleSuccess('Role updated successfully!');
       } else {
-        await axios.post('http://localhost:5001/api/opd/staff/roles', {
+        await axios.post((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/staff/roles', {
           name: roleName,
           permissions: selectedPermissions
         }, { headers });
@@ -118,7 +118,7 @@ const OpdRoles = () => {
 
     try {
       const headers = { 'x-user-id': userId };
-      await axios.post('http://localhost:5001/api/opd/staff/staff', {
+      await axios.post((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/staff/staff', {
         name: staffName,
         email: staffEmail,
         password: staffPassword,
@@ -142,7 +142,7 @@ const OpdRoles = () => {
     if (!confirm('Are you sure you want to remove this staff account?')) return;
     try {
       const headers = { 'x-user-id': userId };
-      await axios.delete(`http://localhost:5001/api/opd/staff/staff/${id}`, { headers });
+      await axios.delete(`${import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001'}/api/opd/staff/staff/${id}`, { headers });
       fetchData();
     } catch (err) {
       alert('Error deleting staff member');
@@ -153,7 +153,7 @@ const OpdRoles = () => {
     if (!confirm('Are you sure you want to delete this role? Any staff linked to this role will lose permissions.')) return;
     try {
       const headers = { 'x-user-id': userId };
-      await axios.delete(`http://localhost:5001/api/opd/staff/roles/${id}`, { headers });
+      await axios.delete(`${import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001'}/api/opd/staff/roles/${id}`, { headers });
       fetchData();
     } catch (err) {
       alert('Error deleting role');
