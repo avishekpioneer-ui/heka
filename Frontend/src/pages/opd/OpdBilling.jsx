@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { useOpdSocketEvent } from './useOpdSocket';
 
 const OpdBilling = () => {
+  const location = useLocation();
   const [bills, setBills] = useState([]);
   const [patients, setPatients] = useState([]);
   const [testsCatalog, setTestsCatalog] = useState([]);
@@ -61,6 +63,16 @@ const OpdBilling = () => {
   useEffect(() => {
     fetchData();
   }, [userId]);
+
+  // Pre-fill patient and consultation fee if navigated from Appointments page
+  useEffect(() => {
+    if (location.state?.patientId) {
+      setSelectedPatientId(location.state.patientId);
+    }
+    if (location.state?.consultationFee !== undefined) {
+      setConsultationFee(location.state.consultationFee);
+    }
+  }, [location.state]);
 
   // Live-refresh the invoice audit log when any bill is generated or paid.
   useOpdSocketEvent('opd:bill', fetchData);

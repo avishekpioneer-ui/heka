@@ -117,6 +117,37 @@ const OpdAppointments = () => {
     }
   };
 
+  const handlePrintToken = (appt) => {
+    setRecentBooking({
+      id: appt._id,
+      patientName: appt.patientId ? appt.patientId.name : 'Unknown Patient',
+      patientPhone: appt.patientId ? appt.patientId.phone : 'N/A',
+      doctorName: appt.doctorName,
+      appointmentDate: appt.appointmentDate,
+      consultationFee: appt.consultationFee
+    });
+    setTimeout(() => {
+      window.print();
+    }, 150);
+  };
+
+  const handleCompleteAndInvoice = async (appt) => {
+    try {
+      const headers = { 'x-user-id': userId };
+      await axios.put(`${import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001'}/api/opd/appointments/${appt._id}/status`, { status: 'Completed' }, { headers });
+      
+      navigate('/opd/billing', {
+        state: {
+          patientId: appt.patientId?._id || '',
+          consultationFee: appt.consultationFee || 0
+        }
+      });
+    } catch (err) {
+      console.error('Error completing appointment and navigating:', err);
+      alert('Error updating status');
+    }
+  };
+
   const handlePrint = () => {
     window.print();
   };
@@ -292,6 +323,18 @@ const OpdAppointments = () => {
                                 Consult
                               </button>
                             )}
+                            <button
+                              onClick={() => handlePrintToken(appt)}
+                              className="bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs py-1 px-2.5 rounded-lg border border-blue-100 cursor-pointer font-semibold"
+                            >
+                              Token
+                            </button>
+                            <button
+                              onClick={() => handleCompleteAndInvoice(appt)}
+                              className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs py-1 px-2.5 rounded-lg border border-emerald-100 cursor-pointer font-semibold"
+                            >
+                              Complete
+                            </button>
                             <button
                               onClick={() => handleStatusChange(appt._id, 'Cancelled')}
                               className="bg-red-50 text-red-600 hover:bg-red-100 text-xs py-1 px-2.5 rounded-lg border border-red-100 cursor-pointer font-semibold"
