@@ -10,8 +10,8 @@ const opdMedicineSchema = new mongoose.Schema(
         },
         price: {
             type: Number,
-            required: true,
-            min: 0
+            required: false,
+            default: 0
         },
         stock: {
             type: Number,

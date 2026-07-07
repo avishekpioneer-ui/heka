@@ -21,6 +21,8 @@ const OpdRoles = () => {
   const [editingRoleId, setEditingRoleId] = useState(null);
   const [roleName, setRoleName] = useState('');
   const [selectedPermissions, setSelectedPermissions] = useState([]);
+  const [roleSuccess, setRoleSuccess] = useState('');
+  const [roleError, setRoleError] = useState('');
 
   // New Staff Form States
   const [staffName, setStaffName] = useState('');
@@ -28,13 +30,15 @@ const OpdRoles = () => {
   const [staffPassword, setStaffPassword] = useState('');
   const [staffRoleId, setStaffRoleId] = useState('');
   const [staffIsDoctor, setStaffIsDoctor] = useState(false);
+  const [staffFees, setStaffFees] = useState('50');
 
-  const [roleSuccess, setRoleSuccess] = useState('');
-  const [roleError, setRoleError] = useState('');
   const [staffSuccess, setStaffSuccess] = useState('');
   const [staffError, setStaffError] = useState('');
 
   const userId = localStorage.getItem('userId');
+
+  const selectedRole = roles.find(r => r._id === staffRoleId);
+  const isDoctorSelected = staffIsDoctor || (selectedRole && selectedRole.name.toLowerCase().includes('doctor'));
 
   const fetchData = async () => {
     try {
@@ -123,7 +127,8 @@ const OpdRoles = () => {
         email: staffEmail,
         password: staffPassword,
         roleId: staffRoleId,
-        isDoctor: staffIsDoctor
+        isDoctor: staffIsDoctor,
+        fees: isDoctorSelected ? parseFloat(staffFees || 0) : 0
       }, { headers });
 
       setStaffSuccess('Staff account created successfully!');
@@ -132,6 +137,7 @@ const OpdRoles = () => {
       setStaffPassword('');
       setStaffRoleId('');
       setStaffIsDoctor(false);
+      setStaffFees('50');
       fetchData();
     } catch (err) {
       setStaffError(err.response?.data?.message || 'Error creating staff login.');
@@ -253,12 +259,14 @@ const OpdRoles = () => {
                     >
                       Edit
                     </button>
-                    <button
-                      onClick={() => handleDeleteRole(r._id)}
-                      className="text-red-500 font-bold hover:text-red-700 cursor-pointer text-[10px]"
-                    >
-                      ×
-                    </button>
+                    {r.name !== "Doctor" && (
+                      <button
+                        onClick={() => handleDeleteRole(r._id)}
+                        className="text-red-500 font-bold hover:text-red-700 cursor-pointer text-[10px]"
+                      >
+                        ×
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -333,6 +341,21 @@ const OpdRoles = () => {
               </select>
             </div>
 
+            {isDoctorSelected && (
+              <div className="animate-fade-in">
+                <label className="block text-xs font-bold text-gray-600 mb-1.5 uppercase">Consultation Fees (₹) *</label>
+                <input
+                  type="number"
+                  required
+                  min="0"
+                  value={staffFees}
+                  onChange={(e) => setStaffFees(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-gray-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none text-sm text-gray-800"
+                  placeholder="e.g. 100"
+                />
+              </div>
+            )}
+
             <label className="flex items-center gap-2.5 text-xs text-gray-600 cursor-pointer hover:text-gray-900">
               <input
                 type="checkbox"
@@ -388,6 +411,11 @@ const OpdRoles = () => {
                       {st.isDoctor && (
                         <span className="ml-1.5 text-[10px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100/50">
                           Doctor
+                        </span>
+                      )}
+                      {(st.isDoctor || st.role?.name?.toLowerCase().includes('doctor')) && st.fees > 0 && (
+                        <span className="ml-1.5 text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100/50">
+                          Fees: ₹{st.fees}
                         </span>
                       )}
                     </td>

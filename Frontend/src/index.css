@@ -16,3 +16,22 @@
     transform: scale(1);
   }
 }
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #printable-receipt, #printable-receipt *,
+  #printable-invoice, #printable-invoice * {
+    visibility: visible !important;
+  }
+  #printable-receipt,
+  #printable-invoice {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    display: block !important;
+    background: white;
+  }
+}

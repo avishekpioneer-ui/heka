@@ -8,10 +8,8 @@ const OpdMedicines = () => {
   
   // Form states
   const [name, setName] = useState('');
-  const [price, setPrice] = useState('');
   const [stock, setStock] = useState('');
   const [editName, setEditName] = useState('');
-  const [editPrice, setEditPrice] = useState('');
   const [editStock, setEditStock] = useState('');
   const [restockId, setRestockId] = useState(null);
   const [restockQty, setRestockQty] = useState('');
@@ -45,10 +43,9 @@ const OpdMedicines = () => {
 
     try {
       const headers = { 'x-user-id': userId };
-      await axios.post((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/medicines', { name, price: parseFloat(price), stock: parseInt(stock) || 0 }, { headers });
+      await axios.post((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/medicines', { name, stock: parseInt(stock) || 0 }, { headers });
       setSuccess('Medicine added successfully!');
       setName('');
-      setPrice('');
       setStock('');
       fetchMedicines();
     } catch (err) {
@@ -59,7 +56,6 @@ const OpdMedicines = () => {
   const handleEditClick = (med) => {
     setEditingId(med._id);
     setEditName(med.name);
-    setEditPrice(med.price);
     setEditStock(med.stock);
   };
 
@@ -70,7 +66,7 @@ const OpdMedicines = () => {
 
     try {
       const headers = { 'x-user-id': userId };
-      await axios.put(`${import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001'}/api/opd/medicines/${id}`, { name: editName, price: parseFloat(editPrice), stock: parseInt(editStock) }, { headers });
+      await axios.put(`${import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001'}/api/opd/medicines/${id}`, { name: editName, stock: parseInt(editStock) }, { headers });
       setSuccess('Medicine updated successfully!');
       setEditingId(null);
       fetchMedicines();
@@ -149,18 +145,6 @@ const OpdMedicines = () => {
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-gray-600 mb-1.5 uppercase">Retail Price (₹) *</label>
-              <input
-                type="number"
-                required
-                min="0"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-gray-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none text-sm text-gray-800"
-                placeholder="10"
-              />
-            </div>
 
             <div>
               <label className="block text-xs font-bold text-gray-600 mb-1.5 uppercase">Opening Stock (Units)</label>
@@ -213,7 +197,6 @@ const OpdMedicines = () => {
                 <thead>
                   <tr className="border-b border-gray-100 text-gray-400 font-bold uppercase text-[10px]">
                     <th className="pb-3">Medicine Name</th>
-                    <th className="pb-3">Retail Price</th>
                     <th className="pb-3">Stock</th>
                     <th className="pb-3 text-right">Actions</th>
                   </tr>
@@ -222,7 +205,7 @@ const OpdMedicines = () => {
                   {medicines.map((med) => (
                     <tr key={med._id} className="border-b border-slate-50 last:border-b-0 hover:bg-slate-50/30 transition-colors">
                       {editingId === med._id ? (
-                        <td colSpan="4" className="py-2">
+                        <td colSpan="3" className="py-2">
                           <form onSubmit={(e) => handleUpdateSubmit(e, med._id)} className="flex flex-wrap gap-2 items-center w-full">
                             <input
                               type="text"
@@ -230,14 +213,6 @@ const OpdMedicines = () => {
                               value={editName}
                               onChange={(e) => setEditName(e.target.value)}
                               className="flex-1 min-w-[120px] px-3 py-1.5 bg-slate-50 border border-gray-200 rounded-lg text-xs"
-                            />
-                            <input
-                              type="number"
-                              required
-                              min="0"
-                              value={editPrice}
-                              onChange={(e) => setEditPrice(e.target.value)}
-                              className="w-24 px-3 py-1.5 bg-slate-50 border border-gray-200 rounded-lg text-xs"
                             />
                             <input
                               type="number"
@@ -263,7 +238,7 @@ const OpdMedicines = () => {
                           </form>
                         </td>
                       ) : restockId === med._id ? (
-                        <td colSpan="4" className="py-2">
+                        <td colSpan="3" className="py-2">
                           <form onSubmit={(e) => handleRestockSubmit(e, med._id)} className="flex flex-wrap gap-2 items-center w-full">
                             <span className="flex-1 min-w-[150px] text-xs text-gray-600">Add stock for <strong>{med.name}</strong> (current: {med.stock})</span>
                             <input
@@ -294,9 +269,6 @@ const OpdMedicines = () => {
                         <>
                           <td className="py-3.5 pr-2 font-semibold text-gray-900 whitespace-nowrap">
                             {med.name}
-                          </td>
-                          <td className="py-3.5 pr-2 font-mono text-teal-800 font-semibold whitespace-nowrap">
-                            ₹{med.price.toFixed(2)}
                           </td>
                           <td className="py-3.5 pr-2 whitespace-nowrap">
                             <span className={`font-mono font-semibold ${med.stock <= 0 ? 'text-red-500' : med.stock < 10 ? 'text-orange-500' : 'text-gray-700'}`}>

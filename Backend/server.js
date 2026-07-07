@@ -41,5 +41,19 @@ connectDB().then(() => {
     initOpdSocket(httpServer);
     httpServer.listen(PORT, () => {
         console.log(`✅ Server running on http://localhost:${PORT}`);
+        
+        // Render self-ping cron job to prevent spinning down (every 10 minutes)
+        const RENDER_URL = process.env.RENDER_EXTERNAL_URL || process.env.SERVER_URL;
+        if (RENDER_URL) {
+            console.log(`⏰ Starting self-ping cron job for Render: ${RENDER_URL}`);
+            setInterval(() => {
+                fetch(RENDER_URL)
+                    .then((res) => console.log(`Self-ping status: ${res.status}`))
+                    .catch((err) => console.error("Self-ping failed:", err.message));
+            }, 10 * 60 * 1000); // 10 minutes
+        } else {
+            console.log("⚠️ No RENDER_EXTERNAL_URL or SERVER_URL environment variable set. Self-ping cron job skipped.");
+        }
     });
-});
+});
+

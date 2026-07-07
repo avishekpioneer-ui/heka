@@ -4,8 +4,8 @@ export const createMedicine = async (req, res) => {
     try {
         const { name, price, stock } = req.body;
 
-        if (!name || price === undefined) {
-            return res.status(400).json({ message: "Medicine name and price are required" });
+        if (!name) {
+            return res.status(400).json({ message: "Medicine name is required" });
         }
 
         const existingMed = await OpdMedicine.findOne({ name: name.trim() });
@@ -13,7 +13,7 @@ export const createMedicine = async (req, res) => {
             return res.status(409).json({ message: "Medicine already exists" });
         }
 
-        const medicine = await OpdMedicine.create({ name: name.trim(), price, stock: stock || 0 });
+        const medicine = await OpdMedicine.create({ name: name.trim(), price: price !== undefined ? price : 0, stock: stock || 0 });
         res.status(201).json({ message: "Medicine added successfully", medicine });
     } catch (error) {
         console.error("Create Medicine Error:", error);

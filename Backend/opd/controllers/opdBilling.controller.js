@@ -36,7 +36,7 @@ export const createBill = async (req, res) => {
             total += tests.reduce((sum, t) => sum + parseFloat(t.price), 0);
         }
         if (medicines && medicines.length > 0) {
-            total += medicines.reduce((sum, m) => sum + (parseFloat(m.price) * (m.quantity || 1)), 0);
+            total += medicines.reduce((sum, m) => sum + parseFloat(m.price || 0), 0);
         }
 
         const bill = await OpdBilling.create({
@@ -111,7 +111,7 @@ export const updateBill = async (req, res) => {
             total += bill.tests.reduce((sum, t) => sum + parseFloat(t.price), 0);
         }
         if (bill.medicines && bill.medicines.length > 0) {
-            total += bill.medicines.reduce((sum, m) => sum + (parseFloat(m.price) * (m.quantity || 1)), 0);
+            total += bill.medicines.reduce((sum, m) => sum + parseFloat(m.price || 0), 0);
         }
         bill.totalAmount = total;
 

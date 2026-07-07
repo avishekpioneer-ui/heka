@@ -63,6 +63,10 @@ export const updateRole = async (req, res) => {
             return res.status(404).json({ message: "Role not found" });
         }
 
+        if (role.name === "Doctor" && name && name !== "Doctor") {
+            return res.status(400).json({ message: "Pre-defined role 'Doctor' name cannot be changed" });
+        }
+
         if (name) role.name = name;
         if (permissions) role.permissions = permissions;
 
@@ -77,10 +81,14 @@ export const updateRole = async (req, res) => {
 export const deleteRole = async (req, res) => {
     try {
         const { id } = req.params;
-        const role = await OpdRole.findByIdAndDelete(id);
+        const role = await OpdRole.findById(id);
         if (!role) {
             return res.status(404).json({ message: "Role not found" });
         }
+        if (role.name === "Doctor") {
+            return res.status(400).json({ message: "Pre-defined role 'Doctor' cannot be deleted" });
+        }
+        await OpdRole.findByIdAndDelete(id);
         res.status(200).json({ message: "Role deleted successfully" });
     } catch (error) {
         console.error("Delete Role Error:", error);
@@ -91,7 +99,7 @@ export const deleteRole = async (req, res) => {
 // Staff Management
 export const createStaff = async (req, res) => {
     try {
-        const { name, email, password, roleId, isDoctor } = req.body;
+        const { name, email, password, roleId, isDoctor, fees } = req.body;
 
         if (!name || !email || !password || !roleId) {
             return res.status(400).json({ message: "All fields are required" });
@@ -115,7 +123,8 @@ export const createStaff = async (req, res) => {
             email: email.toLowerCase(),
             password: hashedPassword,
             role: roleId,
-            isDoctor: !!isDoctor
+            isDoctor: !!isDoctor,
+            fees: fees ? parseFloat(fees) : 0
         });
 
         res.status(201).json({
@@ -125,7 +134,8 @@ export const createStaff = async (req, res) => {
                 name: newStaff.name,
                 email: newStaff.email,
                 role: role.name,
-                isDoctor: newStaff.isDoctor
+                isDoctor: newStaff.isDoctor,
+                fees: newStaff.fees
             }
         });
     } catch (error) {
@@ -139,7 +149,7 @@ export const getDoctors = async (req, res) => {
         // A staff member counts as a doctor if either the explicit "Doctor"
         // checkbox is set, or they are assigned a role whose name contains
         // "doctor" (e.g. a role literally called "Doctor").
-        const staff = await OpdUser.find({}).select("name email isDoctor role").populate("role", "name");
+        const staff = await OpdUser.find({}).select("name email isDoctor role fees").populate("role", "name");
         const doctors = staff
             .filter((s) => s.isDoctor || s.role?.name?.toLowerCase().includes("doctor"))
             .sort((a, b) => a.name.localeCompare(b.name));

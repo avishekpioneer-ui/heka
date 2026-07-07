@@ -30,6 +30,10 @@ const opdUserSchema = new mongoose.Schema(
         isDoctor: {
             type: Boolean,
             default: false
+        },
+        fees: {
+            type: Number,
+            default: 0
         }
     },
     { timestamps: true }
