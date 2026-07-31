@@ -10,7 +10,7 @@ export default function Footer() {
     <footer className="font-dmsans bg-[#4B9B6E] text-white py-3 fixed bottom-0 w-full z-50">
       <div className="flex justify-around items-center text-center">
         {/* Home */}
-        <div onClick={()=>{navigate("/")}} className="flex flex-col items-center">
+        <div onClick={()=>{navigate("/app")}} className="flex flex-col items-center">
           <img src={home} alt="" className="w-6 h-6 mb-1" />
           <span className="font-dmsans text-xs">Home</span>
         </div>

@@ -12,7 +12,7 @@ export default function Navbar() {
   // Handle logout logic
   const handleLogout = () => {
     localStorage.clear(); // clear all stored user data
-    navigate("/"); // redirect to home or login page
+    navigate("/app"); // redirect to home or login page
     window.location.reload(); // reload to update UI instantly
   };
 

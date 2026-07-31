@@ -1,6 +1,16 @@
 import React from "react"
 import ScrollToTop from "./components/ScrollToTop";
 import { Routes, Route, useLocation } from "react-router-dom"
+// Rudraksh Foundation landing site (public marketing pages)
+import Landing from "./pages/rudraksh/Landing"
+import About from "./pages/rudraksh/About"
+import Initiatives from "./pages/rudraksh/Initiatives"
+import Impact from "./pages/rudraksh/Impact"
+import Stories from "./pages/rudraksh/Stories"
+import Volunteer from "./pages/rudraksh/Volunteer"
+import Donate from "./pages/rudraksh/Donate"
+import Contact from "./pages/rudraksh/Contact"
+
 import Home from "./pages/Home"
 import ChooseCity from "./pages/ChooseCity"
 import FindHospitals from "./pages/FindHospitals"
@@ -56,16 +66,34 @@ import OpdMedicines from "./pages/opd/OpdMedicines";
 import OpdRoles from "./pages/opd/OpdRoles";
 import OpdReminders from "./pages/opd/OpdReminders";
 
+// Public landing-site routes — these render their own Navbar/Footer and must not
+// get the HekaOS app's fixed bottom navigation bar.
+const LANDING_ROUTES = [
+    '/', '/about', '/initiatives', '/impact', '/stories', '/volunteer', '/donate', '/contact'
+];
+
 function App() {
     const location = useLocation();
-    const isExcludedRoute = location.pathname.startsWith('/admin') || location.pathname.startsWith('/opd');
+    const isExcludedRoute = LANDING_ROUTES.includes(location.pathname)
+        || location.pathname.startsWith('/admin')
+        || location.pathname.startsWith('/opd');
 
     // localStorage.removeItem("preloaderShown")
     return (
         <>
             <ScrollToTop />
             <Routes>
-                <Route path="/" element={<Home />} />
+                {/* Rudraksh Foundation landing site */}
+                <Route path="/" element={<Landing />} />
+                <Route path="/about" element={<About />} />
+                <Route path="/initiatives" element={<Initiatives />} />
+                <Route path="/impact" element={<Impact />} />
+                <Route path="/stories" element={<Stories />} />
+                <Route path="/volunteer" element={<Volunteer />} />
+                <Route path="/donate" element={<Donate />} />
+                <Route path="/contact" element={<Contact />} />
+
+                <Route path="/app" element={<Home />} />
                 <Route path="/choose-city/:service" element={<ChooseCity />} />
                 <Route path="/find-hospitals/:city" element={<FindHospitals />} />
                 <Route path="/find-hotels/:city" element={<FindHotels />} />

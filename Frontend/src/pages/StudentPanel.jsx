@@ -40,7 +40,7 @@ export default function StudentPanel() {
     // Redirect if not a student
     useEffect(() => {
         if (!userData) { navigate("/login"); return; }
-        if (userData.category !== "student") { navigate("/"); return; }
+        if (userData.category !== "student") { navigate("/app"); return; }
 
         const fetchData = async () => {
             try {
@@ -147,7 +147,7 @@ export default function StudentPanel() {
             {/* ── Header */}
             <div className="bg-gradient-to-r from-[#4B9B6E] to-[#3d825b] text-white px-6 py-8">
                 <div className="max-w-4xl mx-auto">
-                    <button onClick={() => navigate("/")} className="flex items-center gap-1.5 text-white/70 hover:text-white text-sm mb-4 transition-colors">
+                    <button onClick={() => navigate("/app")} className="flex items-center gap-1.5 text-white/70 hover:text-white text-sm mb-4 transition-colors">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                         </svg>

@@ -213,7 +213,7 @@ export default function AdmissionForm() {
         alert("Admission Form Submitted Successfully!");
       }
 
-      navigate("/");
+      navigate("/app");
     } catch (error) {
       console.error("Submission Error:", error);
       alert("Failed to submit form. Please try again.");

@@ -29,7 +29,7 @@ export default function Login() {
       alert(`Welcome back, ${response.data.user.name}!`);
 
 
-      navigate("/");
+      navigate("/app");
     } catch (error) {
       console.error("Login error:", error.response ? error.response.data : error);
       alert(error.response?.data?.message || "Login failed. Please check credentials.");

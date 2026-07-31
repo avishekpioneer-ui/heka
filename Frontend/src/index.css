@@ -1,5 +1,85 @@
 @import "tailwindcss";
 
+/* ---------------------------------------------------------------
+   Rudraksh Foundation landing-site design tokens.
+   Ported from the Next.js reference project (src/app/globals.css).
+   `font-sans` / `font-serif` are remapped for the landing pages, so
+   `--default-font-family` is pinned to Tailwind's stock stack to keep
+   the existing HekaOS app rendering exactly as before.
+   --------------------------------------------------------------- */
+@theme {
+  --font-serif: "Lora", Georgia, serif;
+  --font-sans: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  --default-font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+
+  --color-brand-teal-50: #f0f7f7;
+  --color-brand-teal-100: #d9eae9;
+  --color-brand-teal-200: #b5d4d3;
+  --color-brand-teal-300: #86b4b2;
+  --color-brand-teal-400: #548d8c;
+  --color-brand-teal-500: #397170;
+  --color-brand-teal-600: #2d5b5b;
+  --color-brand-teal-700: #254a4a;
+  --color-brand-teal-800: #0c4a4a;
+  /* Referenced by the design but absent from its own @theme; midpoint of 800/900. */
+  --color-brand-teal-850: #093c3c;
+  --color-brand-teal-900: #062e2e;
+  --color-brand-teal-950: #031d1d;
+
+  --color-brand-saffron-50: #fff8f6;
+  --color-brand-saffron-100: #ffedd6;
+  --color-brand-saffron-200: #ffd2ad;
+  --color-brand-saffron-300: #ffb07a;
+  --color-brand-saffron-400: #f3a261;
+  --color-brand-saffron-500: #e06d53;
+  --color-brand-saffron-600: #cc533b;
+  --color-brand-saffron-700: #a93e2a;
+  --color-brand-saffron-800: #8c3222;
+  --color-brand-saffron-900: #73291d;
+
+  --color-brand-cream-50: #fcfaf7;
+  --color-brand-cream-100: #f5efe6;
+  /* Referenced by the design but absent from its own @theme; midpoint of 100/200. */
+  --color-brand-cream-150: #f0e7d9;
+  --color-brand-cream-200: #eadecc;
+  --color-brand-cream-300: #dac8ae;
+  --color-brand-cream-400: #c7ac88;
+
+  --color-brand-charcoal: #1f2421;
+}
+
+/* Landing-site body treatment + custom scrollbar. Scoped to the class the
+   landing Navbar toggles on <html>, so the HekaOS app keeps its own chrome. */
+html.rudraksh-theme {
+  overflow-x: hidden;
+}
+
+html.rudraksh-theme body {
+  color: #1f2421;
+  background-color: #fcfaf7;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html.rudraksh-theme ::-webkit-scrollbar {
+  width: 10px;
+}
+
+html.rudraksh-theme ::-webkit-scrollbar-track {
+  background: #f5efe6;
+}
+
+html.rudraksh-theme ::-webkit-scrollbar-thumb {
+  background: #548d8c;
+  border-radius: 5px;
+}
+
+html.rudraksh-theme ::-webkit-scrollbar-thumb:hover {
+  background: #0c4a4a;
+}
+
 .font-dmsans {
   font-family: "DM Sans", sans-serif;
   font-optical-sizing: auto;

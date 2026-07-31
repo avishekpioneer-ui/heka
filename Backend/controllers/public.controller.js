@@ -2,6 +2,7 @@ import Course from "../models/Course.js";
 import CoachingCenter from "../models/CoachingCenter.js";
 import CourseAssignment from "../models/CourseAssignment.js";
 import PaymentSettings from "../models/PaymentSettings.js";
+import Submission from "../models/Submission.js";
 
 // @desc    Get all active courses (Public)
 // @route   GET /api/public/courses
@@ -63,5 +64,35 @@ export const getPublicPaymentSettings = async (req, res) => {
         res.status(200).json({ success: true, data: settings || {} });
     } catch (error) {
         res.status(500).json({ message: "Error fetching payment settings", error: error.message });
+    }
+};
+
+// @desc    Record a landing-site form submission (volunteer / contact / donation pledge)
+// @route   POST /api/public/submissions
+// @access  Public
+export const createSubmission = async (req, res) => {
+    try {
+        const { formType } = req.body;
+
+        if (!formType) {
+            return res.status(400).json({ success: false, error: "Missing formType parameter." });
+        }
+
+        if (!req.body.name || !req.body.email || !req.body.phone) {
+            return res.status(400).json({
+                success: false,
+                error: "Name, email, and phone are required fields."
+            });
+        }
+
+        const submission = await Submission.create(req.body);
+
+        res.status(201).json({
+            success: true,
+            message: "Submission received successfully.",
+            data: submission
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message || "Internal Server Error" });
     }
 };
