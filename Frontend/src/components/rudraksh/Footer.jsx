@@ -121,7 +121,7 @@ export default function Footer() {
             <ul className="space-y-3.5 text-xs text-brand-teal-100">
               <li className="flex items-start gap-2.5">
                 <MapPin size={16} className="text-brand-saffron-400 shrink-0 mt-0.5" />
-                <span>12B, Ground Floor, Sarat Bose Road, Kolkata, West Bengal 700020</span>
+                <span>Bamanpukur, North 24 Parganas, West Bengal, India, 743425</span>
               </li>
               <li className="flex items-center gap-2.5">
                 <Phone size={16} className="text-brand-saffron-400 shrink-0" />

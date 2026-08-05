@@ -106,8 +106,8 @@ export default function Contact() {
                   Kolkata Head Office (Admin)
                 </h3>
                 <p className="text-brand-charcoal/70 leading-relaxed font-medium pl-6">
-                  12B, Ground Floor, Sarat Bose Road, <br />
-                  Kolkata, West Bengal 700020
+                  Bamanpukur, North 24 Parganas, <br />
+                  West Bengal, India, 743425
                 </p>
                 <div className="pl-6 space-y-2">
                   <div className="flex items-center gap-2">
