@@ -37,30 +37,36 @@ const OpdNotificationBell = () => {
       </button>
 
       {open && (
-        <div className="fixed left-4 right-4 top-16 sm:absolute sm:inset-x-auto sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-80 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden">
-          <div className="p-4 border-b border-gray-100 flex justify-between items-center">
-            <h4 className="text-sm font-bold text-teal-950">Live Follow-up Reminders</h4>
-            <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600 cursor-pointer text-xs">Close</button>
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/20 sm:hidden"
+            onClick={() => setOpen(false)}
+          />
+          <div className="fixed left-4 right-4 top-16 sm:absolute sm:inset-x-auto sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-80 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden">
+            <div className="p-4 border-b border-gray-100 flex justify-between items-center">
+              <h4 className="text-sm font-bold text-teal-950">Live Follow-up Reminders</h4>
+              <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600 cursor-pointer text-xs">Close</button>
+            </div>
+            <div className="max-h-80 overflow-y-auto">
+              {notifications.length === 0 ? (
+                <p className="text-xs text-gray-400 text-center py-8">No new reminders pushed yet.</p>
+              ) : (
+                notifications.map((r, idx) => (
+                  <div key={r._id || idx} className="p-3 border-b border-slate-50 last:border-b-0 text-xs text-gray-700">
+                    <p className="font-semibold text-teal-900">{r.patientId?.name || 'Patient'}</p>
+                    <p className="text-gray-500 mt-0.5 line-clamp-2">{r.message}</p>
+                  </div>
+                ))
+              )}
+            </div>
+            <button
+              onClick={handleOpenReminders}
+              className="w-full text-center text-xs font-semibold text-[#0D9488] hover:bg-teal-50 py-3 cursor-pointer"
+            >
+              View All Reminders
+            </button>
           </div>
-          <div className="max-h-80 overflow-y-auto">
-            {notifications.length === 0 ? (
-              <p className="text-xs text-gray-400 text-center py-8">No new reminders pushed yet.</p>
-            ) : (
-              notifications.map((r, idx) => (
-                <div key={r._id || idx} className="p-3 border-b border-slate-50 last:border-b-0 text-xs text-gray-700">
-                  <p className="font-semibold text-teal-900">{r.patientId?.name || 'Patient'}</p>
-                  <p className="text-gray-500 mt-0.5 line-clamp-2">{r.message}</p>
-                </div>
-              ))
-            )}
-          </div>
-          <button
-            onClick={handleOpenReminders}
-            className="w-full text-center text-xs font-semibold text-[#0D9488] hover:bg-teal-50 py-3 cursor-pointer"
-          >
-            View All Reminders
-          </button>
-        </div>
+        </>
       )}
     </div>
   );

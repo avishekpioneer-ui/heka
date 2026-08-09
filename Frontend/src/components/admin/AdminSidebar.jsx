@@ -128,13 +128,13 @@ const AdminSidebar = () => {
       {/* System Toggle Selector */}
       <div className="px-6 mb-2 mt-2">
         <div className="bg-gray-800/80 rounded-xl p-1 flex items-center gap-1 border border-gray-700/30">
-          <button 
+          <button
             className="flex-1 text-center py-2 px-1 text-xs font-semibold rounded-lg bg-[#4B9B6E] text-white transition-all shadow-sm cursor-pointer"
             onClick={() => navigate('/admin')}
           >
             Coaching
           </button>
-          <button 
+          <button
             className="flex-1 text-center py-2 px-1 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-all cursor-pointer"
             onClick={() => navigate('/opd')}
           >

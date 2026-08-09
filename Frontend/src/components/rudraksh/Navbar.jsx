@@ -63,26 +63,23 @@ export default function Navbar() {
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled
           ? "bg-brand-cream-50/95 backdrop-blur-md shadow-sm border-b border-brand-cream-100/50 py-3"
           : "bg-transparent py-5"
-      }`}
+        }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex flex-col group">
-            <span className={`text-xl sm:text-2xl font-bold font-serif tracking-tight transition-colors duration-200 ${
-              scrolled
+            <span className={`text-xl sm:text-2xl font-bold font-serif tracking-tight transition-colors duration-200 ${scrolled
                 ? "text-brand-teal-800 group-hover:text-brand-teal-900"
                 : "text-white group-hover:text-brand-saffron-300"
-            }`}>
+              }`}>
               Rudraksh
             </span>
-            <span className={`text-[10px] sm:text-xs font-semibold uppercase tracking-widest font-sans -mt-1 transition-colors duration-200 ${
-              scrolled ? "text-brand-saffron-500" : "text-brand-saffron-300"
-            }`}>
+            <span className={`text-[10px] sm:text-xs font-semibold uppercase tracking-widest font-sans -mt-1 transition-colors duration-200 ${scrolled ? "text-brand-saffron-500" : "text-brand-saffron-300"
+              }`}>
               Foundation
             </span>
           </Link>
@@ -98,17 +95,15 @@ export default function Navbar() {
                     onMouseEnter={() => setActiveDropdown(link.label)}
                     onMouseLeave={() => setActiveDropdown(null)}
                   >
-                    <button className={`flex items-center text-sm font-semibold transition-colors duration-200 gap-1 ${
-                      scrolled
+                    <button className={`flex items-center text-sm font-semibold transition-colors duration-200 gap-1 ${scrolled
                         ? "text-brand-charcoal hover:text-brand-teal-900"
                         : "text-brand-cream-50 hover:text-brand-saffron-300 drop-shadow-sm"
-                    }`}>
+                      }`}>
                       {link.label}
                       <ChevronDown
                         size={14}
-                        className={`transition-transform duration-200 ${
-                          activeDropdown === link.label ? "rotate-180" : ""
-                        }`}
+                        className={`transition-transform duration-200 ${activeDropdown === link.label ? "rotate-180" : ""
+                          }`}
                       />
                     </button>
 
@@ -142,11 +137,10 @@ export default function Navbar() {
                 <Link
                   key={link.label}
                   to={link.href || "#"}
-                  className={`px-3 py-2 text-sm font-semibold transition-colors duration-200 ${
-                    scrolled
+                  className={`px-3 py-2 text-sm font-semibold transition-colors duration-200 ${scrolled
                       ? "text-brand-charcoal hover:text-brand-teal-900"
                       : "text-brand-cream-50 hover:text-brand-saffron-300 drop-shadow-sm"
-                  }`}
+                    }`}
                 >
                   {link.label}
                 </Link>
@@ -175,11 +169,10 @@ export default function Navbar() {
             </Link>
             <button
               onClick={() => setIsOpen(!isOpen)}
-              className={`p-1.5 rounded-lg transition-colors duration-200 ${
-                scrolled
+              className={`p-1.5 rounded-lg transition-colors duration-200 ${scrolled
                   ? "text-brand-charcoal hover:bg-brand-cream-100/50"
                   : "text-white hover:bg-white/10"
-              }`}
+                }`}
               aria-label="Toggle menu"
             >
               {isOpen ? <X size={24} /> : <Menu size={24} />}
