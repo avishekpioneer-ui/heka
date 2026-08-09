@@ -23,30 +23,46 @@ const OpdDashboard = () => {
     try {
       setLoading(true);
       const headers = { 'x-user-id': userId };
-      const baseUrl = import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001';
 
-      const [statsResult, apptsResult] = await Promise.allSettled([
-        axios.get(`${baseUrl}/api/opd/stats`, { headers }),
-        (hasPermission('manage_appointments') || hasPermission('manage_consultations'))
-          ? axios.get(`${baseUrl}/api/opd/appointments`, { headers })
-          : Promise.resolve({ data: [] }),
-      ]);
-
-      if (statsResult.status === 'fulfilled' && statsResult.value?.data) {
-        const s = statsResult.value.data;
-        setStats({
-          patients: s.patients || 0,
-          appointments: s.appointments || 0,
-          consultations: s.consultations || 0,
-          billingPending: s.billingPending || 0,
-          billingPaid: s.billingPaid || 0,
-        });
+      // Fetch patients count
+      let patientsCount = 0;
+      if (hasPermission('manage_patients')) {
+        const res = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/patients', { headers });
+        patientsCount = res.data.length;
       }
 
-      if (apptsResult.status === 'fulfilled' && apptsResult.value?.data) {
-        const appts = Array.isArray(apptsResult.value.data) ? apptsResult.value.data : [];
-        setAppointments(appts.slice(0, 5));
+      // Fetch appointments list
+      let appts = [];
+      if (hasPermission('manage_appointments') || hasPermission('manage_consultations')) {
+        const res = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/appointments', { headers });
+        appts = res.data;
+        setAppointments(appts.slice(0, 5)); // show recent 5
       }
+
+      // Fetch consultations count
+      let consultsCount = 0;
+      if (hasPermission('manage_consultations') || hasPermission('manage_billing')) {
+        const res = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/consultations', { headers });
+        consultsCount = res.data.length;
+      }
+
+      // Fetch bills stats
+      let pending = 0;
+      let paid = 0;
+      if (hasPermission('manage_billing')) {
+        const res = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/billing', { headers });
+        const bills = res.data;
+        pending = bills.filter(b => b.status === 'Pending').length;
+        paid = bills.filter(b => b.status === 'Paid').length;
+      }
+
+      setStats({
+        patients: patientsCount,
+        appointments: appts.length,
+        consultations: consultsCount,
+        billingPending: pending,
+        billingPaid: paid
+      });
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
     } finally {
