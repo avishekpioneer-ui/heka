@@ -26,6 +26,8 @@ export const resolveOpdIdentity = async (userId) => {
     const staffUser = await OpdUser.findById(userId).populate("role");
     if (!staffUser) return null;
 
+    const isDoctor = !!staffUser.isDoctor || (staffUser.role?.name ? staffUser.role.name.toLowerCase().includes("doctor") : false);
+
     return {
         id: staffUser._id,
         name: staffUser.name,
@@ -33,6 +35,7 @@ export const resolveOpdIdentity = async (userId) => {
         category: staffUser.category,
         roleId: staffUser.role?._id,
         roleName: staffUser.role?.name || "Staff",
+        isDoctor,
         permissions: staffUser.role?.permissions || []
     };
 };

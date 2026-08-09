@@ -51,7 +51,22 @@ export const createAppointment = async (req, res) => {
 
 export const getAppointments = async (req, res) => {
     try {
-        const appointments = await OpdAppointment.find({})
+        let query = {};
+
+        // If logged-in user is a Doctor (and not an admin with wildcard permissions), restrict query to their own appointments
+        const isDoctor = req.user?.isDoctor || (req.user?.roleName ? req.user.roleName.toLowerCase().includes("doctor") : false);
+        const isAdmin = req.user?.category === "admin" || req.user?.permissions?.includes("*");
+
+        if (isDoctor && !isAdmin) {
+            query = {
+                $or: [
+                    { doctorId: req.user.id },
+                    { doctorName: new RegExp(`^${req.user.name.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}$`, 'i') }
+                ]
+            };
+        }
+
+        const appointments = await OpdAppointment.find(query)
             .populate("patientId")
             .sort({ appointmentDate: -1 });
         res.status(200).json(appointments);
