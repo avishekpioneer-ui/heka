@@ -23,6 +23,7 @@ export default function OpdBillingScreen({ routeParams }) {
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [payingBillId, setPayingBillId] = useState(null);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBillId, setEditingBillId] = useState(null);
@@ -346,7 +347,7 @@ export default function OpdBillingScreen({ routeParams }) {
     );
   };
 
-  const handleCreateBill = async (paymentStatus = 'Pending') => {
+  const handleCreateBill = async (status = 'Pending') => {
     if (!selectedPatientId) {
       setError('Please select a patient to generate an invoice.');
       return;
@@ -441,8 +442,7 @@ export default function OpdBillingScreen({ routeParams }) {
         medicines: formattedMedicines,
         billingType,
         totalAmount: grandTotal,
-        status: paymentStatus,
-        paymentStatus,
+        status,
         items,
       };
 
@@ -452,7 +452,7 @@ export default function OpdBillingScreen({ routeParams }) {
       } else {
         await apiClient.post('/api/opd/billing', payload);
         setSuccess(
-          `Invoice created successfully (${paymentStatus.toUpperCase()})!`
+          `Invoice created successfully (${status.toUpperCase()})!`
         );
       }
 
@@ -470,13 +470,14 @@ export default function OpdBillingScreen({ routeParams }) {
   };
 
   const handleShareInvoice = async (bill) => {
+    const isPaid = bill.status === 'Paid';
     const text =
       `🧾 HEKA MEDICAL CENTER — Official Invoice\n` +
       `----------------------------------------\n` +
       `Bill ID       : ${bill._id || bill.id}\n` +
       `Patient       : ${bill.patientName || bill.patientId?.name || 'Patient'}\n` +
       `Date          : ${new Date(bill.createdAt || Date.now()).toLocaleDateString()}\n` +
-      `Status        : ${bill.paymentStatus?.toUpperCase()}\n` +
+      `Status        : ${isPaid ? 'PAID' : 'PENDING'}\n` +
       `Total Amount  : ₹${bill.totalAmount}\n` +
       `----------------------------------------\n` +
       `Thank you for choosing Heka Healthcare! 🏥`;
@@ -486,18 +487,40 @@ export default function OpdBillingScreen({ routeParams }) {
     } catch (e) {}
   };
 
-  const handlePayBill = async (billId) => {
-    try {
-      await apiClient.put(`/api/opd/billing/${billId}/pay`, {});
-      fetchData();
-    } catch (err) {
-      console.error('Error processing payment:', err);
-    }
+  const handlePayBill = (billId) => {
+    if (!billId) return;
+    Alert.alert(
+      'Record Payment',
+      'Mark this invoice as Paid? This will update the invoice status.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Mark as Paid',
+          onPress: async () => {
+            try {
+              setPayingBillId(billId);
+              await apiClient.put(`/api/opd/billing/${billId}/pay`, {});
+              await fetchData();
+              Alert.alert('Payment Recorded', 'Invoice has been marked as Paid successfully.');
+            } catch (err) {
+              console.error('Error processing payment:', err);
+              Alert.alert('Payment Error', err.response?.data?.message || 'Failed to record payment.');
+            } finally {
+              setPayingBillId(null);
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#f8fafc' }}>
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets={true}
+      >
         {/* Header */}
         <View style={styles.headerRow}>
           <View style={{ flex: 1, marginRight: 10 }}>
@@ -537,17 +560,22 @@ export default function OpdBillingScreen({ routeParams }) {
             <Text style={styles.emptyText}>Tap "+ New Bill" to generate a consultation or diagnostic invoice.</Text>
           </View>
         ) : (
-          filteredBills.map((b, bIdx) => (
-            <View key={b._id || b.id || `bill-card-${bIdx}`} style={styles.card}>
+          filteredBills.map((b, bIdx) => {
+            const isPaid = b.status === 'Paid';
+            const bId = b._id || b.id;
+            const isPaying = payingBillId === bId;
+
+            return (
+            <View key={bId || `bill-card-${bIdx}`} style={styles.card}>
               <View style={styles.cardHeader}>
                 <View>
-                  <Text style={styles.invoiceNo}>🧾 #{String(b.invoiceNumber || b._id || b.id || '').slice(-8).toUpperCase()}</Text>
+                  <Text style={styles.invoiceNo}>🧾 #{String(b.invoiceNumber || bId || '').slice(-8).toUpperCase()}</Text>
                   <Text style={styles.patientName}>{b.patientName || b.patientId?.name || 'Walk-in Patient'}</Text>
                 </View>
 
-                <View style={[styles.statusBadge, b.paymentStatus === 'Paid' ? styles.statusPaid : styles.statusPending]}>
-                  <Text style={styles.statusBadgeText}>
-                    {b.paymentStatus === 'Paid' ? '✓ PAID' : '⏳ PENDING'}
+                <View style={[styles.statusBadge, isPaid ? styles.statusPaid : styles.statusPending]}>
+                  <Text style={[styles.statusBadgeText, isPaid ? styles.statusBadgeTextPaid : styles.statusBadgeTextPending]}>
+                    {isPaid ? '✓ PAID' : '⏳ PENDING'}
                   </Text>
                 </View>
               </View>
@@ -582,12 +610,17 @@ export default function OpdBillingScreen({ routeParams }) {
 
                 {/* Actions */}
                 <View style={styles.billActions}>
-                  {b.paymentStatus !== 'Paid' && (
+                  {!isPaid && (
                     <TouchableOpacity
-                      style={styles.payBtn}
-                      onPress={() => handlePayBill(b._id || b.id)}
+                      style={[styles.payBtn, isPaying && styles.btnDisabled]}
+                      onPress={() => handlePayBill(bId)}
+                      disabled={isPaying}
                     >
-                      <Text style={styles.payBtnText}>💳 Record Payment (Mark Paid)</Text>
+                      {isPaying ? (
+                        <ActivityIndicator size="small" color="#0f766e" />
+                      ) : (
+                        <Text style={styles.payBtnText}>💳 Record Payment (Mark Paid)</Text>
+                      )}
                     </TouchableOpacity>
                   )}
 
@@ -616,16 +649,21 @@ export default function OpdBillingScreen({ routeParams }) {
                 </View>
               </View>
             </View>
-          ))
+          );
+        })
         )}
       </ScrollView>
 
       {/* ── New / Edit Invoice Modal ─────────────────────────────────────────────── */}
       <Modal visible={isModalOpen} animationType="slide" transparent statusBarTranslucent onRequestClose={() => { setIsModalOpen(false); resetFormState(); }}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} style={{ flex: 1 }}>
           <View style={styles.modalOverlay}>
             <View style={styles.modalContainer}>
-              <ScrollView contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
+              <ScrollView
+                contentContainerStyle={styles.modalContent}
+                keyboardShouldPersistTaps="handled"
+                automaticallyAdjustKeyboardInsets={true}
+              >
                 <View style={styles.modalHeader}>
                   <View>
                     <Text style={styles.modalTitle}>
@@ -1097,7 +1135,7 @@ export default function OpdBillingScreen({ routeParams }) {
           </View>
         </KeyboardAvoidingView>
       </Modal>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -1130,7 +1168,9 @@ const styles = StyleSheet.create({
   statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
   statusPaid: { backgroundColor: '#f0fdf4' },
   statusPending: { backgroundColor: '#fff7ed' },
-  statusBadgeText: { fontSize: 11, fontWeight: '700', color: '#0f172a' },
+  statusBadgeText: { fontSize: 11, fontWeight: '700' },
+  statusBadgeTextPaid: { color: '#16a34a' },
+  statusBadgeTextPending: { color: '#d97706' },
   patientName: { fontSize: 16, fontWeight: '700', color: '#0f172a' },
   billType: { fontSize: 11, color: '#64748b', fontWeight: '600' },
   itemizedBox: { backgroundColor: '#f8fafc', borderRadius: 10, padding: 10, gap: 6, borderWidth: 1, borderColor: '#e2e8f0' },
@@ -1151,8 +1191,8 @@ const styles = StyleSheet.create({
   shareCardBtn: { flex: 1, backgroundColor: '#f1f5f9', paddingVertical: 8, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#e2e8f0' },
   shareCardBtnText: { color: '#475569', fontWeight: '700', fontSize: 12 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalContainer: { backgroundColor: '#ffffff', borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '92%' },
-  modalContent: { padding: 20, gap: 14, paddingBottom: 56 },
+  modalContainer: { backgroundColor: '#ffffff', borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '90%' },
+  modalContent: { padding: 20, gap: 14, paddingBottom: 100 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   modalTitle: { fontSize: 18, fontWeight: '800', color: '#0f172a' },
   editingBadge: { fontSize: 11, fontWeight: '700', color: '#d97706', marginTop: 2 },

@@ -185,8 +185,12 @@ export default function OpdMedicinesScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#f8fafc' }}>
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets={true}
+      >
         {/* Header */}
         <View style={styles.headerRow}>
           <View>
@@ -198,42 +202,67 @@ export default function OpdMedicinesScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Medicines List */}
         {loading ? (
           <View style={styles.centerBox}>
             <ActivityIndicator size="large" color="#0f766e" />
-            <Text style={styles.loadingText}>Loading Inventory...</Text>
+            <Text style={styles.loadingText}>Loading Pharmacy Stock...</Text>
           </View>
         ) : medicines.length === 0 ? (
           <View style={styles.emptyBox}>
-            <Text style={styles.emptyTitle}>No Pharmacy Items Found</Text>
-            <Text style={styles.emptyText}>Tap "+ Add" to populate the pharmacy inventory.</Text>
+            <Text style={styles.emptyTitle}>No Medicines Found</Text>
+            <Text style={styles.emptyText}>Add medicines to your catalogue to manage stock and billing.</Text>
           </View>
         ) : (
           medicines.map((med) => {
-            const isLowStock = (med.stock || 0) <= 5;
+            const isLowStock = (med.stock || 0) < 10;
+            const isOutOfStock = (med.stock || 0) === 0;
+
             return (
               <View key={med._id || med.id} style={styles.card}>
                 <View style={styles.cardHeader}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.name}>{med.name}</Text>
-                    <Text style={styles.price}>₹{med.price} / unit</Text>
+                    <Text style={styles.category}>{med.category || 'General Medicine'}</Text>
                   </View>
-                  <View style={[styles.stockBadge, isLowStock ? styles.badgeRed : styles.badgeGreen]}>
-                    <Text style={styles.stockBadgeText}>
-                      {med.stock || 0} in stock
-                    </Text>
-                  </View>
+                  <Text style={styles.price}>₹{med.price}</Text>
+                </View>
+
+                <View style={styles.stockRow}>
+                  <Text style={styles.stockLabel}>Available Stock:</Text>
+                  <Text
+                    style={[
+                      styles.stockValue,
+                      isOutOfStock ? styles.textRed : isLowStock ? styles.textOrange : styles.textGreen,
+                    ]}
+                  >
+                    {med.stock || 0} units {isOutOfStock ? '(Out of Stock)' : isLowStock ? '(Low Stock)' : ''}
+                  </Text>
                 </View>
 
                 <View style={styles.cardActions}>
-                  <TouchableOpacity style={styles.actionBtn} onPress={() => handleOpenRestock(med)}>
-                    <Text style={styles.actionBtnText}>📦 Restock</Text>
+                  <TouchableOpacity
+                    style={styles.actionBtn}
+                    onPress={() => handleOpenRestock(med)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.actionBtnText}>+ Restock</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.actionBtn} onPress={() => handleOpenEdit(med)}>
-                    <Text style={styles.actionBtnText}>✏️ Edit</Text>
+
+                  <TouchableOpacity
+                    style={styles.actionBtn}
+                    onPress={() => handleOpenEdit(med)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.actionBtnText}>Edit</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.actionBtn, styles.deleteBtn]} onPress={() => handleDelete(med)}>
-                    <Text style={[styles.actionBtnText, styles.deleteBtnText]}>🗑 Delete</Text>
+
+                  <TouchableOpacity
+                    style={[styles.actionBtn, styles.deleteBtn]}
+                    onPress={() => handleDelete(med)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.actionBtnText, styles.deleteBtnText]}>Delete</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -244,10 +273,14 @@ export default function OpdMedicinesScreen() {
 
       {/* ── Add Medicine Modal ──────────────────────────────────────────── */}
       <Modal visible={isAddModalOpen} animationType="slide" transparent statusBarTranslucent onRequestClose={() => setIsAddModalOpen(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} style={{ flex: 1 }}>
           <View style={styles.modalOverlay}>
             <View style={styles.modalContainer}>
-              <ScrollView contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
+              <ScrollView
+                contentContainerStyle={styles.modalContent}
+                keyboardShouldPersistTaps="handled"
+                automaticallyAdjustKeyboardInsets={true}
+              >
                 <View style={styles.modalHeader}>
                   <Text style={styles.modalTitle}>Add Pharmacy Stock</Text>
                   <TouchableOpacity onPress={() => setIsAddModalOpen(false)}>
@@ -289,10 +322,14 @@ export default function OpdMedicinesScreen() {
 
       {/* ── Edit Medicine Modal ──────────────────────────────────────────── */}
       <Modal visible={isEditModalOpen} animationType="slide" transparent statusBarTranslucent onRequestClose={() => setIsEditModalOpen(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} style={{ flex: 1 }}>
           <View style={styles.modalOverlay}>
             <View style={styles.modalContainer}>
-              <ScrollView contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
+              <ScrollView
+                contentContainerStyle={styles.modalContent}
+                keyboardShouldPersistTaps="handled"
+                automaticallyAdjustKeyboardInsets={true}
+              >
                 <View style={styles.modalHeader}>
                   <Text style={styles.modalTitle}>Edit Medicine</Text>
                   <TouchableOpacity onPress={() => setIsEditModalOpen(false)}>
@@ -334,10 +371,14 @@ export default function OpdMedicinesScreen() {
 
       {/* ── Restock Modal ────────────────────────────────────────────────── */}
       <Modal visible={isRestockModalOpen} animationType="slide" transparent statusBarTranslucent onRequestClose={() => setIsRestockModalOpen(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} style={{ flex: 1 }}>
           <View style={styles.modalOverlay}>
             <View style={styles.modalContainer}>
-              <ScrollView contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
+              <ScrollView
+                contentContainerStyle={styles.modalContent}
+                keyboardShouldPersistTaps="handled"
+                automaticallyAdjustKeyboardInsets={true}
+              >
                 <View style={styles.modalHeader}>
                   <Text style={styles.modalTitle}>Restock Medicine</Text>
                   <TouchableOpacity onPress={() => setIsRestockModalOpen(false)}>
@@ -370,7 +411,7 @@ export default function OpdMedicinesScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -407,8 +448,8 @@ const styles = StyleSheet.create({
   deleteBtn: { backgroundColor: '#fef2f2', borderColor: '#fecaca' },
   deleteBtnText: { color: '#991b1b' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalContainer: { backgroundColor: '#ffffff', borderTopLeftRadius: 24, borderTopRightRadius: 24 },
-  modalContent: { padding: 20, gap: 12 },
+  modalContainer: { backgroundColor: '#ffffff', borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '90%' },
+  modalContent: { padding: 20, gap: 12, paddingBottom: 100 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   modalTitle: { fontSize: 18, fontWeight: '800', color: '#0f172a' },
   modalClose: { fontSize: 20, color: '#64748b', fontWeight: '700' },

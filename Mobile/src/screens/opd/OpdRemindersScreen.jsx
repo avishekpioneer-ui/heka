@@ -103,8 +103,12 @@ export default function OpdRemindersScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#f8fafc' }}>
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets={true}
+      >
         <View style={styles.headerRow}>
           <View style={{ flex: 1 }}>
             <Text style={styles.title}>Patient Reminders Feed</Text>
@@ -146,32 +150,17 @@ export default function OpdRemindersScreen() {
             </Text>
           </View>
         ) : (
-          reminders.map((rem) => (
-            <View key={rem._id || rem.id} style={styles.card}>
+          reminders.map((r, idx) => (
+            <View key={r._id || r.id || `reminder-card-${idx}`} style={styles.card}>
               <View style={styles.cardHeader}>
-                <Text style={styles.patient}>{rem.patientName || rem.patientId?.name || 'Patient'}</Text>
+                <Text style={styles.patient}>👤 {r.patientName || r.patientId?.name || 'Patient'}</Text>
                 <View style={styles.dispatchBadge}>
-                  <Text style={styles.dispatchText}>📡 DISPATCHED</Text>
+                  <Text style={styles.dispatchText}>{r.status || 'Pending'}</Text>
                 </View>
               </View>
-
-              <Text style={styles.note}>{rem.message || rem.note}</Text>
-
-              {rem.followUpDate && (
-                <Text style={styles.followUp}>
-                  📅 Due: {new Date(rem.followUpDate).toLocaleDateString()}
-                </Text>
-              )}
-              {rem.sentAt && (
-                <Text style={styles.sentAt}>
-                  🕐 Sent: {new Date(rem.sentAt).toLocaleString()}
-                </Text>
-              )}
-              {!rem.sentAt && rem.scheduledDate && (
-                <Text style={styles.date}>
-                  ⏰ Scheduled: {rem.scheduledDate || 'Today'}
-                </Text>
-              )}
+              <Text style={styles.note}>📝 {r.message || r.note}</Text>
+              <Text style={styles.followUp}>⏰ Due: {new Date(r.scheduledDate).toLocaleDateString()}</Text>
+              {r.sentAt && <Text style={styles.sentAt}>Sent: {new Date(r.sentAt).toLocaleString()}</Text>}
             </View>
           ))
         )}
@@ -179,10 +168,14 @@ export default function OpdRemindersScreen() {
 
       {/* Add Reminder Modal */}
       <Modal visible={isModalOpen} animationType="slide" transparent statusBarTranslucent onRequestClose={() => setIsModalOpen(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} style={{ flex: 1 }}>
           <View style={styles.modalOverlay}>
             <View style={styles.modalContainer}>
-              <ScrollView contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
+              <ScrollView 
+                contentContainerStyle={styles.modalContent} 
+                keyboardShouldPersistTaps="handled"
+                automaticallyAdjustKeyboardInsets={true}
+              >
                 <View style={styles.modalHeader}>
                   <Text style={styles.modalTitle}>Schedule Patient Follow-up</Text>
                   <TouchableOpacity onPress={() => setIsModalOpen(false)}>
@@ -261,7 +254,7 @@ export default function OpdRemindersScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -293,8 +286,8 @@ const styles = StyleSheet.create({
   sentAt: { fontSize: 11, color: '#64748b', fontWeight: '600' },
   date: { fontSize: 12, color: '#0f766e', fontWeight: '600', marginTop: 4 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalContainer: { backgroundColor: '#ffffff', borderTopLeftRadius: 24, borderTopRightRadius: 24 },
-  modalContent: { padding: 20, gap: 12 },
+  modalContainer: { backgroundColor: '#ffffff', borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '90%' },
+  modalContent: { padding: 20, gap: 12, paddingBottom: 100 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   modalTitle: { fontSize: 18, fontWeight: '800', color: '#0f172a' },
   modalClose: { fontSize: 20, color: '#64748b', fontWeight: '700' },

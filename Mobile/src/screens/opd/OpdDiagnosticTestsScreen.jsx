@@ -219,8 +219,12 @@ export default function OpdDiagnosticTestsScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#f8fafc' }}>
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets={true}
+      >
         {/* Header */}
         <View style={styles.headerRow}>
           <View>
@@ -285,20 +289,26 @@ export default function OpdDiagnosticTestsScreen() {
                 <View style={styles.cardHeader}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.testName}>{t.name}</Text>
-                    <Text style={styles.categoryText}>Category: {t.category || 'General'}</Text>
+                    <Text style={styles.testCategory}>{t.category || 'General Pathology'}</Text>
                   </View>
-                  <Text style={styles.priceTag}>₹{t.price}</Text>
+                  <Text style={styles.testPrice}>₹{t.price}</Text>
                 </View>
 
                 <View style={styles.cardActions}>
-                  <TouchableOpacity style={styles.editBtn} onPress={() => openEditModal(t)}>
-                    <Text style={styles.editBtnText}>✏️ Edit</Text>
-                  </TouchableOpacity>
                   <TouchableOpacity
-                    style={styles.deleteBtn}
-                    onPress={() => handleDeleteTest(t._id || t.id, t.name)}
+                    style={styles.actionBtn}
+                    onPress={() => handleOpenEdit(t)}
+                    activeOpacity={0.7}
                   >
-                    <Text style={styles.deleteBtnText}>🗑 Delete</Text>
+                    <Text style={styles.actionBtnText}>Edit</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.actionBtn, styles.deleteBtn]}
+                    onPress={() => handleDelete(t)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.actionBtnText, styles.deleteBtnText]}>Delete</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -308,44 +318,52 @@ export default function OpdDiagnosticTestsScreen() {
           // ── Orders Tab ───────────────────────────────────────────────────────
           testOrders.length === 0 ? (
             <View style={styles.emptyBox}>
-              <Text style={styles.emptyTitle}>No Pending Lab Test Orders</Text>
-              <Text style={styles.emptyText}>
-                Tap "+ Schedule Test" to order lab investigations for a patient.
-              </Text>
+              <Text style={styles.emptyTitle}>No Test Orders Queued</Text>
+              <Text style={styles.emptyText}>Tap "+ Schedule Test" to order an investigation for a patient.</Text>
             </View>
           ) : (
             testOrders.map((ord) => (
-              <View key={ord._id || ord.id} style={styles.card}>
-                <View style={styles.cardHeader}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.testName}>{ord.testName || ord.testId?.name || 'Lab Test'}</Text>
-                    <Text style={styles.categoryText}>
-                      Patient: {ord.patientName || ord.patientId?.name || 'Patient'}
-                    </Text>
-                  </View>
-
+              <View key={ord._id || ord.id} style={styles.orderCard}>
+                <View style={styles.orderHeader}>
+                  <Text style={styles.orderPatient}>{ord.patientName || ord.patientId?.name || 'Walk-in'}</Text>
                   <View
                     style={[
-                      styles.statusBadge,
-                      ord.status === 'Completed' && styles.badgeSuccess,
-                      ord.status === 'Cancelled' && styles.badgeDanger,
-                      ord.status === 'Pending' && styles.badgeWarning,
+                      styles.orderStatus,
+                      ord.status === 'Completed'
+                        ? styles.statusGreen
+                        : ord.status === 'Sample Collected'
+                        ? styles.statusBlue
+                        : styles.statusOrange,
                     ]}
                   >
-                    <Text style={styles.statusBadgeText}>{ord.status?.toUpperCase() || 'PENDING'}</Text>
+                    <Text style={styles.orderStatusText}>{ord.status?.toUpperCase()}</Text>
                   </View>
                 </View>
 
-                {ord.notes ? <Text style={styles.notesText}>Notes: {ord.notes}</Text> : null}
-                <Text style={styles.dateText}>
-                  📅 Scheduled: {ord.scheduledDate || 'Today'}
+                <Text style={styles.orderTest}>🔬 {ord.testName || ord.testId?.name || 'Diagnostic Test'}</Text>
+                <Text style={styles.orderDate}>
+                  📅 Scheduled: {new Date(ord.scheduledDate || ord.createdAt).toLocaleDateString()}
                 </Text>
+                {ord.notes ? <Text style={styles.orderNotes}>Note: {ord.notes}</Text> : null}
 
-                {ord.status === 'Pending' && (
-                  <View style={styles.cardActions}>
+                {ord.status === 'Ordered' && (
+                  <View style={styles.orderActions}>
                     <TouchableOpacity
-                      style={styles.completeOrderBtn}
+                      style={styles.collectBtn}
+                      onPress={() => handleUpdateOrderStatus(ord._id || ord.id, 'Sample Collected')}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.collectBtnText}>🧪 Collect Sample</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {ord.status === 'Sample Collected' && (
+                  <View style={styles.orderActions}>
+                    <TouchableOpacity
+                      style={styles.reportBtn}
                       onPress={() => handleUpdateOrderStatus(ord._id || ord.id, 'Completed')}
+                      activeOpacity={0.8}
                     >
                       <Text style={styles.completeOrderBtnText}>✓ Mark Sample Collected & Done</Text>
                     </TouchableOpacity>
@@ -359,10 +377,14 @@ export default function OpdDiagnosticTestsScreen() {
 
       {/* ── Add Test Modal ──────────────────────────────────────────────────── */}
       <Modal visible={isAddModalOpen} animationType="slide" transparent statusBarTranslucent onRequestClose={() => setIsAddModalOpen(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} style={{ flex: 1 }}>
           <View style={styles.modalOverlay}>
             <View style={styles.modalContainer}>
-              <ScrollView contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
+              <ScrollView
+                contentContainerStyle={styles.modalContent}
+                keyboardShouldPersistTaps="handled"
+                automaticallyAdjustKeyboardInsets={true}
+              >
                 <View style={styles.modalHeader}>
                   <Text style={styles.modalTitle}>Add New Diagnostic Test</Text>
                   <TouchableOpacity onPress={() => setIsAddModalOpen(false)}>
@@ -401,10 +423,14 @@ export default function OpdDiagnosticTestsScreen() {
 
       {/* ── Edit Test Modal ─────────────────────────────────────────────────── */}
       <Modal visible={isEditModalOpen} animationType="slide" transparent statusBarTranslucent onRequestClose={() => setIsEditModalOpen(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} style={{ flex: 1 }}>
           <View style={styles.modalOverlay}>
             <View style={styles.modalContainer}>
-              <ScrollView contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
+              <ScrollView
+                contentContainerStyle={styles.modalContent}
+                keyboardShouldPersistTaps="handled"
+                automaticallyAdjustKeyboardInsets={true}
+              >
                 <View style={styles.modalHeader}>
                   <Text style={styles.modalTitle}>Edit Diagnostic Test</Text>
                   <TouchableOpacity onPress={() => setIsEditModalOpen(false)}>
@@ -445,12 +471,16 @@ export default function OpdDiagnosticTestsScreen() {
 
       {/* ── Schedule Test Order Modal ───────────────────────────────────────── */}
       <Modal visible={isOrderModalOpen} animationType="slide" transparent statusBarTranslucent onRequestClose={() => setIsOrderModalOpen(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} style={{ flex: 1 }}>
           <View style={styles.modalOverlay}>
             <View style={styles.modalContainer}>
-              <ScrollView contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
+              <ScrollView
+                contentContainerStyle={styles.modalContent}
+                keyboardShouldPersistTaps="handled"
+                automaticallyAdjustKeyboardInsets={true}
+              >
                 <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>Schedule Diagnostic Test</Text>
+                  <Text style={styles.modalTitle}>Schedule Investigation</Text>
                   <TouchableOpacity onPress={() => setIsOrderModalOpen(false)}>
                     <Text style={styles.modalClose}>✕</Text>
                   </TouchableOpacity>
@@ -464,14 +494,16 @@ export default function OpdDiagnosticTestsScreen() {
                   <Text style={styles.fieldLabel}>SELECT PATIENT *</Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                     {patients.map((p) => {
-                      const isSel = orderForm.patientId === (p._id || p.id);
+                      const isSelected = orderForm.patientId === (p._id || p.id);
                       return (
                         <TouchableOpacity
                           key={p._id || p.id}
-                          style={[styles.chip, isSel && styles.chipActive]}
+                          style={[styles.chip, isSelected && styles.chipActive]}
                           onPress={() => setOrderForm({ ...orderForm, patientId: p._id || p.id })}
                         >
-                          <Text style={[styles.chipText, isSel && styles.chipTextActive]}>{p.name}</Text>
+                          <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
+                            {p.name}
+                          </Text>
                         </TouchableOpacity>
                       );
                     })}
@@ -483,14 +515,14 @@ export default function OpdDiagnosticTestsScreen() {
                   <Text style={styles.fieldLabel}>SELECT TEST *</Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                     {tests.map((t) => {
-                      const isSel = orderForm.testId === (t._id || t.id);
+                      const isSelected = orderForm.testId === (t._id || t.id);
                       return (
                         <TouchableOpacity
                           key={t._id || t.id}
-                          style={[styles.chip, isSel && styles.chipActive]}
+                          style={[styles.chip, isSelected && styles.chipActive]}
                           onPress={() => setOrderForm({ ...orderForm, testId: t._id || t.id })}
                         >
-                          <Text style={[styles.chipText, isSel && styles.chipTextActive]}>
+                          <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
                             {t.name} (₹{t.price})
                           </Text>
                         </TouchableOpacity>
@@ -500,13 +532,13 @@ export default function OpdDiagnosticTestsScreen() {
                 </View>
 
                 <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>SCHEDULED DATE (YYYY-MM-DD)</Text>
+                  <Text style={styles.fieldLabel}>SCHEDULED DATE (YYYY-MM-DD) *</Text>
                   <TextInput style={styles.fieldInput} placeholder="2026-08-10"
                     value={orderForm.scheduledDate} onChangeText={(text) => setOrderForm({ ...orderForm, scheduledDate: text })} />
                 </View>
 
                 <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>CLINICAL NOTES</Text>
+                  <Text style={styles.fieldLabel}>CLINICAL INSTRUCTIONS / NOTES</Text>
                   <TextInput style={[styles.fieldInput, { height: 60 }]} placeholder="e.g. Fasting required"
                     multiline value={orderForm.notes} onChangeText={(text) => setOrderForm({ ...orderForm, notes: text })} />
                 </View>
@@ -520,7 +552,7 @@ export default function OpdDiagnosticTestsScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -573,7 +605,7 @@ const styles = StyleSheet.create({
   chipTextActive: { color: '#ffffff', fontWeight: '700' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalContainer: { backgroundColor: '#ffffff', borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '90%' },
-  modalContent: { padding: 20, gap: 12 },
+  modalContent: { padding: 20, gap: 12, paddingBottom: 100 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   modalTitle: { fontSize: 18, fontWeight: '800', color: '#0f172a' },
   modalClose: { fontSize: 20, color: '#64748b', fontWeight: '700' },

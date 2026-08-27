@@ -280,10 +280,11 @@ export default function OpdRolesScreen() {
   ).length;
 
   return (
-    <View style={styles.screen}>
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
       <ScrollView
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets={true}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#0D9488']} />}
       >
         {/* Header */}
@@ -507,7 +508,7 @@ export default function OpdRolesScreen() {
         onRequestClose={() => setIsStaffModalOpen(false)}
       >
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
           style={{ flex: 1 }}
         >
           <View style={styles.modalOverlay}>
@@ -515,6 +516,7 @@ export default function OpdRolesScreen() {
               <ScrollView
                 contentContainerStyle={styles.modalContent}
                 keyboardShouldPersistTaps="handled"
+                automaticallyAdjustKeyboardInsets={true}
               >
                 <View style={styles.modalHeader}>
                   <Text style={styles.modalTitle}>Register OPD Staff Member</Text>
@@ -662,7 +664,7 @@ export default function OpdRolesScreen() {
         onRequestClose={() => setIsRoleModalOpen(false)}
       >
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
           style={{ flex: 1 }}
         >
           <View style={styles.modalOverlay}>
@@ -670,6 +672,7 @@ export default function OpdRolesScreen() {
               <ScrollView
                 contentContainerStyle={styles.modalContent}
                 keyboardShouldPersistTaps="handled"
+                automaticallyAdjustKeyboardInsets={true}
               >
                 <View style={styles.modalHeader}>
                   <Text style={styles.modalTitle}>
@@ -752,7 +755,7 @@ export default function OpdRolesScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -1111,7 +1114,7 @@ const styles = StyleSheet.create({
   modalContent: {
     padding: 20,
     gap: 14,
-    paddingBottom: 56,
+    paddingBottom: 100,
   },
   modalHeader: {
     flexDirection: 'row',

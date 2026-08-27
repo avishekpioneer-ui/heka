@@ -100,8 +100,12 @@ export default function OpdPatientsScreen({ onNavigate }) {
   );
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#f8fafc' }}>
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets={true}
+      >
         {/* Header */}
         <View style={styles.headerRow}>
           <View>
@@ -131,39 +135,40 @@ export default function OpdPatientsScreen({ onNavigate }) {
         {loading ? (
           <View style={styles.centerBox}>
             <ActivityIndicator size="large" color="#0f766e" />
-            <Text style={styles.loadingText}>Fetching Patient Records...</Text>
+            <Text style={styles.loadingText}>Fetching Records...</Text>
           </View>
         ) : filtered.length === 0 ? (
           <View style={styles.emptyBox}>
-            <Text style={styles.emptyTitle}>No Registered Patients Found</Text>
-            <Text style={styles.emptyText}>Tap "+ Register Patient" above to add a new patient profile.</Text>
+            <Text style={styles.emptyTitle}>No Patients Found</Text>
+            <Text style={styles.emptyText}>Tap "+ Register Patient" above to add the first OPD patient record.</Text>
           </View>
         ) : (
-          filtered.map((pat) => (
-            <View key={pat._id || pat.id} style={styles.patientCard}>
+          filtered.map((p, idx) => (
+            <View key={p._id || p.id || `patient-row-${idx}`} style={styles.card}>
               <View style={styles.cardHeader}>
-                <View style={styles.avatarCircle}>
-                  <Text style={styles.avatarText}>{pat.name ? pat.name.charAt(0).toUpperCase() : 'P'}</Text>
+                <View>
+                  <Text style={styles.patientName}>{p.name}</Text>
+                  <Text style={styles.patientSub}>
+                    UHID: {p.uhid || p.patientId || 'N/A'} • {p.age ? `${p.age} yrs` : ''} • {p.gender || 'N/A'}
+                  </Text>
                 </View>
 
-                <View style={styles.patientInfo}>
-                  <Text style={styles.patientName}>{pat.name}</Text>
-                  <Text style={styles.patientMeta}>
-                    {pat.age ? `${pat.age} yrs` : 'N/A'} / {pat.gender || 'Male'} • 📱 {pat.phone}
-                  </Text>
-                  {pat.email ? <Text style={styles.patientEmail}>{pat.email}</Text> : null}
+                <View style={styles.phoneBadge}>
+                  <Text style={styles.phoneText}>📞 {p.phone || 'No phone'}</Text>
                 </View>
               </View>
 
-              {pat.address ? <Text style={styles.addressText}>📍 {pat.address}</Text> : null}
+              {p.address ? <Text style={styles.addressText}>🏠 {p.address}</Text> : null}
 
-              <View style={styles.cardActions}>
+              <View style={styles.actionRow}>
                 <TouchableOpacity
                   style={styles.bookConsultBtn}
-                  onPress={() => onNavigate && onNavigate('appointments', { patient: pat })}
+                  onPress={() => {
+                    if (onNavigate) onNavigate('appointments', { patient: p });
+                  }}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.bookConsultBtnText}>Book Consult →</Text>
+                  <Text style={styles.bookConsultBtnText}>📅 Book Appointment</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -173,10 +178,14 @@ export default function OpdPatientsScreen({ onNavigate }) {
 
       {/* Register Patient Modal */}
       <Modal visible={isModalOpen} animationType="slide" transparent statusBarTranslucent onRequestClose={() => setIsModalOpen(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} style={{ flex: 1 }}>
           <View style={styles.modalOverlay}>
             <View style={styles.modalContainer}>
-              <ScrollView contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
+              <ScrollView
+                contentContainerStyle={styles.modalContent}
+                keyboardShouldPersistTaps="handled"
+                automaticallyAdjustKeyboardInsets={true}
+              >
                 <View style={styles.modalHeader}>
                   <Text style={styles.modalTitle}>New Patient Registration</Text>
                   <TouchableOpacity onPress={() => setIsModalOpen(false)}>
@@ -299,7 +308,7 @@ export default function OpdPatientsScreen({ onNavigate }) {
           </View>
         </KeyboardAvoidingView>
       </Modal>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -458,6 +467,7 @@ const styles = StyleSheet.create({
   modalContent: {
     padding: 20,
     gap: 14,
+    paddingBottom: 100,
   },
   modalHeader: {
     flexDirection: 'row',

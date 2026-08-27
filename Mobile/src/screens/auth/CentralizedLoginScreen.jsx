@@ -74,66 +74,80 @@ export default function CentralizedLoginScreen({ onLoginSuccess }) {
   };
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <View style={styles.card}>
-          {/* Header */}
-          <View style={styles.headerBox}>
-            <Image
-              source={require('../../../assets/heka_logo.png')}
-              style={styles.logoImage}
-              resizeMode="contain"
-            />
-            <View style={styles.logoBadge}>
-              <Text style={styles.logoBadgeText}>Heka Health Portal</Text>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      style={{ flex: 1, backgroundColor: '#f1f5f9' }}
+    >
+      <ScrollView
+        contentContainerStyle={styles.scrollContainer}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        automaticallyAdjustKeyboardInsets={true}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.cardWrapper}>
+          <View style={styles.card}>
+            {/* Header */}
+            <View style={styles.headerBox}>
+              <Image
+                source={require('../../../assets/heka_logo.png')}
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
+              <View style={styles.logoBadge}>
+                <Text style={styles.logoBadgeText}>Heka Health Portal</Text>
+              </View>
+              <Text style={styles.brandTitle}>Welcome Back</Text>
+              <Text style={styles.subtitle}>Enter your credentials to access your account</Text>
             </View>
-            <Text style={styles.brandTitle}>Welcome Back</Text>
-            <Text style={styles.subtitle}>Enter your credentials to access your account</Text>
-          </View>
 
-          {error ? (
-            <View style={styles.errorBox}>
-              <Text style={styles.errorText}>{error}</Text>
+            {error ? (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            ) : null}
+
+            {/* Form Inputs */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Email Address</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="name@heka.com"
+                placeholderTextColor="#94a3b8"
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+              />
             </View>
-          ) : null}
 
-          {/* Form Inputs */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email Address</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="name@heka.com"
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-            />
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Password</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="••••••••"
+                placeholderTextColor="#94a3b8"
+                secureTextEntry
+                value={password}
+                onChangeText={setPassword}
+              />
+            </View>
+
+            {/* Single Primary Sign In Button */}
+            <TouchableOpacity
+              style={[styles.submitBtn, loading && styles.btnDisabled]}
+              onPress={handleLogin}
+              disabled={loading}
+              activeOpacity={0.8}
+            >
+              {loading ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <Text style={styles.submitBtnText}>Sign In</Text>
+              )}
+            </TouchableOpacity>
           </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="••••••••"
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-            />
-          </View>
-
-          {/* Single Primary Sign In Button */}
-          <TouchableOpacity
-            style={[styles.submitBtn, loading && styles.btnDisabled]}
-            onPress={handleLogin}
-            disabled={loading}
-            activeOpacity={0.8}
-          >
-            {loading ? (
-              <ActivityIndicator color="#ffffff" />
-            ) : (
-              <Text style={styles.submitBtnText}>Sign In</Text>
-            )}
-          </TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -141,16 +155,21 @@ export default function CentralizedLoginScreen({ onLoginSuccess }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 20,
-    justifyContent: 'center',
-    minHeight: '100%',
+  scrollContainer: {
+    flexGrow: 1,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    paddingBottom: 60,
     backgroundColor: '#f1f5f9',
+  },
+  cardWrapper: {
+    flex: 1,
+    justifyContent: 'center',
   },
   card: {
     backgroundColor: '#ffffff',
     borderRadius: 24,
-    padding: 24,
+    padding: 22,
     borderWidth: 1,
     borderColor: '#e2e8f0',
     elevation: 4,
@@ -161,19 +180,19 @@ const styles = StyleSheet.create({
   },
   headerBox: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   logoImage: {
-    width: 160,
-    height: 60,
-    marginBottom: 12,
+    width: 140,
+    height: 48,
+    marginBottom: 10,
   },
   logoBadge: {
     backgroundColor: '#dcfce7',
     paddingHorizontal: 12,
-    paddingVertical: 5,
+    paddingVertical: 4,
     borderRadius: 16,
-    marginBottom: 10,
+    marginBottom: 8,
   },
   logoBadgeText: {
     color: '#15803d',
@@ -181,13 +200,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   brandTitle: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: '800',
     color: '#0f172a',
     letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#64748b',
     marginTop: 4,
     textAlign: 'center',
@@ -197,8 +216,8 @@ const styles = StyleSheet.create({
     borderColor: '#fecaca',
     borderWidth: 1,
     borderRadius: 10,
-    padding: 12,
-    marginBottom: 16,
+    padding: 10,
+    marginBottom: 14,
   },
   errorText: {
     color: '#b91c1c',
@@ -207,7 +226,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   inputGroup: {
-    marginBottom: 16,
+    marginBottom: 14,
   },
   label: {
     fontSize: 13,
@@ -220,17 +239,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#cbd5e1',
     borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
     fontSize: 15,
     color: '#0f172a',
   },
   submitBtn: {
     backgroundColor: '#1b4332',
-    paddingVertical: 14,
+    paddingVertical: 13,
     borderRadius: 12,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 6,
     elevation: 2,
   },
   btnDisabled: {

@@ -254,8 +254,12 @@ export default function OpdAppointmentsScreen({ onNavigate, routeParams }) {
   });
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#f8fafc' }}>
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets={true}
+      >
         {/* Header */}
         <View style={styles.headerRow}>
           <View style={{ flex: 1, marginRight: 10 }}>
@@ -380,10 +384,14 @@ export default function OpdAppointmentsScreen({ onNavigate, routeParams }) {
 
       {/* ── Book Appointment Modal ────────────────────────────────────────── */}
       <Modal visible={isBookingOpen} animationType="slide" transparent statusBarTranslucent onRequestClose={handleCloseBooking}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} style={{ flex: 1 }}>
           <View style={styles.modalOverlay}>
             <View style={styles.modalContainer}>
-              <ScrollView contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
+              <ScrollView
+                contentContainerStyle={styles.modalContent}
+                keyboardShouldPersistTaps="handled"
+                automaticallyAdjustKeyboardInsets={true}
+              >
                 <View style={styles.modalHeader}>
                   <Text style={styles.modalTitle}>Schedule Consultant Visit</Text>
                   <TouchableOpacity onPress={handleCloseBooking}>
@@ -723,7 +731,7 @@ export default function OpdAppointmentsScreen({ onNavigate, routeParams }) {
           </View>
         </View>
       </Modal>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -942,12 +950,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: '92%',
+    maxHeight: '90%',
   },
   modalContent: {
     padding: 20,
     gap: 14,
-    paddingBottom: 56,
+    paddingBottom: 100,
   },
   modalHeader: {
     flexDirection: 'row',

@@ -73,8 +73,12 @@ export default function AdminUsersScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#f8fafc' }}>
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets={true}
+      >
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.title}>Users Management</Text>
@@ -86,15 +90,16 @@ export default function AdminUsersScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Users List */}
         {loading ? (
           <View style={styles.centerBox}>
             <ActivityIndicator size="large" color="#1b4332" />
-            <Text style={styles.loadingText}>Loading User Database...</Text>
+            <Text style={styles.loadingText}>Loading Users...</Text>
           </View>
         ) : users.length === 0 ? (
           <View style={styles.emptyBox}>
-            <Text style={styles.emptyTitle}>No Registered Users</Text>
-            <Text style={styles.emptyText}>Tap "+ Add User" to create system accounts.</Text>
+            <Text style={styles.emptyTitle}>No Users Found</Text>
+            <Text style={styles.emptyText}>Create user accounts to grant portal access.</Text>
           </View>
         ) : (
           users.map((u) => (
@@ -113,10 +118,14 @@ export default function AdminUsersScreen() {
 
       {/* Add User Modal */}
       <Modal visible={isModalOpen} animationType="slide" transparent statusBarTranslucent onRequestClose={() => setIsModalOpen(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} style={{ flex: 1 }}>
           <View style={styles.modalOverlay}>
             <View style={styles.modalContainer}>
-              <ScrollView contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
+              <ScrollView
+                contentContainerStyle={styles.modalContent}
+                keyboardShouldPersistTaps="handled"
+                automaticallyAdjustKeyboardInsets={true}
+              >
                 <View style={styles.modalHeader}>
                   <Text style={styles.modalTitle}>Create New Account</Text>
                   <TouchableOpacity onPress={() => setIsModalOpen(false)}>
@@ -186,7 +195,7 @@ export default function AdminUsersScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -209,8 +218,8 @@ const styles = StyleSheet.create({
   badge: { backgroundColor: '#f1f5f9', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
   badgeText: { fontSize: 11, fontWeight: '700', color: '#1b4332' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalContainer: { backgroundColor: '#ffffff', borderTopLeftRadius: 24, borderTopRightRadius: 24 },
-  modalContent: { padding: 20, gap: 12 },
+  modalContainer: { backgroundColor: '#ffffff', borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '90%' },
+  modalContent: { padding: 20, gap: 12, paddingBottom: 100 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   modalTitle: { fontSize: 18, fontWeight: '800', color: '#0f172a' },
   modalClose: { fontSize: 20, color: '#64748b', fontWeight: '700' },
