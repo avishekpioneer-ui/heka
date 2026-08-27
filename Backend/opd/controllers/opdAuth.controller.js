@@ -42,6 +42,8 @@ export const loginOpdUser = async (req, res) => {
             return res.status(401).json({ message: "Invalid email or password" });
         }
 
+        const isDoctor = !!staffUser.isDoctor || (staffUser.role?.name ? staffUser.role.name.toLowerCase().includes("doctor") : false);
+
         res.status(200).json({
             message: "Staff login successful",
             user: {
@@ -49,7 +51,10 @@ export const loginOpdUser = async (req, res) => {
                 name: staffUser.name,
                 email: staffUser.email,
                 category: staffUser.category,
+                roleId: staffUser.role?._id,
                 roleName: staffUser.role?.name || "Staff",
+                isDoctor,
+                fees: staffUser.fees || 0,
                 permissions: staffUser.role?.permissions || []
             }
         });

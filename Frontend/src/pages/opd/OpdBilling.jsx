@@ -14,6 +14,7 @@ const OpdBilling = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [printBill, setPrintBill] = useState(null);
+  const [editingBillId, setEditingBillId] = useState(null);
 
   // Selected patient for new bill
   const [selectedPatientId, setSelectedPatientId] = useState('');
@@ -74,7 +75,7 @@ const OpdBilling = () => {
     }
   }, [location.state]);
 
-  // Live-refresh the invoice audit log when any bill is generated or paid.
+  // Live-refresh the invoice audit log when any bill is generated, edited or deleted
   useOpdSocketEvent('opd:bill', fetchData);
 
   // If patient changes, check if they have a pending appointment or consultation fee to autofill
@@ -88,13 +89,11 @@ const OpdBilling = () => {
     if (!patientId) return;
 
     try {
-      // Find if they have any pending consultation bills we can merge or get consultation fee from recent appts
       const headers = { 'x-user-id': userId };
       const apptsRes = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/appointments', { headers });
       const patientAppts = apptsRes.data.filter(a => a.patientId?._id === patientId && a.status === 'Completed');
       
       if (patientAppts.length > 0) {
-        // Use fee from recent appointment
         setConsultationFee(patientAppts[0].consultationFee);
       }
     } catch (err) {
@@ -128,7 +127,7 @@ const OpdBilling = () => {
     const medItem = medicinesCatalog.find(m => m._id === tempMedicineId);
     if (!medItem) return;
 
-    const parsedPrice = parseFloat(tempMedicinePrice) || 0;
+    const parsedPrice = tempMedicinePrice !== '' ? parseFloat(tempMedicinePrice) : parseFloat(medItem.price || 0);
 
     // Check if already added (if so, increment quantity and update price)
     const existing = selectedMedicines.find(m => m.medicineId === medItem._id);
@@ -160,18 +159,44 @@ const OpdBilling = () => {
 
   const handlePrintBill = (bill) => {
     setPrintBill(bill);
-    setTimeout(() => {
-      window.print();
-    }, 100);
+  };
+
+  const handleStartEdit = (bill) => {
+    setEditingBillId(bill._id);
+    setSelectedPatientId(bill.patientId?._id || bill.patientId || '');
+    setConsultationFee(bill.consultationFee || 0);
+    setSelectedTests((bill.tests || []).map(t => ({
+      testId: t.testId?._id || t.testId || t._id || t.id,
+      name: t.name,
+      price: t.price
+    })));
+    setSelectedMedicines((bill.medicines || []).map(m => ({
+      medicineId: m.medicineId?._id || m.medicineId || m._id || m.id,
+      name: m.name,
+      price: m.price,
+      quantity: m.quantity || 1
+    })));
+    setError('');
+    setSuccess('');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingBillId(null);
+    setSelectedPatientId('');
+    setConsultationFee(0);
+    setSelectedTests([]);
+    setSelectedMedicines([]);
+    setError('');
   };
 
   // Calculate live summary
   const subtotalConsultation = parseFloat(consultationFee || 0);
-  const subtotalTests = selectedTests.reduce((sum, t) => sum + parseFloat(t.price), 0);
-  const subtotalMedicines = selectedMedicines.reduce((sum, m) => sum + parseFloat(m.price || 0), 0);
+  const subtotalTests = selectedTests.reduce((sum, t) => sum + parseFloat(t.price || 0), 0);
+  const subtotalMedicines = selectedMedicines.reduce((sum, m) => sum + ((parseFloat(m.price) || 0) * (parseInt(m.quantity) || 1)), 0);
   const grandTotal = subtotalConsultation + subtotalTests + subtotalMedicines;
 
-  const handleCreateBill = async (status = 'Pending') => {
+  const handleSaveBill = async (status = 'Pending') => {
     if (!selectedPatientId) {
       setError('Please select a patient.');
       return;
@@ -205,22 +230,46 @@ const OpdBilling = () => {
         status
       };
 
-      const res = await axios.post((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/billing', payload, { headers });
-      
-      setSuccess(`Invoice generated successfully in '${status}' state!`);
-      setSelectedPatientId('');
-      setConsultationFee(0);
-      setSelectedTests([]);
-      setSelectedMedicines([]);
-      fetchData(); // reload
-      
-      if (res.data.bill) {
-        handlePrintBill(res.data.bill);
+      if (editingBillId) {
+        const res = await axios.put(`${import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001'}/api/opd/billing/${editingBillId}`, payload, { headers });
+        setSuccess(`Invoice updated successfully!`);
+        handleCancelEdit();
+        fetchData();
+        if (res.data.bill) {
+          handlePrintBill(res.data.bill);
+        }
+      } else {
+        const res = await axios.post((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/billing', payload, { headers });
+        setSuccess(`Invoice generated successfully in '${status}' state!`);
+        setSelectedPatientId('');
+        setConsultationFee(0);
+        setSelectedTests([]);
+        setSelectedMedicines([]);
+        fetchData();
+        if (res.data.bill) {
+          handlePrintBill(res.data.bill);
+        }
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Error generating invoice.');
+      setError(err.response?.data?.message || 'Error saving invoice.');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleDeleteBill = async (billId) => {
+    if (!confirm('Are you sure you want to delete this invoice? This will restore any reserved medicine stock.')) return;
+    try {
+      const headers = { 'x-user-id': userId };
+      await axios.delete(`${import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001'}/api/opd/billing/${billId}`, { headers });
+      setSuccess('Invoice deleted successfully!');
+      if (editingBillId === billId) {
+        handleCancelEdit();
+      }
+      fetchData();
+    } catch (err) {
+      console.error('Error deleting bill:', err);
+      alert(err.response?.data?.message || 'Error deleting invoice');
     }
   };
 
@@ -229,7 +278,7 @@ const OpdBilling = () => {
     try {
       const headers = { 'x-user-id': userId };
       await axios.put(`${import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001'}/api/opd/billing/${billId}/pay`, {}, { headers });
-      fetchData(); // reload
+      fetchData();
     } catch (err) {
       console.error('Error processing payment:', err);
       alert('Error updating payment status');
@@ -247,7 +296,27 @@ const OpdBilling = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Create Invoice / Checkout */}
         <div className="lg:col-span-2 bg-white rounded-2xl shadow-[0_4px_20px_rgb(0,0,0,0.01)] border border-gray-100 p-6 h-fit">
-          <h3 className="text-lg font-bold text-teal-950 mb-6 font-literata">Generate Patient Combined Invoice</h3>
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h3 className="text-lg font-bold text-teal-950 font-literata">
+                {editingBillId ? 'Edit Patient Invoice' : 'Generate Patient Combined Invoice'}
+              </h3>
+              {editingBillId && (
+                <p className="text-xs text-amber-600 font-semibold mt-0.5">
+                  Currently modifying invoice #{editingBillId.slice(-6).toUpperCase()}
+                </p>
+              )}
+            </div>
+            {editingBillId && (
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-semibold cursor-pointer transition-all"
+              >
+                Cancel Edit
+              </button>
+            )}
+          </div>
 
           {success && (
             <div className="mb-4 p-3 bg-emerald-50 border border-emerald-100 text-emerald-700 rounded-xl text-sm font-semibold">
@@ -262,72 +331,88 @@ const OpdBilling = () => {
           )}
 
           <div className="space-y-6">
-            {/* Step 1: Patient */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-gray-600 mb-1.5 uppercase">Select Patient *</label>
-                <select
-                  value={selectedPatientId}
-                  onChange={handlePatientChange}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-gray-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none text-sm text-gray-800"
-                >
-                  <option value="">-- Choose Patient --</option>
-                  {patients.map(p => (
-                    <option key={p._id} value={p._id}>{p.name} ({p.phone})</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-600 mb-1.5 uppercase">Consultation Fee (₹)</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={consultationFee}
-                  onChange={(e) => setConsultationFee(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-gray-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none text-sm text-gray-800"
-                  placeholder="0"
-                />
-              </div>
+            {/* Patient Select */}
+            <div>
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-2">
+                Select Patient *
+              </label>
+              <select
+                value={selectedPatientId}
+                onChange={handlePatientChange}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/20 focus:border-[#0D9488] transition-all text-sm font-medium"
+              >
+                <option value="">-- Choose Registered Patient --</option>
+                {patients.map((p) => (
+                  <option key={p._id} value={p._id}>
+                    {p.name} ({p.phone || 'No phone'}) - {p.gender}, {p.age}y
+                  </option>
+                ))}
+              </select>
             </div>
 
-            {/* Step 2: Add Diagnostic Test */}
-            <div className="border-t border-gray-100 pt-4">
-              <label className="block text-xs font-bold text-gray-600 mb-2 uppercase">Add Diagnostic Tests to Bill</label>
+            {/* Doctor Consultation Fee */}
+            <div>
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-2">
+                Consultation Fee (₹)
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={consultationFee}
+                onChange={(e) => setConsultationFee(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/20 focus:border-[#0D9488] transition-all text-sm font-mono font-medium"
+                placeholder="0.00"
+              />
+            </div>
+
+            {/* Add Diagnostics Line Items */}
+            <div className="border-t border-gray-100 pt-5">
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-2">
+                Add Diagnostic Test
+              </label>
               <div className="flex gap-2">
                 <select
                   value={tempTestId}
                   onChange={(e) => setTempTestId(e.target.value)}
-                  className="flex-1 px-4 py-2.5 bg-slate-50 border border-gray-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none text-xs text-gray-800"
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-xs font-medium"
                 >
-                  <option value="">-- Choose Laboratory Test --</option>
+                  <option value="">-- Select Test from Catalog --</option>
                   {testsCatalog.map(t => (
-                    <option key={t._id} value={t._id}>{t.name} (₹{t.price})</option>
+                    <option key={t._id} value={t._id}>
+                      {t.name} (₹{t.price}) - {t.category || 'General'}
+                    </option>
                   ))}
                 </select>
                 <button
                   type="button"
                   onClick={addTestToInvoice}
-                  className="px-4 py-2.5 bg-teal-50 text-[#0D9488] border border-teal-100 rounded-xl font-semibold text-xs hover:bg-teal-100/50 cursor-pointer"
+                  className="px-4 py-2.5 bg-teal-50 text-[#0D9488] border border-teal-100 rounded-xl font-semibold text-xs hover:bg-teal-100/50 cursor-pointer flex-shrink-0"
                 >
                   + Add Test
                 </button>
               </div>
             </div>
 
-            {/* Step 3: Add Pharmacy Medicine */}
-            <div className="border-t border-gray-100 pt-4">
-              <label className="block text-xs font-bold text-gray-600 mb-2 uppercase">Add Pharmacy Medicines to Invoice</label>
+            {/* Add Pharmacy Line Items */}
+            <div className="border-t border-gray-100 pt-5">
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-2">
+                Add Pharmacy Medicine
+              </label>
               <div className="flex flex-col sm:flex-row gap-2">
                 <select
                   value={tempMedicineId}
-                  onChange={(e) => setTempMedicineId(e.target.value)}
-                  className="flex-1 px-4 py-2.5 bg-slate-50 border border-gray-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none text-xs text-gray-800"
+                  onChange={(e) => {
+                    setTempMedicineId(e.target.value);
+                    const found = medicinesCatalog.find(m => m._id === e.target.value);
+                    if (found) setTempMedicinePrice(found.price || 0);
+                  }}
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-xs font-medium"
                 >
-                  <option value="">-- Choose Stock Medicine --</option>
+                  <option value="">-- Select Medicine --</option>
                   {medicinesCatalog.map(m => (
                     <option key={m._id} value={m._id} disabled={m.stock <= 0}>
-                      {m.name} — {m.stock > 0 ? `${m.stock} in stock` : 'Out of stock'}
+                      {m.name} ({m.strength}) - Stock: {m.stock} {m.stock <= 0 ? '(Out of Stock)' : ''}
                     </option>
                   ))}
                 </select>
@@ -337,8 +422,8 @@ const OpdBilling = () => {
                     min="1"
                     value={tempMedicineQty}
                     onChange={(e) => setTempMedicineQty(e.target.value)}
-                    className="w-20 px-4 py-2.5 bg-slate-50 border border-gray-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none text-xs text-gray-800"
                     placeholder="Qty"
+                    className="w-16 px-3 py-2.5 rounded-xl border border-gray-200 text-xs text-center font-medium"
                   />
                   <input
                     type="number"
@@ -346,8 +431,8 @@ const OpdBilling = () => {
                     step="0.01"
                     value={tempMedicinePrice}
                     onChange={(e) => setTempMedicinePrice(e.target.value)}
-                    className="w-24 px-4 py-2.5 bg-slate-50 border border-gray-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none text-xs text-gray-800"
-                    placeholder="Price (₹)"
+                    placeholder="Price ₹"
+                    className="w-24 px-3 py-2.5 rounded-xl border border-gray-200 text-xs text-center font-medium font-mono"
                   />
                   <button
                     type="button"
@@ -373,8 +458,8 @@ const OpdBilling = () => {
                     </div>
                   )}
 
-                  {selectedTests.map(t => (
-                    <div key={t.testId} className="flex justify-between py-1 border-b border-teal-100/10">
+                  {selectedTests.map((t, idx) => (
+                    <div key={`sel-t-${t.testId || t._id || t.id || idx}-${idx}`} className="flex justify-between py-1 border-b border-teal-100/10">
                       <span className="flex items-center gap-1.5">
                         <button onClick={() => removeTest(t.testId)} className="text-red-500 font-bold hover:text-red-700 cursor-pointer">×</button>
                         Diagnostic: {t.name}
@@ -383,8 +468,8 @@ const OpdBilling = () => {
                     </div>
                   ))}
 
-                  {selectedMedicines.map(m => (
-                    <div key={m.medicineId} className="flex flex-col sm:flex-row sm:items-center justify-between py-2 border-b border-teal-100/10 gap-2">
+                  {selectedMedicines.map((m, idx) => (
+                    <div key={`sel-m-${m.medicineId || m._id || m.id || idx}-${idx}`} className="flex flex-col sm:flex-row sm:items-center justify-between py-2 border-b border-teal-100/10 gap-2">
                       <span className="flex items-center gap-1.5 font-semibold text-gray-700">
                         <button onClick={() => removeMedicine(m.medicineId)} className="text-red-500 font-bold hover:text-red-700 cursor-pointer">×</button>
                         Pharmacy: {m.name}
@@ -421,8 +506,8 @@ const OpdBilling = () => {
                             className="w-20 px-1.5 py-0.5 bg-white border border-gray-200 rounded text-center text-xs font-semibold text-gray-700 outline-none focus:ring-1 focus:ring-teal-500"
                           />
                         </div>
-                        <span className="font-mono font-semibold text-teal-950 w-24 text-right">
-                          ₹{(parseFloat(m.price) || 0).toFixed(2)}
+                        <span className="font-mono font-semibold text-teal-950 w-28 text-right">
+                          ₹{((parseFloat(m.price) || 0) * (parseInt(m.quantity) || 1)).toFixed(2)}
                         </span>
                       </div>
                     </div>
@@ -435,19 +520,28 @@ const OpdBilling = () => {
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-3 mt-6">
+                  {editingBillId && (
+                    <button
+                      type="button"
+                      onClick={handleCancelEdit}
+                      className="px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold transition-all cursor-pointer text-sm"
+                    >
+                      Discard Changes
+                    </button>
+                  )}
                   <button
-                    onClick={() => handleCreateBill('Pending')}
+                    onClick={() => handleSaveBill('Pending')}
                     disabled={submitting}
                     className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-xl font-semibold transition-all cursor-pointer text-sm"
                   >
-                    Draft Invoice (Pending)
+                    {editingBillId ? 'Save (Pending)' : 'Draft Invoice (Pending)'}
                   </button>
                   <button
-                    onClick={() => handleCreateBill('Paid')}
+                    onClick={() => handleSaveBill('Paid')}
                     disabled={submitting}
                     className="flex-1 bg-[#0D9488] hover:bg-[#0f766e] text-white py-3 rounded-xl font-semibold transition-all shadow-sm cursor-pointer text-sm"
                   >
-                    Checkout (Mark Paid)
+                    {editingBillId ? 'Save & Mark Paid' : 'Checkout (Mark Paid)'}
                   </button>
                 </div>
               </div>
@@ -487,45 +581,58 @@ const OpdBilling = () => {
                     {bill.consultationFee > 0 && (
                       <div className="flex justify-between">
                         <span>Consult Fee:</span>
-                        <span>₹{bill.consultationFee}</span>
+                        <span>₹{parseFloat(bill.consultationFee).toFixed(2)}</span>
                       </div>
                     )}
                     {bill.tests && bill.tests.length > 0 && (
                       <div className="flex justify-between">
                         <span>Diagnostics ({bill.tests.length}):</span>
-                        <span>₹{bill.tests.reduce((sum, t) => sum + t.price, 0)}</span>
+                        <span>₹{bill.tests.reduce((sum, t) => sum + parseFloat(t.price || 0), 0).toFixed(2)}</span>
                       </div>
                     )}
                     {bill.medicines && bill.medicines.length > 0 && (
                       <div className="flex justify-between">
-                        <span>Medicines ({bill.medicines.reduce((sum, m) => sum + m.quantity, 0)}):</span>
-                        <span>₹{bill.medicines.reduce((sum, m) => sum + parseFloat(m.price || 0), 0)}</span>
+                        <span>Medicines ({bill.medicines.reduce((sum, m) => sum + (parseInt(m.quantity) || 1), 0)}):</span>
+                        <span>₹{bill.medicines.reduce((sum, m) => sum + ((parseFloat(m.price) || 0) * (parseInt(m.quantity) || 1)), 0).toFixed(2)}</span>
                       </div>
                     )}
                     <div className="flex justify-between font-bold text-teal-950 pt-1.5 border-t border-slate-200/50">
                       <span>Total Amount:</span>
-                      <span>₹{bill.totalAmount}</span>
+                      <span>₹{parseFloat(bill.totalAmount || 0).toFixed(2)}</span>
                     </div>
                   </div>
 
-                  <div className="flex gap-2 mt-3.5">
+                  <div className="flex flex-wrap gap-2 mt-3.5 pt-2 border-t border-slate-200/40">
                     {bill.status === 'Pending' && (
                       <button
                         onClick={() => handlePayBill(bill._id)}
-                        className="flex-1 bg-[#0D9488]/10 hover:bg-[#0D9488]/20 text-[#0D9488] font-bold py-1.5 px-3 rounded-xl text-[10px] transition-all cursor-pointer text-center border border-teal-100/50"
+                        className="flex-1 min-w-[70px] bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold py-1.5 px-2.5 rounded-xl text-[10px] transition-all cursor-pointer text-center border border-emerald-200/60"
                       >
                         Mark Paid
                       </button>
                     )}
                     <button
+                      onClick={() => handleStartEdit(bill)}
+                      className="flex-1 min-w-[50px] bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold py-1.5 px-2.5 rounded-xl text-[10px] transition-all cursor-pointer text-center border border-amber-200/60"
+                    >
+                      ✏️ Edit
+                    </button>
+                    <button
+                      onClick={() => handleDeleteBill(bill._id)}
+                      className="min-w-[32px] bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold py-1.5 px-2 rounded-xl text-[10px] transition-all cursor-pointer text-center border border-rose-200/60"
+                      title="Delete Invoice"
+                    >
+                      🗑️
+                    </button>
+                    <button
                       onClick={() => handlePrintBill(bill)}
-                      className={`flex-1 font-bold py-1.5 px-3 rounded-xl text-[10px] transition-all cursor-pointer text-center border ${
+                      className={`flex-1 min-w-[80px] font-bold py-1.5 px-2.5 rounded-xl text-[10px] transition-all cursor-pointer text-center border ${
                         bill.status === 'Paid'
                           ? 'bg-[#0D9488] hover:bg-[#0f766e] text-white border-transparent'
                           : 'bg-slate-100 hover:bg-slate-200 text-gray-700 border-slate-200'
                       }`}
                     >
-                      Print Slip / PDF
+                      Receipt
                     </button>
                   </div>
                 </div>
@@ -535,93 +642,86 @@ const OpdBilling = () => {
         </div>
       </div>
 
-      {/* Printable Invoice wrapper */}
+      {/* Invoice Modal Overlay */}
       {printBill && (
-        <div id="printable-invoice" style={{ display: 'none' }}>
-          <div style={{ fontFamily: 'monospace', padding: '30px', maxWidth: '600px', margin: '0 auto', border: '1px dashed #000' }}>
-            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-              <h2 style={{ margin: '0', fontSize: '20px', letterSpacing: '1px' }}>HEKA MEDICAL CENTER</h2>
-              <p style={{ margin: '5px 0 0 0', fontSize: '12px' }}>OPD Medical Invoice / Bill Receipt</p>
-              <p style={{ margin: '2px 0 0 0', fontSize: '10px', color: '#555' }}>Invoice ID: {printBill._id}</p>
+        <div className="fixed inset-0 bg-teal-950/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-teal-50 p-6 space-y-6 animate-scale-in max-h-[90vh] overflow-y-auto">
+            <div className="text-center">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 mb-2">
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-teal-950 font-literata">OPD Medical Invoice</h3>
+              <p className="text-xs text-gray-500 font-mono mt-0.5">Invoice ID: {printBill._id}</p>
             </div>
 
-            <div style={{ borderBottom: '1px dashed #000', marginBottom: '15px' }}></div>
+            <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 space-y-2.5 text-xs text-gray-700">
+              <div className="flex justify-between">
+                <span className="text-gray-400">Patient:</span>
+                <span className="font-semibold text-teal-950">{printBill.patientId?.name || 'Patient'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Phone:</span>
+                <span className="font-mono text-gray-600">{printBill.patientId?.phone || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Date:</span>
+                <span>{new Date(printBill.createdAt).toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Status:</span>
+                <span className={`font-bold ${printBill.status === 'Paid' ? 'text-green-600' : 'text-orange-600'}`}>
+                  {printBill.status.toUpperCase()}
+                </span>
+              </div>
 
-            <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', lineHeight: '2' }}>
-              <tbody>
-                <tr>
-                  <td style={{ fontWeight: 'bold', width: '35%' }}>Patient Name:</td>
-                  <td>{printBill.patientId?.name}</td>
-                </tr>
-                <tr>
-                  <td style={{ fontWeight: 'bold' }}>Phone Number:</td>
-                  <td>{printBill.patientId?.phone || 'N/A'}</td>
-                </tr>
-                <tr>
-                  <td style={{ fontWeight: 'bold' }}>Date:</td>
-                  <td>{new Date(printBill.createdAt).toLocaleString()}</td>
-                </tr>
-                <tr>
-                  <td style={{ fontWeight: 'bold' }}>Status:</td>
-                  <td style={{ fontWeight: 'bold', color: printBill.status === 'Paid' ? 'green' : 'orange' }}>
-                    {printBill.status.toUpperCase()}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+              <div className="border-t border-dashed border-gray-200 pt-3 mt-3">
+                <p className="font-bold text-gray-500 uppercase tracking-wide text-[10px] mb-2">Itemized Breakdown</p>
+                <div className="space-y-1.5">
+                  {printBill.consultationFee > 0 && (
+                    <div className="flex justify-between">
+                      <span>Doctor Consultation Fee</span>
+                      <span className="font-mono font-semibold">₹{parseFloat(printBill.consultationFee).toFixed(2)}</span>
+                    </div>
+                  )}
+                  {printBill.tests && printBill.tests.map(t => (
+                    <div key={t.testId || t._id} className="flex justify-between">
+                      <span>Diagnostic: {t.name}</span>
+                      <span className="font-mono font-semibold">₹{parseFloat(t.price || 0).toFixed(2)}</span>
+                    </div>
+                  ))}
+                  {printBill.medicines && printBill.medicines.map(m => (
+                    <div key={m.medicineId || m._id} className="flex justify-between">
+                      <span>Pharmacy: {m.name} × {m.quantity || 1}</span>
+                      <span className="font-mono font-semibold">₹{((parseFloat(m.price) || 0) * (parseInt(m.quantity) || 1)).toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
-            <div style={{ borderBottom: '1px dashed #000', marginTop: '15px', marginBottom: '15px' }}></div>
+              <div className="flex justify-between items-center border-t border-dashed border-gray-200 pt-3 mt-3 text-sm font-bold text-teal-950">
+                <span>Grand Total Amount:</span>
+                <span className="text-base text-teal-800">₹{parseFloat(printBill.totalAmount || 0).toFixed(2)}</span>
+              </div>
+            </div>
 
-            <h4 style={{ margin: '0 0 10px 0', fontSize: '12px', textTransform: 'uppercase' }}>Billed Items</h4>
-            <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', textAlign: 'left' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px dashed #000' }}>
-                  <th style={{ paddingBottom: '5px' }}>Item Description</th>
-                  <th style={{ paddingBottom: '5px', textAlign: 'center' }}>Qty</th>
-                  <th style={{ paddingBottom: '5px', textAlign: 'right' }}>Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {printBill.consultationFee > 0 && (
-                  <tr>
-                    <td style={{ padding: '5px 0' }}>Doctor Consultation Fee</td>
-                    <td style={{ padding: '5px 0', textAlign: 'center' }}>1</td>
-                    <td style={{ padding: '5px 0', textAlign: 'right' }}>₹{printBill.consultationFee.toFixed(2)}</td>
-                  </tr>
-                )}
-                {printBill.tests && printBill.tests.map(t => (
-                  <tr key={t.testId}>
-                    <td style={{ padding: '5px 0' }}>Diagnostic: {t.name}</td>
-                    <td style={{ padding: '5px 0', textAlign: 'center' }}>1</td>
-                    <td style={{ padding: '5px 0', textAlign: 'right' }}>₹{t.price.toFixed(2)}</td>
-                  </tr>
-                ))}
-                {printBill.medicines && printBill.medicines.map(m => (
-                  <tr key={m.medicineId}>
-                    <td style={{ padding: '5px 0' }}>Pharmacy: {m.name}</td>
-                    <td style={{ padding: '5px 0', textAlign: 'center' }}>{m.quantity}</td>
-                    <td style={{ padding: '5px 0', textAlign: 'right' }}>₹{m.price.toFixed(2)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            <div style={{ borderBottom: '1px dashed #000', marginTop: '15px', marginBottom: '15px' }}></div>
-
-            <table style={{ width: '100%', fontSize: '14px', fontWeight: 'bold' }}>
-              <tbody>
-                <tr>
-                  <td>Total Invoice Amount:</td>
-                  <td style={{ textAlign: 'right' }}>₹{printBill.totalAmount.toFixed(2)}</td>
-                </tr>
-              </tbody>
-            </table>
-
-            <div style={{ borderBottom: '1px dashed #000', marginTop: '15px', marginBottom: '15px' }}></div>
-
-            <div style={{ textAlign: 'center', fontSize: '10px' }}>
-              <p style={{ margin: '0' }}>Thank you for visiting Heka Medical Center.</p>
-              <p style={{ margin: '5px 0 0 0', fontWeight: 'bold' }}>Get well soon!</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => window.print()}
+                className="flex-1 bg-[#0D9488] hover:bg-[#0f766e] text-white font-semibold py-3 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer text-sm"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                </svg>
+                Print Invoice
+              </button>
+              <button
+                onClick={() => setPrintBill(null)}
+                className="bg-gray-100 hover:bg-gray-200 text-gray-600 font-semibold py-3 px-5 rounded-xl transition-all cursor-pointer text-sm"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>

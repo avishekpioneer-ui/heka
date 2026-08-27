@@ -44,7 +44,7 @@ const OpdRoles = () => {
     try {
       setLoading(true);
       const headers = { 'x-user-id': userId };
-      
+
       const rolesRes = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/staff/roles', { headers });
       setRoles(rolesRes.data);
 
@@ -379,7 +379,7 @@ const OpdRoles = () => {
       {/* Staff accounts List table */}
       <div className="bg-white rounded-2xl shadow-[0_4px_20px_rgb(0,0,0,0.01)] border border-gray-100 p-6">
         <h3 className="text-lg font-bold text-teal-950 mb-6 font-literata">Registered OPD Staff Logins</h3>
-        
+
         {loading ? (
           <div className="flex items-center justify-center min-h-[150px]">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>

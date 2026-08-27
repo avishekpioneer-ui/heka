@@ -4,7 +4,7 @@ const billedTestSchema = new mongoose.Schema({
     testId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "OpdTest",
-        required: true
+        required: false
     },
     name: {
         type: String,
@@ -20,7 +20,7 @@ const billedMedicineSchema = new mongoose.Schema({
     medicineId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "OpdMedicine",
-        required: true
+        required: false
     },
     name: {
         type: String,

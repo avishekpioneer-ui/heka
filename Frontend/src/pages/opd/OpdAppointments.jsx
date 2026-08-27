@@ -120,30 +120,23 @@ const OpdAppointments = () => {
   const handlePrintToken = (appt) => {
     setRecentBooking({
       id: appt._id,
-      patientName: appt.patientId ? appt.patientId.name : 'Unknown Patient',
-      patientPhone: appt.patientId ? appt.patientId.phone : 'N/A',
+      patientName: appt.patientId?.name || 'N/A',
+      patientPhone: appt.patientId?.phone || 'N/A',
       doctorName: appt.doctorName,
       appointmentDate: appt.appointmentDate,
       consultationFee: appt.consultationFee
     });
-    setTimeout(() => {
-      window.print();
-    }, 150);
+    setShowPrintModal(true);
   };
 
   const handleCompleteAndInvoice = async (appt) => {
     try {
       const headers = { 'x-user-id': userId };
       await axios.put(`${import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001'}/api/opd/appointments/${appt._id}/status`, { status: 'Completed' }, { headers });
-      
-      navigate('/opd/billing', {
-        state: {
-          patientId: appt.patientId?._id || '',
-          consultationFee: appt.consultationFee || 0
-        }
-      });
+      fetchAppointments();
+      setSuccess(`Appointment for ${appt.patientId?.name || 'patient'} marked as Completed.`);
     } catch (err) {
-      console.error('Error completing appointment and navigating:', err);
+      console.error('Error completing appointment:', err);
       alert('Error updating status');
     }
   };
@@ -302,7 +295,7 @@ const OpdAppointments = () => {
                         {new Date(appt.appointmentDate).toLocaleString()}
                       </td>
                       <td className="py-3.5 pr-2 font-mono text-gray-600">
-                        ${appt.consultationFee}
+                        ₹{appt.consultationFee}
                       </td>
                       <td className="py-3.5 pr-2">
                         <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${

@@ -164,11 +164,21 @@ const OpdConsultations = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Selector */}
             <div>
-              <label className="block text-xs font-bold text-gray-600 mb-1.5 uppercase">Select Scheduled Appointment *</label>
+              <div className="flex justify-between items-center mb-1.5">
+                <label className="block text-xs font-bold text-gray-600 uppercase">Select Scheduled Appointment *</label>
+                {selectedAppt && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedAppt(null)}
+                    className="text-xs text-teal-600 hover:text-teal-800 font-semibold cursor-pointer"
+                  >
+                    Clear / Change
+                  </button>
+                )}
+              </div>
               <select
                 value={selectedAppt?._id || ''}
                 onChange={handleSelectAppointmentChange}
-                disabled={routerLocation.state?.appt !== undefined}
                 className="w-full px-4 py-2.5 bg-slate-50 border border-gray-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all outline-none text-sm text-gray-800"
               >
                 <option value="">-- Choose Active Appointment --</option>
@@ -204,7 +214,7 @@ const OpdConsultations = () => {
                 </div>
                 <div>
                   <p className="text-xs text-gray-400">Consultation Fee</p>
-                  <p className="font-semibold font-mono text-teal-950">${selectedAppt.consultationFee}</p>
+                  <p className="font-semibold font-mono text-teal-950">₹{selectedAppt.consultationFee}</p>
                 </div>
               </div>
             )}
