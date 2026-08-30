@@ -35,17 +35,12 @@ import OpdRemindersScreen from '../screens/opd/OpdRemindersScreen';
 import { OpdSocketProvider } from '../context/OpdSocketContext';
 import { useOpdSocketEvent } from '../context/useOpdSocket';
 
-function RealtimeSocketSubscriber({ onNewReminder, onEventTriggered }) {
+function RealtimeSocketSubscriber({ onNewReminder }) {
   useOpdSocketEvent('opd:reminder', (payload) => {
     if (payload?.type === 'created' && payload?.reminder) {
       onNewReminder(payload.reminder);
     }
   });
-
-  useOpdSocketEvent('opd:appointment', () => onEventTriggered());
-  useOpdSocketEvent('opd:consultation', () => onEventTriggered());
-  useOpdSocketEvent('opd:testorder', () => onEventTriggered());
-  useOpdSocketEvent('opd:bill', () => onEventTriggered());
 
   return null;
 }
@@ -233,9 +228,6 @@ export default function AppNavigator() {
         onNewReminder={(newReminder) => {
           setNotifications((prev) => [newReminder, ...prev].slice(0, 15));
         }}
-        onEventTriggered={() => {
-          setRefreshCounter((prev) => prev + 1);
-        }}
       />
       <SafeAreaView style={styles.safeArea}>
         <StatusBar barStyle="light-content" backgroundColor={activePortal === 'ADMIN' ? '#1b4332' : '#0f766e'} />
@@ -320,8 +312,8 @@ export default function AppNavigator() {
         </View>
       </View>
 
-      {/* Screen Body with Refresh Key */}
-      <View style={styles.body} key={`${activePortal}-${currentSubTab}-${refreshCounter}`}>
+      {/* Screen Body */}
+      <View style={styles.body} key={`${activePortal}-${currentSubTab}`}>
         {activePortal === 'ADMIN' ? renderAdminContent() : renderOpdContent()}
       </View>
 
@@ -462,13 +454,13 @@ export default function AppNavigator() {
                 notifications.map((item, idx) => (
                   <View key={item._id || idx} style={styles.notificationItem}>
                     <Text style={styles.notificationItemTitle}>
-                      {item.patientId?.name || item.title || 'Follow-up Reminder'}
+                      {item.patientId?.name || item.patientName || item.title || 'Follow-up Reminder'}
                     </Text>
                     <Text style={styles.notificationItemMsg}>
                       {item.message || item.note || 'Scheduled appointment checkup'}
                     </Text>
                     <Text style={styles.notificationItemTime}>
-                      {item.scheduledDate ? new Date(item.scheduledDate).toLocaleDateString() : 'Active'}
+                      {item.followUpDate ? `Due: ${new Date(item.followUpDate).toLocaleDateString()}` : item.scheduledDate ? `Due: ${new Date(item.scheduledDate).toLocaleDateString()}` : item.sentAt ? `Sent: ${new Date(item.sentAt).toLocaleDateString()}` : 'Active'}
                     </Text>
                   </View>
                 ))

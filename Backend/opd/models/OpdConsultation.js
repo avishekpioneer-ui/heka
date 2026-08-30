@@ -15,6 +15,23 @@ const prescriptionItemSchema = new mongoose.Schema({
     }
 }, { _id: false });
 
+const recommendedTestSchema = new mongoose.Schema({
+    testId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "OpdTest",
+        required: false
+    },
+    testName: {
+        type: String,
+        required: true,
+        trim: true
+    },
+    notes: {
+        type: String,
+        default: ""
+    }
+}, { _id: false });
+
 const opdConsultationSchema = new mongoose.Schema(
     {
         appointmentId: {
@@ -46,6 +63,7 @@ const opdConsultationSchema = new mongoose.Schema(
             default: ""
         },
         prescription: [prescriptionItemSchema],
+        tests: [recommendedTestSchema],
         followUpDate: {
             type: Date,
             required: false
@@ -53,5 +71,10 @@ const opdConsultationSchema = new mongoose.Schema(
     },
     { timestamps: true }
 );
+
+opdConsultationSchema.index({ createdAt: -1 });
+opdConsultationSchema.index({ appointmentId: 1 });
+opdConsultationSchema.index({ patientId: 1 });
+opdConsultationSchema.index({ doctorId: 1 });
 
 export default mongoose.model("OpdConsultation", opdConsultationSchema);

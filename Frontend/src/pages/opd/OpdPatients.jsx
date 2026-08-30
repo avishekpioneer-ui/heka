@@ -157,10 +157,9 @@ const OpdPatients = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-gray-600 mb-1.5 uppercase">Phone Number *</label>
+              <label className="block text-xs font-bold text-gray-600 mb-1.5 uppercase">Phone Number (Optional)</label>
               <input
                 type="text"
-                required
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 className="w-full px-4 py-2.5 bg-slate-50 border border-gray-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all outline-none text-sm text-gray-800"

@@ -14,6 +14,7 @@ import {
   Platform,
 } from 'react-native';
 import apiClient from '../../config/api';
+import CalendarPickerModal from '../../components/CalendarPickerModal';
 
 export default function OpdBillingScreen({ routeParams }) {
   const [bills, setBills] = useState([]);
@@ -29,6 +30,10 @@ export default function OpdBillingScreen({ routeParams }) {
   const [editingBillId, setEditingBillId] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  // Calendar Picker State
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [calendarTargetTestIdx, setCalendarTargetTestIdx] = useState(null);
 
   const [selectedPatientId, setSelectedPatientId] = useState('');
   const [consultationFee, setConsultationFee] = useState('0');
@@ -109,29 +114,25 @@ export default function OpdBillingScreen({ routeParams }) {
   const fetchData = async () => {
     try {
       setLoading(true);
-      try {
-        const bRes = await apiClient.get('/api/opd/billing');
-        const bData = bRes.data?.bills || bRes.data || [];
-        setBills(Array.isArray(bData) ? bData : []);
-      } catch (e) {}
 
-      try {
-        const pRes = await apiClient.get('/api/opd/patients');
-        const pData = pRes.data?.patients || pRes.data || [];
-        setPatients(Array.isArray(pData) ? pData : []);
-      } catch (e) {}
+      const [bRes, pRes, tRes, mRes] = await Promise.all([
+        apiClient.get('/api/opd/billing').catch(() => ({ data: [] })),
+        apiClient.get('/api/opd/patients').catch(() => ({ data: [] })),
+        apiClient.get('/api/opd/tests').catch(() => ({ data: [] })),
+        apiClient.get('/api/opd/medicines').catch(() => ({ data: [] })),
+      ]);
 
-      try {
-        const tRes = await apiClient.get('/api/opd/tests');
-        const tData = tRes.data?.tests || tRes.data || [];
-        setTestsCatalog(Array.isArray(tData) ? tData : []);
-      } catch (e) {}
+      const bData = bRes.data?.bills || bRes.data || [];
+      setBills(Array.isArray(bData) ? bData : []);
 
-      try {
-        const mRes = await apiClient.get('/api/opd/medicines');
-        const mData = mRes.data?.medicines || mRes.data || [];
-        setMedicinesCatalog(Array.isArray(mData) ? mData : []);
-      } catch (e) {}
+      const pData = pRes.data?.patients || pRes.data || [];
+      setPatients(Array.isArray(pData) ? pData : []);
+
+      const tData = tRes.data?.tests || tRes.data || [];
+      setTestsCatalog(Array.isArray(tData) ? tData : []);
+
+      const mData = mRes.data?.medicines || mRes.data || [];
+      setMedicinesCatalog(Array.isArray(mData) ? mData : []);
     } catch (err) {
       console.error('Error fetching billing data:', err);
     } finally {
@@ -168,9 +169,23 @@ export default function OpdBillingScreen({ routeParams }) {
           testId: targetId,
           name: test.name,
           price: test.price,
+          scheduledDate: new Date().toISOString().substring(0, 10),
+          notes: '',
         },
       ]);
     }
+  };
+
+  const handleTestScheduleDateChange = (idx, val) => {
+    const updated = [...selectedTests];
+    updated[idx] = { ...updated[idx], scheduledDate: val };
+    setSelectedTests(updated);
+  };
+
+  const handleTestNotesChange = (idx, val) => {
+    const updated = [...selectedTests];
+    updated[idx] = { ...updated[idx], notes: val };
+    setSelectedTests(updated);
   };
 
   const handleAddMedicine = (med) => {
@@ -296,6 +311,10 @@ export default function OpdBillingScreen({ routeParams }) {
         testId: t.testId?._id || t.testId || t._id || t.id,
         name: t.name,
         price: t.price,
+        scheduledDate: t.scheduledDate
+          ? new Date(t.scheduledDate).toISOString().substring(0, 10)
+          : new Date().toISOString().substring(0, 10),
+        notes: t.notes || '',
       }))
     );
     setSelectedMedicines(
@@ -395,9 +414,12 @@ export default function OpdBillingScreen({ routeParams }) {
       selectedTests.forEach((t) => {
         items.push({
           itemType: 'Test',
+          testId: t.testId || t._id || t.id,
           name: t.name,
           price: parseFloat(t.price) || 0,
           quantity: 1,
+          scheduledDate: t.scheduledDate || new Date().toISOString().substring(0, 10),
+          notes: t.notes || '',
         });
       });
 
@@ -426,6 +448,8 @@ export default function OpdBillingScreen({ routeParams }) {
         testId: t.testId || t._id || t.id,
         name: t.name,
         price: parseFloat(t.price) || 0,
+        scheduledDate: t.scheduledDate || new Date().toISOString().substring(0, 10),
+        notes: t.notes || '',
       }));
 
       const formattedMedicines = selectedMedicines.map((m) => ({
@@ -1042,12 +1066,46 @@ export default function OpdBillingScreen({ routeParams }) {
                     )}
 
                     {selectedTests.map((t, idx) => (
-                      <View key={`sel-t-${t.testId || t._id || t.id || idx}-${idx}`} style={styles.summaryRow}>
-                        <Text style={styles.summaryItemLabel}>🧪 {t.name}</Text>
-                        <Text style={styles.summaryItemValue}>₹{t.price}</Text>
-                        <TouchableOpacity onPress={() => handleRemoveTest(t.testId)} style={{ marginLeft: 8 }}>
-                          <Text style={styles.removeBtn}>✕</Text>
-                        </TouchableOpacity>
+                      <View key={`sel-t-${t.testId || t._id || t.id || idx}-${idx}`} style={styles.summaryTestCard}>
+                        <View style={styles.summaryRow}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.summaryItemLabel}>🧪 {t.name}</Text>
+                          </View>
+                          <Text style={styles.summaryItemValue}>₹{t.price}</Text>
+                          <TouchableOpacity onPress={() => handleRemoveTest(t.testId)} style={{ marginLeft: 8 }}>
+                            <Text style={styles.removeBtn}>✕</Text>
+                          </TouchableOpacity>
+                        </View>
+
+                        {/* Test Scheduling Row */}
+                        <View style={styles.testScheduleRow}>
+                          <View style={styles.testScheduleCol}>
+                            <Text style={styles.testScheduleLabel}>📅 Schedule Date:</Text>
+                            <TouchableOpacity
+                              style={styles.testDateBtn}
+                              onPress={() => {
+                                setCalendarTargetTestIdx(idx);
+                                setIsCalendarOpen(true);
+                              }}
+                              activeOpacity={0.7}
+                            >
+                              <Text style={styles.testDateBtnText}>
+                                {t.scheduledDate || 'Pick Date'}
+                              </Text>
+                              <Text style={styles.testDateEditIcon}>📅</Text>
+                            </TouchableOpacity>
+                          </View>
+                          <View style={styles.testScheduleCol}>
+                            <Text style={styles.testScheduleLabel}>📝 Lab Note:</Text>
+                            <TextInput
+                              style={styles.testScheduleInput}
+                              value={t.notes || ''}
+                              placeholder="e.g. Fasting, Urgent"
+                              placeholderTextColor="#94a3b8"
+                              onChangeText={(val) => handleTestNotesChange(idx, val)}
+                            />
+                          </View>
+                        </View>
                       </View>
                     ))}
 
@@ -1135,6 +1193,26 @@ export default function OpdBillingScreen({ routeParams }) {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Interactive Calendar Date Picker Modal */}
+      <CalendarPickerModal
+        visible={isCalendarOpen}
+        currentDate={
+          calendarTargetTestIdx !== null
+            ? selectedTests[calendarTargetTestIdx]?.scheduledDate
+            : undefined
+        }
+        title="Schedule Diagnostic Test Date"
+        onClose={() => {
+          setIsCalendarOpen(false);
+          setCalendarTargetTestIdx(null);
+        }}
+        onSelectDate={(newDate) => {
+          if (calendarTargetTestIdx !== null) {
+            handleTestScheduleDateChange(calendarTargetTestIdx, newDate);
+          }
+        }}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -1207,6 +1285,63 @@ const styles = StyleSheet.create({
   feeHint: { fontSize: 11, color: '#0f766e', fontWeight: '600' },
   summaryBox: { backgroundColor: '#f0fdfa', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: '#99f6e4', gap: 8 },
   summaryTitle: { fontSize: 11, fontWeight: '800', color: '#0f766e', marginBottom: 4 },
+  summaryTestCard: {
+    backgroundColor: '#ffffff',
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#ccfbf1',
+    gap: 6,
+  },
+  testScheduleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+  },
+  testScheduleCol: {
+    flex: 1,
+    gap: 2,
+  },
+  testScheduleLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#0f766e',
+  },
+  testScheduleInput: {
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    fontSize: 11,
+    color: '#0f172a',
+  },
+  testDateBtn: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#99f6e4',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  testDateBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#0f766e',
+  },
+  testDateEditIcon: {
+    fontSize: 10,
+    color: '#0D9488',
+    marginLeft: 4,
+  },
   summaryRow: { flexDirection: 'row', alignItems: 'center' },
   summaryItemLabel: { fontSize: 12, color: '#475569' },
   summaryItemValue: { fontSize: 12, fontWeight: '700', color: '#0f172a', marginLeft: 8 },

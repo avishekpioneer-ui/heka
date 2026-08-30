@@ -15,6 +15,64 @@ import {
 } from 'react-native';
 import apiClient from '../../config/api';
 import storage from '../../utils/storage';
+import CalendarPickerModal from '../../components/CalendarPickerModal';
+
+const TIME_SLOTS = [
+  { label: '09:00 AM', value: '09:00', period: 'Morning' },
+  { label: '09:30 AM', value: '09:30', period: 'Morning' },
+  { label: '10:00 AM', value: '10:00', period: 'Morning' },
+  { label: '10:30 AM', value: '10:30', period: 'Morning' },
+  { label: '11:00 AM', value: '11:00', period: 'Morning' },
+  { label: '11:30 AM', value: '11:30', period: 'Morning' },
+  { label: '12:00 PM', value: '12:00', period: 'Afternoon' },
+  { label: '12:30 PM', value: '12:30', period: 'Afternoon' },
+  { label: '02:00 PM', value: '14:00', period: 'Afternoon' },
+  { label: '02:30 PM', value: '14:30', period: 'Afternoon' },
+  { label: '03:00 PM', value: '15:00', period: 'Afternoon' },
+  { label: '03:30 PM', value: '15:30', period: 'Afternoon' },
+  { label: '04:00 PM', value: '16:00', period: 'Afternoon' },
+  { label: '04:30 PM', value: '16:30', period: 'Afternoon' },
+  { label: '05:00 PM', value: '17:00', period: 'Evening' },
+  { label: '05:30 PM', value: '17:30', period: 'Evening' },
+  { label: '06:00 PM', value: '18:00', period: 'Evening' },
+  { label: '06:30 PM', value: '18:30', period: 'Evening' },
+  { label: '07:00 PM', value: '19:00', period: 'Evening' },
+  { label: '07:30 PM', value: '19:30', period: 'Evening' },
+  { label: '08:00 PM', value: '20:00', period: 'Evening' },
+];
+
+const convertTo24Hour = (hourStr, minStr, ampm) => {
+  let h = parseInt(hourStr, 10);
+  if (isNaN(h)) h = 12;
+  let m = parseInt(minStr, 10);
+  if (isNaN(m)) m = 0;
+  h = Math.max(1, Math.min(12, h));
+  m = Math.max(0, Math.min(59, m));
+
+  if (ampm === 'PM' && h < 12) h += 12;
+  if (ampm === 'AM' && h === 12) h = 0;
+
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+};
+
+const parseFrom24Hour = (time24) => {
+  if (!time24 || !time24.includes(':')) {
+    return { hour: '04', minute: '22', ampm: 'PM' };
+  }
+  const [hStr, mStr] = time24.split(':');
+  let h = parseInt(hStr, 10);
+  if (isNaN(h)) h = 10;
+  const m = String(parseInt(mStr, 10) || 0).padStart(2, '0');
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return { hour: String(h).padStart(2, '0'), minute: m, ampm };
+};
+
+const formatTimeDisplay = (timeVal) => {
+  if (!timeVal) return 'Anytime (No specific time)';
+  const parsed = parseFrom24Hour(timeVal);
+  return `${parsed.hour}:${parsed.minute} ${parsed.ampm}`;
+};
 
 export default function OpdAppointmentsScreen({ onNavigate, routeParams }) {
   const [patients, setPatients] = useState([]);
@@ -29,6 +87,14 @@ export default function OpdAppointmentsScreen({ onNavigate, routeParams }) {
 
   // Modal State for Booking Appointment
   const [isBookingOpen, setIsBookingOpen] = useState(false);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [isTimePickerOpen, setIsTimePickerOpen] = useState(false);
+
+  // Custom Time Builder State (supports exact minute selection like 4:22 PM)
+  const [customHour, setCustomHour] = useState('04');
+  const [customMinute, setCustomMinute] = useState('22');
+  const [customAmPm, setCustomAmPm] = useState('PM');
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -87,23 +153,20 @@ export default function OpdAppointmentsScreen({ onNavigate, routeParams }) {
     try {
       setLoading(true);
 
-      try {
-        const apptRes = await apiClient.get('/api/opd/appointments');
-        const apptData = apptRes.data?.appointments || apptRes.data || [];
-        setAppointments(Array.isArray(apptData) ? apptData : []);
-      } catch (e) {}
+      const [apptRes, patRes, docRes] = await Promise.all([
+        apiClient.get('/api/opd/appointments').catch(() => ({ data: [] })),
+        apiClient.get('/api/opd/patients').catch(() => ({ data: [] })),
+        apiClient.get('/api/opd/staff/doctors').catch(() => ({ data: [] })),
+      ]);
 
-      try {
-        const patRes = await apiClient.get('/api/opd/patients');
-        const patData = patRes.data?.patients || patRes.data || [];
-        setPatients(Array.isArray(patData) ? patData : []);
-      } catch (e) {}
+      const apptData = apptRes.data?.appointments || apptRes.data || [];
+      setAppointments(Array.isArray(apptData) ? apptData : []);
 
-      try {
-        const docRes = await apiClient.get('/api/opd/staff/doctors');
-        const docData = docRes.data?.doctors || docRes.data || [];
-        setDoctors(Array.isArray(docData) ? docData : []);
-      } catch (e) {}
+      const patData = patRes.data?.patients || patRes.data || [];
+      setPatients(Array.isArray(patData) ? patData : []);
+
+      const docData = docRes.data?.doctors || docRes.data || [];
+      setDoctors(Array.isArray(docData) ? docData : []);
     } catch (err) {
       console.error('Error fetching appointments data:', err);
     } finally {
@@ -121,6 +184,20 @@ export default function OpdAppointmentsScreen({ onNavigate, routeParams }) {
     }));
   };
 
+  const handleOpenTimePicker = () => {
+    if (formData.appointmentTime) {
+      const parsed = parseFrom24Hour(formData.appointmentTime);
+      setCustomHour(parsed.hour);
+      setCustomMinute(parsed.minute);
+      setCustomAmPm(parsed.ampm);
+    } else {
+      setCustomHour('04');
+      setCustomMinute('22');
+      setCustomAmPm('PM');
+    }
+    setIsTimePickerOpen(true);
+  };
+
   // ── Book Appointment ────────────────────────────────────────────────────────
   const handleBookingSubmit = async () => {
     if (!formData.patientId || (!formData.doctorId && !formData.doctorName)) {
@@ -133,7 +210,11 @@ export default function OpdAppointmentsScreen({ onNavigate, routeParams }) {
     setSubmitting(true);
 
     try {
-      const fullDate = `${formData.appointmentDate}T${formData.appointmentTime}:00`;
+      const rawTime = (formData.appointmentTime || '').trim();
+      const timePart = rawTime
+        ? (rawTime.includes(':') ? rawTime : `${rawTime}:00`)
+        : '09:00';
+      const fullDate = `${formData.appointmentDate}T${timePart}:00`;
 
       const payload = {
         patientId: formData.patientId,
@@ -602,27 +683,31 @@ export default function OpdAppointmentsScreen({ onNavigate, routeParams }) {
                 {/* Date + Time row */}
                 <View style={styles.rowFields}>
                   <View style={[styles.fieldGroup, { flex: 1 }]}>
-                    <Text style={styles.fieldLabel}>DATE (YYYY-MM-DD) *</Text>
-                    <TextInput
-                      style={styles.fieldInput}
-                      placeholder="2026-08-09"
-                      value={formData.appointmentDate}
-                      onChangeText={(text) =>
-                        setFormData({ ...formData, appointmentDate: text })
-                      }
-                    />
+                    <Text style={styles.fieldLabel}>DATE *</Text>
+                    <TouchableOpacity
+                      style={styles.datePickerBtn}
+                      onPress={() => setIsCalendarOpen(true)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.datePickerBtnText}>
+                        📅 {formData.appointmentDate || 'Select Date'}
+                      </Text>
+                      <Text style={styles.datePickerBtnIcon}>✎</Text>
+                    </TouchableOpacity>
                   </View>
 
                   <View style={[styles.fieldGroup, { flex: 1 }]}>
-                    <Text style={styles.fieldLabel}>TIME (HH:MM) *</Text>
-                    <TextInput
-                      style={styles.fieldInput}
-                      placeholder="10:00"
-                      value={formData.appointmentTime}
-                      onChangeText={(text) =>
-                        setFormData({ ...formData, appointmentTime: text })
-                      }
-                    />
+                    <Text style={styles.fieldLabel}>TIME (OPTIONAL)</Text>
+                    <TouchableOpacity
+                      style={styles.timePickerBtn}
+                      onPress={handleOpenTimePicker}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.timePickerBtnText} numberOfLines={1}>
+                        🕒 {formData.appointmentTime ? formatTimeDisplay(formData.appointmentTime) : 'Anytime'}
+                      </Text>
+                      <Text style={styles.timePickerBtnIcon}>▼</Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
 
@@ -730,6 +815,241 @@ export default function OpdAppointmentsScreen({ onNavigate, routeParams }) {
             </View>
           </View>
         </View>
+      </Modal>
+
+      {/* Interactive Calendar Date Picker Modal */}
+      <CalendarPickerModal
+        visible={isCalendarOpen}
+        currentDate={formData.appointmentDate}
+        title="Select Appointment Date"
+        onClose={() => setIsCalendarOpen(false)}
+        onSelectDate={(newDate) => {
+          setFormData((prev) => ({ ...prev, appointmentDate: newDate }));
+        }}
+      />
+
+      {/* Interactive Time Slot Picker Modal */}
+      <Modal
+        visible={isTimePickerOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsTimePickerOpen(false)}
+      >
+        <TouchableOpacity
+          style={styles.timePickerBackdrop}
+          activeOpacity={1}
+          onPress={() => setIsTimePickerOpen(false)}
+        >
+          <TouchableOpacity activeOpacity={1} style={styles.timePickerCard}>
+            <View style={styles.timePickerHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.timePickerTitle}>Select Time Slot</Text>
+                <Text style={styles.timePickerSubtitle}>Optional appointment consultation hour</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setIsTimePickerOpen(false)}
+                style={styles.timePickerCloseBtn}
+              >
+                <Text style={styles.timePickerCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Anytime / Flexible Option */}
+            <TouchableOpacity
+              style={[
+                styles.anytimeBtn,
+                !formData.appointmentTime && styles.anytimeBtnActive,
+              ]}
+              onPress={() => {
+                setFormData((prev) => ({ ...prev, appointmentTime: '' }));
+                setIsTimePickerOpen(false);
+              }}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.anytimeBtnText,
+                  !formData.appointmentTime && styles.anytimeBtnTextActive,
+                ]}
+              >
+                ✨ Anytime (No specific time slot)
+              </Text>
+            </TouchableOpacity>
+
+            <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              {/* Custom Exact Time Picker (Allows exact times like 4:22 PM) */}
+              <View style={styles.customTimeSection}>
+                <Text style={styles.customTimeSectionTitle}>⏰ Custom Exact Time</Text>
+                <View style={styles.timeInputsRow}>
+                  {/* Hour */}
+                  <View style={styles.timeInputCol}>
+                    <Text style={styles.timeInputColLabel}>HOUR</Text>
+                    <View style={styles.timeStepperBox}>
+                      <TouchableOpacity
+                        style={styles.timeStepperBtn}
+                        onPress={() => {
+                          let h = (parseInt(customHour, 10) || 12) + 1;
+                          if (h > 12) h = 1;
+                          setCustomHour(String(h).padStart(2, '0'));
+                        }}
+                      >
+                        <Text style={styles.timeStepperBtnText}>▲</Text>
+                      </TouchableOpacity>
+                      <TextInput
+                        style={styles.timeInputBox}
+                        keyboardType="number-pad"
+                        maxLength={2}
+                        value={customHour}
+                        onChangeText={(val) => {
+                          const num = parseInt(val, 10);
+                          if (isNaN(num)) setCustomHour(val);
+                          else if (num >= 1 && num <= 12) setCustomHour(String(num).padStart(2, '0'));
+                          else setCustomHour(val);
+                        }}
+                      />
+                      <TouchableOpacity
+                        style={styles.timeStepperBtn}
+                        onPress={() => {
+                          let h = (parseInt(customHour, 10) || 12) - 1;
+                          if (h < 1) h = 12;
+                          setCustomHour(String(h).padStart(2, '0'));
+                        }}
+                      >
+                        <Text style={styles.timeStepperBtnText}>▼</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  <Text style={styles.timeColonText}>:</Text>
+
+                  {/* Minute (e.g. 22) */}
+                  <View style={styles.timeInputCol}>
+                    <Text style={styles.timeInputColLabel}>MINUTE</Text>
+                    <View style={styles.timeStepperBox}>
+                      <TouchableOpacity
+                        style={styles.timeStepperBtn}
+                        onPress={() => {
+                          let m = (parseInt(customMinute, 10) || 0) + 1;
+                          if (m > 59) m = 0;
+                          setCustomMinute(String(m).padStart(2, '0'));
+                        }}
+                      >
+                        <Text style={styles.timeStepperBtnText}>▲</Text>
+                      </TouchableOpacity>
+                      <TextInput
+                        style={styles.timeInputBox}
+                        keyboardType="number-pad"
+                        maxLength={2}
+                        value={customMinute}
+                        onChangeText={(val) => {
+                          const num = parseInt(val, 10);
+                          if (isNaN(num)) setCustomMinute(val);
+                          else if (num >= 0 && num <= 59) setCustomMinute(String(num).padStart(2, '0'));
+                          else setCustomMinute(val);
+                        }}
+                      />
+                      <TouchableOpacity
+                        style={styles.timeStepperBtn}
+                        onPress={() => {
+                          let m = (parseInt(customMinute, 10) || 0) - 1;
+                          if (m < 0) m = 59;
+                          setCustomMinute(String(m).padStart(2, '0'));
+                        }}
+                      >
+                        <Text style={styles.timeStepperBtnText}>▼</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  {/* AM / PM Toggle */}
+                  <View style={styles.ampmToggleCol}>
+                    <Text style={styles.timeInputColLabel}>PERIOD</Text>
+                    <View style={styles.ampmToggleBox}>
+                      <TouchableOpacity
+                        style={[styles.ampmBtn, customAmPm === 'AM' && styles.ampmBtnActive]}
+                        onPress={() => setCustomAmPm('AM')}
+                      >
+                        <Text style={[styles.ampmBtnText, customAmPm === 'AM' && styles.ampmBtnTextActive]}>AM</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.ampmBtn, customAmPm === 'PM' && styles.ampmBtnActive]}
+                        onPress={() => setCustomAmPm('PM')}
+                      >
+                        <Text style={[styles.ampmBtnText, customAmPm === 'PM' && styles.ampmBtnTextActive]}>PM</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Apply Custom Time Button */}
+                <TouchableOpacity
+                  style={styles.applyTimeBtn}
+                  onPress={() => {
+                    const time24 = convertTo24Hour(customHour, customMinute, customAmPm);
+                    setFormData((prev) => ({ ...prev, appointmentTime: time24 }));
+                    setIsTimePickerOpen(false);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.applyTimeBtnText}>
+                    ✓ Set Exact Time: {customHour || '04'}:{String(customMinute || '00').padStart(2, '0')} {customAmPm}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Quick Slots */}
+              {['Morning', 'Afternoon', 'Evening'].map((period) => {
+                const slots = TIME_SLOTS.filter((s) => s.period === period);
+                return (
+                  <View key={period} style={styles.timePeriodGroup}>
+                    <Text style={styles.timePeriodLabel}>
+                      {period === 'Morning'
+                        ? '🌅 MORNING SLOTS'
+                        : period === 'Afternoon'
+                        ? '☀️ AFTERNOON SLOTS'
+                        : '🌙 EVENING SLOTS'}
+                    </Text>
+                    <View style={styles.slotsGrid}>
+                      {slots.map((slot) => {
+                        const isSelected = formData.appointmentTime === slot.value;
+                        return (
+                          <TouchableOpacity
+                            key={slot.value}
+                            style={[
+                              styles.slotChip,
+                              isSelected && styles.slotChipSelected,
+                            ]}
+                            onPress={() => {
+                              setFormData((prev) => ({
+                                ...prev,
+                                appointmentTime: slot.value,
+                              }));
+                              const parsed = parseFrom24Hour(slot.value);
+                              setCustomHour(parsed.hour);
+                              setCustomMinute(parsed.minute);
+                              setCustomAmPm(parsed.ampm);
+                              setIsTimePickerOpen(false);
+                            }}
+                            activeOpacity={0.7}
+                          >
+                            <Text
+                              style={[
+                                styles.slotChipText,
+                                isSelected && styles.slotChipTextSelected,
+                              ]}
+                            >
+                              {slot.label}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+                );
+              })}
+            </ScrollView>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
     </KeyboardAvoidingView>
   );
@@ -1254,5 +1574,258 @@ const styles = StyleSheet.create({
     color: '#475569',
     fontWeight: '700',
     fontSize: 14,
+  },
+  datePickerBtn: {
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#0D9488',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  datePickerBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0f766e',
+  },
+  datePickerBtnIcon: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0D9488',
+  },
+  timePickerBtn: {
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#0D9488',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  timePickerBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0f766e',
+    flex: 1,
+  },
+  timePickerBtnIcon: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#0D9488',
+    marginLeft: 4,
+  },
+  timePickerBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  timePickerCard: {
+    width: '100%',
+    maxWidth: 350,
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    padding: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 15,
+    elevation: 12,
+  },
+  timePickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  timePickerTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0f172a',
+  },
+  timePickerSubtitle: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  timePickerCloseBtn: {
+    padding: 6,
+  },
+  timePickerCloseText: {
+    fontSize: 16,
+    color: '#94a3b8',
+    fontWeight: '700',
+  },
+  anytimeBtn: {
+    backgroundColor: '#f0fdfa',
+    borderWidth: 1.5,
+    borderColor: '#99f6e4',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    marginBottom: 12,
+    alignItems: 'center',
+  },
+  anytimeBtnActive: {
+    backgroundColor: '#0D9488',
+    borderColor: '#0f766e',
+  },
+  anytimeBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0f766e',
+  },
+  anytimeBtnTextActive: {
+    color: '#ffffff',
+  },
+  timePeriodGroup: {
+    marginBottom: 12,
+  },
+  timePeriodLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#64748b',
+    marginBottom: 6,
+    letterSpacing: 0.5,
+  },
+  slotsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  slotChip: {
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+  },
+  slotChipSelected: {
+    backgroundColor: '#0D9488',
+    borderColor: '#0f766e',
+  },
+  slotChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  slotChipTextSelected: {
+    color: '#ffffff',
+    fontWeight: '800',
+  },
+  customTimeSection: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    marginBottom: 14,
+  },
+  customTimeSectionTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#0f766e',
+    marginBottom: 10,
+  },
+  timeInputsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  timeInputCol: {
+    alignItems: 'center',
+  },
+  timeInputColLabel: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#64748b',
+    marginBottom: 4,
+    letterSpacing: 0.5,
+  },
+  timeStepperBox: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 10,
+    alignItems: 'center',
+    width: 58,
+    overflow: 'hidden',
+  },
+  timeStepperBtn: {
+    width: '100%',
+    height: 22,
+    backgroundColor: '#f1f5f9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  timeStepperBtnText: {
+    fontSize: 10,
+    color: '#0f766e',
+    fontWeight: '800',
+  },
+  timeInputBox: {
+    width: '100%',
+    height: 32,
+    textAlign: 'center',
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0f172a',
+    paddingVertical: 0,
+  },
+  timeColonText: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#0f766e',
+    marginTop: 14,
+  },
+  ampmToggleCol: {
+    alignItems: 'center',
+    marginLeft: 4,
+  },
+  ampmToggleBox: {
+    flexDirection: 'column',
+    gap: 4,
+    marginTop: 2,
+  },
+  ampmBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 8,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    alignItems: 'center',
+  },
+  ampmBtnActive: {
+    backgroundColor: '#0D9488',
+    borderColor: '#0f766e',
+  },
+  ampmBtnText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#64748b',
+  },
+  ampmBtnTextActive: {
+    color: '#ffffff',
+  },
+  applyTimeBtn: {
+    backgroundColor: '#0D9488',
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  applyTimeBtnText: {
+    color: '#ffffff',
+    fontWeight: '800',
+    fontSize: 13,
   },
 });

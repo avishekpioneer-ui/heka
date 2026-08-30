@@ -9,10 +9,12 @@ import medicineRoutes from "./opdMedicine.routes.js";
 import billingRoutes from "./opdBilling.routes.js";
 import roleRoutes from "./opdRole.routes.js";
 import reminderRoutes from "./opdReminder.routes.js";
+import dashboardRoutes from "./opdDashboard.routes.js";
 
 const router = express.Router();
 
 router.use("/auth", authRoutes);
+router.use("/dashboard", dashboardRoutes);
 router.use("/patients", patientRoutes);
 router.use("/appointments", appointmentRoutes);
 router.use("/consultations", consultationRoutes);

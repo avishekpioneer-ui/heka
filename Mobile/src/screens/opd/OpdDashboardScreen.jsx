@@ -34,73 +34,66 @@ export default function OpdDashboardScreen({ onNavigate }) {
     try {
       setLoading(true);
 
+      // Attempt single fast aggregation endpoint
+      try {
+        const res = await apiClient.get('/api/opd/dashboard/stats');
+        if (res.data?.stats) {
+          setStats(res.data.stats);
+          setAppointments(Array.isArray(res.data.recentAppointments) ? res.data.recentAppointments : []);
+          return;
+        }
+      } catch (err) {
+        // Fallback to parallel requests if endpoint not available
+      }
+
       const role = await storage.getItem('userRoleName');
       const name = await storage.getItem('userName');
       const id = await storage.getItem('userId');
 
-      let patientsCount = 0;
-      let appts = [];
-      let consultsCount = 0;
+      // Parallel fetch using Promise.all
+      const [pRes, aRes, cRes, bRes] = await Promise.all([
+        apiClient.get('/api/opd/patients').catch(() => ({ data: [] })),
+        apiClient.get('/api/opd/appointments').catch(() => ({ data: [] })),
+        apiClient.get('/api/opd/consultations').catch(() => ({ data: [] })),
+        apiClient.get('/api/opd/billing').catch(() => ({ data: [] })),
+      ]);
+
+      const pData = pRes.data?.patients || pRes.data || [];
+      const patientsCount = Array.isArray(pData) ? pData.length : 0;
+
+      const aData = aRes.data?.appointments || aRes.data || [];
+      let list = Array.isArray(aData) ? aData : [];
+      if (role && role.toLowerCase() === 'doctor') {
+        list = list.filter(
+          (a) =>
+            a.doctorId === id ||
+            (a.doctorName && a.doctorName.toLowerCase() === name?.toLowerCase())
+        );
+      }
+      setAppointments(list.slice(0, 5));
+
+      const cData = cRes.data?.consultations || cRes.data || [];
+      let cList = Array.isArray(cData) ? cData : [];
+      if (role && role.toLowerCase() === 'doctor') {
+        cList = cList.filter(
+          (c) =>
+            c.doctorId === id ||
+            (c.doctorName && c.doctorName.toLowerCase() === name?.toLowerCase())
+        );
+      }
+
       let pending = 0;
       let paid = 0;
-
-      // 1. Fetch Patients Count
-      try {
-        const pRes = await apiClient.get('/api/opd/patients');
-        const pData = pRes.data?.patients || pRes.data || [];
-        patientsCount = Array.isArray(pData) ? pData.length : 0;
-      } catch (e) {}
-
-      // 2. Fetch Appointments Feed
-      try {
-        const aRes = await apiClient.get('/api/opd/appointments');
-        const aData = aRes.data?.appointments || aRes.data || [];
-        let list = Array.isArray(aData) ? aData : [];
-
-        // If Doctor, filter to Doctor A only
-        if (role && role.toLowerCase() === 'doctor') {
-          list = list.filter(
-            (a) =>
-              a.doctorId === id ||
-              (a.doctorName && a.doctorName.toLowerCase() === name.toLowerCase())
-          );
-        }
-
-        appts = list;
-        setAppointments(appts.slice(0, 5));
-      } catch (e) {}
-
-      // 3. Fetch Consultations Count
-      try {
-        const cRes = await apiClient.get('/api/opd/consultations');
-        const cData = cRes.data?.consultations || cRes.data || [];
-        let cList = Array.isArray(cData) ? cData : [];
-
-        if (role && role.toLowerCase() === 'doctor') {
-          cList = cList.filter(
-            (c) =>
-              c.doctorId === id ||
-              (c.doctorName && c.doctorName.toLowerCase() === name.toLowerCase())
-          );
-        }
-
-        consultsCount = cList.length;
-      } catch (e) {}
-
-      // 4. Fetch Billing Ratio
-      try {
-        const bRes = await apiClient.get('/api/opd/billing');
-        const bData = bRes.data?.invoices || bRes.data?.bills || bRes.data || [];
-        if (Array.isArray(bData)) {
-          pending = bData.filter((b) => b.status === 'Pending' || b.status === 'UNPAID').length;
-          paid = bData.filter((b) => b.status === 'Paid' || b.status === 'PAID').length;
-        }
-      } catch (e) {}
+      const bData = bRes.data?.invoices || bRes.data?.bills || bRes.data || [];
+      if (Array.isArray(bData)) {
+        pending = bData.filter((b) => b.status === 'Pending' || b.status === 'UNPAID').length;
+        paid = bData.filter((b) => b.status === 'Paid' || b.status === 'PAID').length;
+      }
 
       setStats({
         patients: patientsCount,
-        appointments: appts.length,
-        consultations: consultsCount,
+        appointments: list.length,
+        consultations: cList.length,
         billingPending: pending,
         billingPaid: paid,
       });

@@ -27,4 +27,7 @@ const opdReminderSchema = new mongoose.Schema(
     { timestamps: true }
 );
 
+opdReminderSchema.index({ followUpDate: -1 });
+opdReminderSchema.index({ patientId: 1 });
+
 export default mongoose.model("OpdReminder", opdReminderSchema);

@@ -16,7 +16,6 @@ import apiClient from '../../config/api';
 
 export default function OpdDiagnosticTestsScreen() {
   const [tests, setTests] = useState([]);
-  const [patients, setPatients] = useState([]);
   const [testOrders, setTestOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -35,15 +34,6 @@ export default function OpdDiagnosticTestsScreen() {
   const [editingTestId, setEditingTestId] = useState(null);
   const [editFormData, setEditFormData] = useState({ name: '', price: '', category: '' });
 
-  // Schedule Test Order Modal
-  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
-  const [orderForm, setOrderForm] = useState({
-    patientId: '',
-    testId: '',
-    notes: '',
-    scheduledDate: new Date().toISOString().substring(0, 10),
-  });
-
   useEffect(() => {
     fetchData();
   }, []);
@@ -51,15 +41,9 @@ export default function OpdDiagnosticTestsScreen() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const res = await apiClient.get('/api/opd/tests');
+      const res = await apiClient.get('/api/opd/tests').catch(() => ({ data: [] }));
       const data = res.data?.tests || res.data || [];
       setTests(Array.isArray(data) ? data : []);
-
-      try {
-        const pRes = await apiClient.get('/api/opd/patients');
-        const pData = pRes.data?.patients || pRes.data || [];
-        setPatients(Array.isArray(pData) ? pData : []);
-      } catch (e) {}
     } catch (err) {
       console.error('Error fetching diagnostic tests:', err);
     } finally {
@@ -72,7 +56,7 @@ export default function OpdDiagnosticTestsScreen() {
       const oRes = await apiClient.get('/api/opd/test-orders');
       const oData = oRes.data?.orders || oRes.data || [];
       setTestOrders(Array.isArray(oData) ? oData : []);
-    } catch (e) {}
+    } catch (e) { }
   };
 
   const handleAddTest = async () => {
@@ -170,43 +154,6 @@ export default function OpdDiagnosticTestsScreen() {
     );
   };
 
-  const handleScheduleOrder = async () => {
-    if (!orderForm.patientId || !orderForm.testId) {
-      setError('Please select both a patient and a test');
-      return;
-    }
-
-    setError('');
-    setSuccess('');
-    setSubmitting(true);
-
-    try {
-      await apiClient.post('/api/opd/test-orders', {
-        patientId: orderForm.patientId,
-        testId: orderForm.testId,
-        notes: orderForm.notes,
-        scheduledDate: orderForm.scheduledDate,
-      });
-
-      setSuccess('Diagnostic test scheduled successfully!');
-      setOrderForm({
-        patientId: '',
-        testId: '',
-        notes: '',
-        scheduledDate: new Date().toISOString().substring(0, 10),
-      });
-      fetchOrderData();
-      setTimeout(() => {
-        setIsOrderModalOpen(false);
-        setSuccess('');
-      }, 1200);
-    } catch (err) {
-      setError(err.response?.data?.message || 'Error scheduling test order');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
     try {
       await apiClient.put(`/api/opd/test-orders/${orderId}/status`, {
@@ -232,20 +179,19 @@ export default function OpdDiagnosticTestsScreen() {
             <Text style={styles.subtitle}>Test catalog rates & lab investigation orders</Text>
           </View>
 
-          <TouchableOpacity
-            style={styles.addBtn}
-            onPress={() => {
-              setError('');
-              setSuccess('');
-              if (activeTab === 'catalog') setIsAddModalOpen(true);
-              else setIsOrderModalOpen(true);
-            }}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.addBtnText}>
-              {activeTab === 'catalog' ? '+ Add Test' : '+ Schedule Test'}
-            </Text>
-          </TouchableOpacity>
+          {activeTab === 'catalog' && (
+            <TouchableOpacity
+              style={styles.addBtn}
+              onPress={() => {
+                setError('');
+                setSuccess('');
+                setIsAddModalOpen(true);
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.addBtnText}>+ Add Test</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Tab Toggle Bar */}
@@ -297,7 +243,7 @@ export default function OpdDiagnosticTestsScreen() {
                 <View style={styles.cardActions}>
                   <TouchableOpacity
                     style={styles.actionBtn}
-                    onPress={() => handleOpenEdit(t)}
+                    onPress={() => openEditModal(t)}
                     activeOpacity={0.7}
                   >
                     <Text style={styles.actionBtnText}>Edit</Text>
@@ -305,7 +251,7 @@ export default function OpdDiagnosticTestsScreen() {
 
                   <TouchableOpacity
                     style={[styles.actionBtn, styles.deleteBtn]}
-                    onPress={() => handleDelete(t)}
+                    onPress={() => handleDeleteTest(t._id || t.id, t.name)}
                     activeOpacity={0.7}
                   >
                     <Text style={[styles.actionBtnText, styles.deleteBtnText]}>Delete</Text>
@@ -319,7 +265,7 @@ export default function OpdDiagnosticTestsScreen() {
           testOrders.length === 0 ? (
             <View style={styles.emptyBox}>
               <Text style={styles.emptyTitle}>No Test Orders Queued</Text>
-              <Text style={styles.emptyText}>Tap "+ Schedule Test" to order an investigation for a patient.</Text>
+              <Text style={styles.emptyText}>Diagnostic test orders appear here when prescribed or billed.</Text>
             </View>
           ) : (
             testOrders.map((ord) => (
@@ -329,11 +275,11 @@ export default function OpdDiagnosticTestsScreen() {
                   <View
                     style={[
                       styles.orderStatus,
-                      ord.status === 'Completed'
+                      ord.status === 'Reported' || ord.status === 'Completed'
                         ? styles.statusGreen
-                        : ord.status === 'Sample Collected'
-                        ? styles.statusBlue
-                        : styles.statusOrange,
+                        : ord.status === 'Collected' || ord.status === 'Sample Collected'
+                          ? styles.statusBlue
+                          : styles.statusOrange,
                     ]}
                   >
                     <Text style={styles.orderStatusText}>{ord.status?.toUpperCase()}</Text>
@@ -342,7 +288,7 @@ export default function OpdDiagnosticTestsScreen() {
 
                 <Text style={styles.orderTest}>🔬 {ord.testName || ord.testId?.name || 'Diagnostic Test'}</Text>
                 <Text style={styles.orderDate}>
-                  📅 Scheduled: {new Date(ord.scheduledDate || ord.createdAt).toLocaleDateString()}
+                  📅 Date: {new Date(ord.scheduledDate || ord.createdAt).toLocaleDateString()}
                 </Text>
                 {ord.notes ? <Text style={styles.orderNotes}>Note: {ord.notes}</Text> : null}
 
@@ -350,7 +296,7 @@ export default function OpdDiagnosticTestsScreen() {
                   <View style={styles.orderActions}>
                     <TouchableOpacity
                       style={styles.collectBtn}
-                      onPress={() => handleUpdateOrderStatus(ord._id || ord.id, 'Sample Collected')}
+                      onPress={() => handleUpdateOrderStatus(ord._id || ord.id, 'Collected')}
                       activeOpacity={0.8}
                     >
                       <Text style={styles.collectBtnText}>🧪 Collect Sample</Text>
@@ -358,14 +304,14 @@ export default function OpdDiagnosticTestsScreen() {
                   </View>
                 )}
 
-                {ord.status === 'Sample Collected' && (
+                {(ord.status === 'Collected' || ord.status === 'Sample Collected') && (
                   <View style={styles.orderActions}>
                     <TouchableOpacity
                       style={styles.reportBtn}
-                      onPress={() => handleUpdateOrderStatus(ord._id || ord.id, 'Completed')}
+                      onPress={() => handleUpdateOrderStatus(ord._id || ord.id, 'Reported')}
                       activeOpacity={0.8}
                     >
-                      <Text style={styles.completeOrderBtnText}>✓ Mark Sample Collected & Done</Text>
+                      <Text style={styles.completeOrderBtnText}>✓ Mark Test Done / Reported</Text>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -468,90 +414,6 @@ export default function OpdDiagnosticTestsScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
-
-      {/* ── Schedule Test Order Modal ───────────────────────────────────────── */}
-      <Modal visible={isOrderModalOpen} animationType="slide" transparent statusBarTranslucent onRequestClose={() => setIsOrderModalOpen(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} style={{ flex: 1 }}>
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContainer}>
-              <ScrollView
-                contentContainerStyle={styles.modalContent}
-                keyboardShouldPersistTaps="handled"
-                automaticallyAdjustKeyboardInsets={true}
-              >
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>Schedule Investigation</Text>
-                  <TouchableOpacity onPress={() => setIsOrderModalOpen(false)}>
-                    <Text style={styles.modalClose}>✕</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {success ? <View style={styles.successBox}><Text style={styles.successText}>{success}</Text></View> : null}
-                {error ? <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View> : null}
-
-                {/* Patient Selection */}
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>SELECT PATIENT *</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-                    {patients.map((p) => {
-                      const isSelected = orderForm.patientId === (p._id || p.id);
-                      return (
-                        <TouchableOpacity
-                          key={p._id || p.id}
-                          style={[styles.chip, isSelected && styles.chipActive]}
-                          onPress={() => setOrderForm({ ...orderForm, patientId: p._id || p.id })}
-                        >
-                          <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
-                            {p.name}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </ScrollView>
-                </View>
-
-                {/* Test Selection */}
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>SELECT TEST *</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-                    {tests.map((t) => {
-                      const isSelected = orderForm.testId === (t._id || t.id);
-                      return (
-                        <TouchableOpacity
-                          key={t._id || t.id}
-                          style={[styles.chip, isSelected && styles.chipActive]}
-                          onPress={() => setOrderForm({ ...orderForm, testId: t._id || t.id })}
-                        >
-                          <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
-                            {t.name} (₹{t.price})
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </ScrollView>
-                </View>
-
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>SCHEDULED DATE (YYYY-MM-DD) *</Text>
-                  <TextInput style={styles.fieldInput} placeholder="2026-08-10"
-                    value={orderForm.scheduledDate} onChangeText={(text) => setOrderForm({ ...orderForm, scheduledDate: text })} />
-                </View>
-
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>CLINICAL INSTRUCTIONS / NOTES</Text>
-                  <TextInput style={[styles.fieldInput, { height: 60 }]} placeholder="e.g. Fasting required"
-                    multiline value={orderForm.notes} onChangeText={(text) => setOrderForm({ ...orderForm, notes: text })} />
-                </View>
-
-                <TouchableOpacity style={[styles.submitBtn, submitting && styles.btnDisabled]}
-                  onPress={handleScheduleOrder} disabled={submitting} activeOpacity={0.8}>
-                  {submitting ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.submitBtnText}>Schedule Diagnostic Test</Text>}
-                </TouchableOpacity>
-              </ScrollView>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -598,11 +460,7 @@ const styles = StyleSheet.create({
   collectBtn: { flex: 1, backgroundColor: '#eff6ff', paddingVertical: 8, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#bfdbfe' },
   collectBtnText: { color: '#1d4ed8', fontWeight: '700', fontSize: 12 },
   reportBtn: { flex: 1, backgroundColor: '#f0fdf4', paddingVertical: 8, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#bbf7d0' },
-  reportBtnText: { color: '#15803d', fontWeight: '700', fontSize: 12 },
-  chip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, backgroundColor: '#f1f5f9', marginRight: 6 },
-  chipActive: { backgroundColor: '#0D9488' },
-  chipText: { fontSize: 12, fontWeight: '600', color: '#475569' },
-  chipTextActive: { color: '#ffffff', fontWeight: '700' },
+  completeOrderBtnText: { color: '#15803d', fontWeight: '700', fontSize: 12 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalContainer: { backgroundColor: '#ffffff', borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '90%' },
   modalContent: { padding: 20, gap: 12, paddingBottom: 100 },

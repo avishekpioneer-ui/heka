@@ -42,4 +42,8 @@ const opdTestOrderSchema = new mongoose.Schema(
     { timestamps: true }
 );
 
+opdTestOrderSchema.index({ createdAt: -1 });
+opdTestOrderSchema.index({ patientId: 1 });
+opdTestOrderSchema.index({ billId: 1 });
+
 export default mongoose.model("OpdTestOrder", opdTestOrderSchema);

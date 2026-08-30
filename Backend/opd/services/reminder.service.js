@@ -4,7 +4,7 @@ import { emitOpdEvent } from "../socket.js";
 
 export const scanAndSendReminders = async () => {
     try {
-        console.log("⏰ Running OPD Follow-up Reminder Scan...");
+        console.log("⏰ Running OPD Follow-up Reminder Scan / Consults Sync...");
         
         // Find consultations with a follow-up date set
         const consultations = await OpdConsultation.find({ 
@@ -18,45 +18,51 @@ export const scanAndSendReminders = async () => {
             if (!cons.patientId || !cons.followUpDate) continue;
 
             const followUpDate = new Date(cons.followUpDate);
+            if (isNaN(followUpDate.getTime())) continue;
             
-            // Calculate difference in time
-            const diffTime = followUpDate.getTime() - now.getTime();
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            // Truncate to check if reminder already created for this patient and date
+            const startOfDay = new Date(followUpDate);
+            startOfDay.setHours(0,0,0,0);
+            const endOfDay = new Date(followUpDate);
+            endOfDay.setHours(23,59,59,999);
 
-            // If follow-up is within the next 3 days and not in the past
-            if (diffDays >= 0 && diffDays <= 3) {
-                // Check if we already sent a reminder for this patient and follow-up date
-                // We truncate the date to avoid duplicate scans
-                const startOfDay = new Date(followUpDate.setHours(0,0,0,0));
-                const endOfDay = new Date(followUpDate.setHours(23,59,59,999));
+            const existingReminder = await OpdReminder.findOne({
+                patientId: cons.patientId._id,
+                followUpDate: {
+                    $gte: startOfDay,
+                    $lte: endOfDay
+                }
+            });
 
-                const existingReminder = await OpdReminder.findOne({
+            if (!existingReminder) {
+                const formattedDate = followUpDate.toLocaleDateString();
+                const patientName = cons.patientId.name || "Patient";
+                const doctorName = cons.doctorName || "Doctor";
+                const diagInfo = cons.diagnosis ? ` for ${cons.diagnosis}` : "";
+                const message = `Clinical follow-up advisory: Consult with Dr. ${doctorName}${diagInfo}. Advised revisit on ${formattedDate}.`;
+                
+                const diffTime = followUpDate.getTime() - now.getTime();
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                const status = (diffDays >= 0 && diffDays <= 3) ? "Sent" : (diffDays < 0 ? "Completed" : "Scheduled");
+
+                const reminder = await OpdReminder.create({
                     patientId: cons.patientId._id,
-                    followUpDate: {
-                        $gte: startOfDay,
-                        $lte: endOfDay
-                    }
+                    followUpDate: followUpDate,
+                    message,
+                    status
                 });
 
-                if (!existingReminder) {
-                    const message = `Hello ${cons.patientId.name}, this is a friendly reminder of your upcoming follow-up consultation with ${cons.doctorName} scheduled for ${cons.followUpDate.toLocaleDateString()}. Please contact Heka OPD if you need to reschedule.`;
-                    
-                    const reminder = await OpdReminder.create({
-                        patientId: cons.patientId._id,
-                        followUpDate: cons.followUpDate,
-                        message,
-                        status: "Sent"
-                    });
+                emitOpdEvent("opd:reminder", { 
+                    type: "created", 
+                    reminder: { ...reminder.toObject(), patientId: cons.patientId } 
+                });
 
-                    emitOpdEvent("opd:reminder", { type: "created", reminder: { ...reminder.toObject(), patientId: cons.patientId } });
-
-                    console.log(`✉️ Follow-up reminder logged/sent to ${cons.patientId.name} for date ${cons.followUpDate.toLocaleDateString()}`);
-                    remindersCreated++;
-                }
+                console.log(`✉️ Follow-up reminder synced from clinical consult for ${patientName} on date ${formattedDate}`);
+                remindersCreated++;
             }
         }
 
-        console.log(`⏰ OPD Reminder Scan complete. Sent ${remindersCreated} new reminders.`);
+        console.log(`⏰ OPD Reminder Scan complete. Synced/sent ${remindersCreated} new reminders.`);
         return remindersCreated;
     } catch (error) {
         console.error("❌ Error running reminder scan service:", error);
@@ -68,11 +74,15 @@ export const scanAndSendReminders = async () => {
 export const startReminderScheduler = () => {
     // Run once at startup after a small delay
     setTimeout(() => {
-        scanAndSendReminders().catch(err => {});
+        scanAndSendReminders().catch(err => {
+            console.error("Scheduler initial scan error:", err);
+        });
     }, 10000);
 
     // Repeat every 1 hour
     setInterval(() => {
-        scanAndSendReminders().catch(err => {});
+        scanAndSendReminders().catch(err => {
+            console.error("Scheduler periodic scan error:", err);
+        });
     }, 1000 * 60 * 60);
 };

@@ -98,20 +98,31 @@ html.rudraksh-theme ::-webkit-scrollbar-thumb:hover {
 }
 
 @media print {
+  @page {
+    size: A4 portrait;
+    margin: 6mm 8mm 6mm 8mm;
+  }
   body * {
     visibility: hidden;
   }
   #printable-receipt, #printable-receipt *,
-  #printable-invoice, #printable-invoice * {
+  #printable-invoice, #printable-invoice *,
+  #printable-prescription, #printable-prescription * {
     visibility: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
   #printable-receipt,
-  #printable-invoice {
+  #printable-invoice,
+  #printable-prescription {
     position: absolute;
     left: 0;
     top: 0;
     width: 100%;
     display: block !important;
     background: white;
+  }
+  .no-print {
+    display: none !important;
   }
 }

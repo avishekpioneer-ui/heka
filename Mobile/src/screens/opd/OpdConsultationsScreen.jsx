@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import apiClient from '../../config/api';
 import storage from '../../utils/storage';
+import { printPrescription, sharePrescriptionPdf } from '../../utils/prescriptionPdf';
 
 const QUICK_SYMPTOMS = [
   'Mild Fever',
@@ -59,6 +60,23 @@ const DURATION_OPTIONS = [
   '2 months',
 ];
 
+const QUICK_TESTS = [
+  'Complete Blood Count (CBC)',
+  'Lipid Profile',
+  'Blood Sugar Fasting (FBS)',
+  'Blood Sugar PP (PPBS)',
+  'HbA1c',
+  'Liver Function Test (LFT)',
+  'Kidney Function Test (KFT)',
+  'Chest X-Ray PA View',
+  'ECG (12 Lead)',
+  'Urine Routine & Micro',
+  'Thyroid Profile (T3/T4/TSH)',
+  'Serum Creatinine',
+  'Serum Electrolytes',
+  'Ultrasound Whole Abdomen',
+];
+
 export default function OpdConsultationsScreen({ onNavigate, routeParams }) {
   const [activeTab, setActiveTab] = useState('active'); // 'active' | 'history'
   const [appointments, setAppointments] = useState([]);
@@ -87,7 +105,11 @@ export default function OpdConsultationsScreen({ onNavigate, routeParams }) {
   const [prescription, setPrescription] = useState([
     { medicineName: '', dosage: '1-0-1 (Morning & Night)', duration: '5 days' },
   ]);
+  const [testsList, setTestsList] = useState([]);
+  const [tests, setTests] = useState([{ testName: '', notes: '' }]);
+  const [openTestDropdownIdx, setOpenTestDropdownIdx] = useState(null);
   const [followUpDate, setFollowUpDate] = useState('');
+  const [issuedPrescription, setIssuedPrescription] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -109,11 +131,12 @@ export default function OpdConsultationsScreen({ onNavigate, routeParams }) {
       const name = await storage.getItem('userName');
       const uid = await storage.getItem('userId');
 
-      // Fetch appointments, medicines, consultations
-      const [aRes, mRes, cRes] = await Promise.all([
+      // Fetch appointments, medicines, consultations, and registered diagnostic tests
+      const [aRes, mRes, cRes, tRes] = await Promise.all([
         apiClient.get('/api/opd/appointments').catch(() => ({ data: [] })),
         apiClient.get('/api/opd/medicines').catch(() => ({ data: [] })),
         apiClient.get('/api/opd/consultations').catch(() => ({ data: [] })),
+        apiClient.get('/api/opd/tests').catch(() => ({ data: [] })),
       ]);
 
       const aData = aRes.data?.appointments || aRes.data || [];
@@ -128,6 +151,9 @@ export default function OpdConsultationsScreen({ onNavigate, routeParams }) {
 
       const cData = cRes.data?.consultations || cRes.data || [];
       setConsultations(Array.isArray(cData) ? cData : []);
+
+      const tData = tRes.data?.tests || tRes.data || [];
+      setTestsList(Array.isArray(tData) ? tData : []);
     } catch (err) {
       console.error('Error fetching consultation data:', err);
     } finally {
@@ -212,6 +238,39 @@ export default function OpdConsultationsScreen({ onNavigate, routeParams }) {
     setOpenDurationDropdownIdx(null);
   };
 
+  // ── Recommended Tests Row Helpers ─────────────────────────────────────────
+  const addTestRow = () => {
+    setTests((prev) => [...prev, { testName: '', notes: '' }]);
+  };
+
+  const removeTestRow = (index) => {
+    if (tests.length === 1) {
+      setTests([{ testName: '', notes: '' }]);
+      return;
+    }
+    setTests((prev) => prev.filter((_, idx) => idx !== index));
+    if (openTestDropdownIdx === index) setOpenTestDropdownIdx(null);
+  };
+
+  const updateTestRow = (index, field, value) => {
+    setTests((prev) =>
+      prev.map((item, idx) => (idx === index ? { ...item, [field]: value } : item))
+    );
+  };
+
+  const handleSelectTestFromDropdown = (index, testName) => {
+    updateTestRow(index, 'testName', testName);
+    setOpenTestDropdownIdx(null);
+  };
+
+  const handleAddQuickTest = (testName) => {
+    setTests((prev) => {
+      const exists = prev.some((t) => (t.testName || '').toLowerCase() === testName.toLowerCase());
+      if (exists) return prev;
+      return [...prev, { testName, notes: '' }];
+    });
+  };
+
   // ── Submit Consultation ──────────────────────────────────────────────────
   const handleSubmitConsultation = async () => {
     if (!selectedAppt) {
@@ -230,6 +289,7 @@ export default function OpdConsultationsScreen({ onNavigate, routeParams }) {
 
     try {
       const validPrescription = prescription.filter((p) => p.medicineName.trim());
+      const validTests = tests.filter((t) => t.testName && t.testName.trim());
 
       const payload = {
         appointmentId: selectedAppt._id || selectedAppt.id,
@@ -240,32 +300,40 @@ export default function OpdConsultationsScreen({ onNavigate, routeParams }) {
         symptoms: symptoms.trim(),
         diagnosis: diagnosis.trim(),
         prescription: validPrescription,
+        tests: validTests,
         followUpDate: followUpDate || undefined,
       };
 
-      await apiClient.post('/api/opd/consultations', payload);
+      const res = await apiClient.post('/api/opd/consultations', payload);
+      const savedCons = res.data?.consultation || {
+        ...payload,
+        patientId: selectedAppt.patientId,
+        createdAt: new Date().toISOString(),
+      };
 
       // Auto-update appointment status to Completed
       try {
         await apiClient.put(`/api/opd/appointments/${selectedAppt._id || selectedAppt.id}/status`, {
           status: 'Completed',
         });
-      } catch (e) {}
+      } catch (e) { }
 
       setSuccess('Prescription & clinical case sheet saved successfully!');
+      setIssuedPrescription(savedCons);
 
       // Clean up inputs
       setSelectedAppt(null);
       setSymptoms('');
       setDiagnosis('');
       setPrescription([{ medicineName: '', dosage: '1-0-1 (Morning & Night)', duration: '5 days' }]);
+      setTests([{ testName: '', notes: '' }]);
       setFollowUpDate('');
 
       fetchData();
 
       setTimeout(() => {
         setSuccess('');
-      }, 3000);
+      }, 4000);
     } catch (err) {
       setError(err.response?.data?.message || 'Error saving consultation details.');
     } finally {
@@ -294,7 +362,7 @@ export default function OpdConsultationsScreen({ onNavigate, routeParams }) {
         `Take prescribed medicines as directed.`;
 
       await Share.share({ message: msg });
-    } catch (e) {}
+    } catch (e) { }
   };
 
   const filteredHistory = consultations.filter((c) => {
@@ -366,7 +434,7 @@ export default function OpdConsultationsScreen({ onNavigate, routeParams }) {
             {/* 1. Scheduled Appointment Dropdown */}
             <View style={styles.card}>
               <Text style={styles.sectionHeading}>1. SELECT SCHEDULED APPOINTMENT *</Text>
-              
+
               {/* Dropdown Trigger */}
               <TouchableOpacity
                 style={[
@@ -586,7 +654,7 @@ export default function OpdConsultationsScreen({ onNavigate, routeParams }) {
                   {/* Medicine Dropdown Selector */}
                   <View style={styles.fieldGroup}>
                     <Text style={styles.fieldLabel}>MEDICINE NAME * (SELECT OR TYPE)</Text>
-                    
+
                     <TouchableOpacity
                       style={[
                         styles.dropdownTrigger,
@@ -694,6 +762,15 @@ export default function OpdConsultationsScreen({ onNavigate, routeParams }) {
                         ))}
                       </View>
                     )}
+
+                    {/* Direct typing input if custom dosage */}
+                    <TextInput
+                      style={[styles.fieldInput, { marginTop: 4 }]}
+                      placeholder="Or type custom dosage (e.g. 1-0-1, SOS, 2 tabs)..."
+                      placeholderTextColor="#94a3b8"
+                      value={rx.dosage}
+                      onChangeText={(val) => updatePrescriptionRow(idx, 'dosage', val)}
+                    />
                   </View>
 
                   {/* Duration Dropdown */}
@@ -732,14 +809,140 @@ export default function OpdConsultationsScreen({ onNavigate, routeParams }) {
                         ))}
                       </View>
                     )}
+
+                    {/* Direct typing input if custom duration */}
+                    <TextInput
+                      style={[styles.fieldInput, { marginTop: 4 }]}
+                      placeholder="Or type custom duration (e.g. 5 days, 2 weeks)..."
+                      placeholderTextColor="#94a3b8"
+                      value={rx.duration}
+                      onChangeText={(val) => updatePrescriptionRow(idx, 'duration', val)}
+                    />
                   </View>
                 </View>
               ))}
             </View>
 
-            {/* 5. Follow-up Advisory */}
+            {/* 5. Recommended Diagnostic Tests (Lab & Radiology) */}
             <View style={styles.card}>
-              <Text style={styles.sectionHeading}>5. FOLLOW-UP ADVISORY</Text>
+              <View style={styles.cardHeaderRow}>
+                <Text style={styles.sectionHeading}>5. DIAGNOSTIC TESTS</Text>
+                <TouchableOpacity
+                  style={styles.addMedBtn}
+                  onPress={addTestRow}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.addMedBtnText}>+ Add Test</Text>
+                </TouchableOpacity>
+              </View>
+
+              {tests.map((tItem, idx) => (
+                <View key={idx} style={styles.rxCard}>
+                  <View style={styles.rxCardHeader}>
+                    <Text style={styles.rxCardIndex}>Test #{idx + 1}</Text>
+                    {tests.length > 1 && (
+                      <TouchableOpacity
+                        onPress={() => removeTestRow(idx)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.removeRxText}>✕ Remove</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  {/* Test Dropdown Selector */}
+                  <View style={styles.fieldGroup}>
+                    <Text style={styles.fieldLabel}>TEST NAME * (SELECT OR TYPE)</Text>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.dropdownTrigger,
+                        openTestDropdownIdx === idx && styles.dropdownTriggerActive,
+                      ]}
+                      onPress={() =>
+                        setOpenTestDropdownIdx(openTestDropdownIdx === idx ? null : idx)
+                      }
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.dropdownTriggerText,
+                          tItem.testName && styles.dropdownTriggerTextSelected,
+                        ]}
+                      >
+                        {tItem.testName ? `🔬 ${tItem.testName}` : '-- Select from Tests Catalog ▾ --'}
+                      </Text>
+                      <Text style={styles.dropdownArrow}>
+                        {openTestDropdownIdx === idx ? '▲' : '▼'}
+                      </Text>
+                    </TouchableOpacity>
+
+                    {/* Expandable Test Dropdown List */}
+                    {openTestDropdownIdx === idx && (
+                      <View style={styles.dropdownMenu}>
+                        <ScrollView
+                          style={{ maxHeight: 180 }}
+                          nestedScrollEnabled
+                          keyboardShouldPersistTaps="handled"
+                        >
+                          {testsList.length === 0 ? (
+                            <View style={styles.dropdownEmpty}>
+                              <Text style={styles.dropdownEmptyText}>
+                                No registered tests in catalog.
+                              </Text>
+                            </View>
+                          ) : (
+                            testsList.map((t) => (
+                              <TouchableOpacity
+                                key={t._id || t.id}
+                                style={styles.dropdownMenuItem}
+                                onPress={() => handleSelectTestFromDropdown(idx, t.name)}
+                                activeOpacity={0.7}
+                              >
+                                <View style={{ flex: 1 }}>
+                                  <Text style={styles.dropdownItemTitle}>🔬 {t.name}</Text>
+                                  <Text style={styles.dropdownItemSub}>
+                                    Price: ₹{t.price || 0}
+                                  </Text>
+                                </View>
+                                {tItem.testName === t.name && (
+                                  <Text style={styles.checkIcon}>✓</Text>
+                                )}
+                              </TouchableOpacity>
+                            ))
+                          )}
+                        </ScrollView>
+                      </View>
+                    )}
+
+                    {/* Direct typing input for custom test */}
+                    <TextInput
+                      style={[styles.fieldInput, { marginTop: 4 }]}
+                      placeholder="Or type custom test name..."
+                      placeholderTextColor="#94a3b8"
+                      value={tItem.testName}
+                      onChangeText={(val) => updateTestRow(idx, 'testName', val)}
+                    />
+                  </View>
+
+                  {/* Special Instructions / Notes */}
+                  <View style={styles.fieldGroup}>
+                    <Text style={styles.fieldLabel}>SPECIAL INSTRUCTIONS / CLINICAL NOTES (OPTIONAL)</Text>
+                    <TextInput
+                      style={styles.fieldInput}
+                      placeholder="e.g. Fasting 10-12 hrs / Stat / Before next visit"
+                      placeholderTextColor="#94a3b8"
+                      value={tItem.notes}
+                      onChangeText={(val) => updateTestRow(idx, 'notes', val)}
+                    />
+                  </View>
+                </View>
+              ))}
+            </View>
+
+            {/* 6. Follow-up Advisory */}
+            <View style={styles.card}>
+              <Text style={styles.sectionHeading}>6. FOLLOW-UP ADVISORY</Text>
               <Text style={styles.helperText}>Select recommended follow-up interval:</Text>
 
               <View style={styles.followUpPresetsRow}>
@@ -828,13 +1031,23 @@ export default function OpdConsultationsScreen({ onNavigate, routeParams }) {
                       </Text>
                     </View>
 
-                    <TouchableOpacity
-                      style={styles.shareSlipBtn}
-                      onPress={() => handleShareConsultation(cons)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.shareSlipBtnText}>📤 Share</Text>
-                    </TouchableOpacity>
+                    <View style={{ flexDirection: 'row', gap: 6 }}>
+                      <TouchableOpacity
+                        style={styles.printSlipBtn}
+                        onPress={() => printPrescription(cons)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.printSlipBtnText}>📄 PDF</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.shareSlipBtn}
+                        onPress={() => sharePrescriptionPdf(cons)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.shareSlipBtnText}>📤 Share</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
 
                   <Text style={styles.historyDate}>
@@ -869,6 +1082,20 @@ export default function OpdConsultationsScreen({ onNavigate, routeParams }) {
                     </View>
                   )}
 
+                  {cons.tests && cons.tests.length > 0 && (
+                    <View style={styles.historyTestsBox}>
+                      <Text style={styles.historyTestsTitle}>🔬 RECOMMENDED TESTS:</Text>
+                      {cons.tests.map((t, tIdx) => (
+                        <Text key={tIdx} style={styles.historyTestItem}>
+                          • {typeof t === 'string' ? t : (t.testName || t.name)}{' '}
+                          {t.notes ? (
+                            <Text style={styles.historyTestNotes}>({t.notes})</Text>
+                          ) : null}
+                        </Text>
+                      ))}
+                    </View>
+                  )}
+
                   {cons.followUpDate ? (
                     <View style={styles.historyFollowUpBox}>
                       <Text style={styles.historyFollowUpText}>
@@ -882,6 +1109,73 @@ export default function OpdConsultationsScreen({ onNavigate, routeParams }) {
           </View>
         )}
       </ScrollView>
+
+      {/* Issued Prescription PDF Actions Modal */}
+      {issuedPrescription && (
+        <Modal
+          visible={!!issuedPrescription}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setIssuedPrescription(null)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.issuedModalCard}>
+              <View style={styles.issuedModalHeader}>
+                <Text style={styles.issuedModalIcon}>🩺</Text>
+                <Text style={styles.issuedModalTitle}>Prescription Issued Successfully!</Text>
+                <Text style={styles.issuedModalSubtitle}>
+                  Rudraksh Foundation Letterhead PDF is ready for{' '}
+                  <Text style={{ fontWeight: '800', color: '#0b4d3c' }}>
+                    {issuedPrescription.patientName || issuedPrescription.patientId?.name || 'Patient'}
+                  </Text>
+                </Text>
+              </View>
+
+              <View style={styles.issuedModalDetails}>
+                <Text style={styles.issuedDetailRow}>
+                  👨‍⚕️ <Text style={{ fontWeight: '700' }}>Doctor:</Text> Dr. {issuedPrescription.doctorName}
+                </Text>
+                {issuedPrescription.diagnosis ? (
+                  <Text style={styles.issuedDetailRow}>
+                    📋 <Text style={{ fontWeight: '700' }}>Diagnosis:</Text> {issuedPrescription.diagnosis}
+                  </Text>
+                ) : null}
+                <Text style={styles.issuedDetailRow}>
+                  💊 <Text style={{ fontWeight: '700' }}>Medicines:</Text>{' '}
+                  {issuedPrescription.prescription?.length || 0} items prescribed
+                </Text>
+              </View>
+
+              <View style={styles.issuedModalBtnGroup}>
+                <TouchableOpacity
+                  style={styles.primaryPdfBtn}
+                  onPress={() => {
+                    printPrescription(issuedPrescription);
+                  }}
+                >
+                  <Text style={styles.primaryPdfBtnText}>📄 View / Print PDF</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.secondaryPdfBtn}
+                  onPress={() => {
+                    sharePrescriptionPdf(issuedPrescription);
+                  }}
+                >
+                  <Text style={styles.secondaryPdfBtnText}>📤 Share PDF (WhatsApp / Drive)</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.closePdfModalBtn}
+                  onPress={() => setIssuedPrescription(null)}
+                >
+                  <Text style={styles.closePdfModalBtnText}>Done</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -1325,6 +1619,17 @@ const styles = StyleSheet.create({
     color: '#0f766e',
     marginTop: 1,
   },
+  printSlipBtn: {
+    backgroundColor: '#0b4d3c',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  printSlipBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
   shareSlipBtn: {
     backgroundColor: '#f0fdfa',
     paddingHorizontal: 10,
@@ -1337,6 +1642,100 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#0f766e',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  issuedModalCard: {
+    width: '100%',
+    maxWidth: 380,
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    padding: 22,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  issuedModalHeader: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  issuedModalIcon: {
+    fontSize: 38,
+    marginBottom: 8,
+  },
+  issuedModalTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#0b4d3c',
+    textAlign: 'center',
+  },
+  issuedModalSubtitle: {
+    fontSize: 12,
+    color: '#64748b',
+    textAlign: 'center',
+    marginTop: 4,
+    lineHeight: 16,
+  },
+  issuedModalDetails: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
+    gap: 6,
+    marginBottom: 18,
+  },
+  issuedDetailRow: {
+    fontSize: 12,
+    color: '#334155',
+  },
+  issuedModalBtnGroup: {
+    gap: 10,
+  },
+  primaryPdfBtn: {
+    backgroundColor: '#0b4d3c',
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    shadowColor: '#0b4d3c',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  primaryPdfBtnText: {
+    color: '#ffffff',
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  secondaryPdfBtn: {
+    backgroundColor: '#ecfdf5',
+    paddingVertical: 11,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#a7f3d0',
+  },
+  secondaryPdfBtnText: {
+    color: '#065f46',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  closePdfModalBtn: {
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  closePdfModalBtnText: {
+    color: '#94a3b8',
+    fontWeight: '700',
+    fontSize: 13,
   },
   historyDate: {
     fontSize: 11,
@@ -1414,5 +1813,64 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#1d4ed8',
+  },
+  addTestBtn: {
+    backgroundColor: '#ecfdf5',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#a7f3d0',
+  },
+  addTestBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#065f46',
+  },
+  testCardIndex: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#0b4d3c',
+  },
+  emptyTestsPrompt: {
+    backgroundColor: '#f8fafc',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    marginVertical: 4,
+  },
+  emptyTestsPromptText: {
+    fontSize: 11,
+    color: '#64748b',
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  historyTestsBox: {
+    backgroundColor: '#f0fdf4',
+    borderRadius: 10,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#dcfce7',
+    gap: 4,
+  },
+  historyTestsTitle: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#166534',
+    letterSpacing: 0.3,
+  },
+  historyTestItem: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#14532d',
+  },
+  historyTestNotes: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#15803d',
+    fontStyle: 'italic',
   },
 });

@@ -9,9 +9,8 @@ const opdPatientSchema = new mongoose.Schema(
         },
         phone: {
             type: String,
-            required: true,
             trim: true,
-            unique: true
+            default: ""
         },
         email: {
             type: String,
@@ -36,4 +35,10 @@ const opdPatientSchema = new mongoose.Schema(
     { timestamps: true }
 );
 
-export default mongoose.model("OpdPatient", opdPatientSchema);
+opdPatientSchema.index({ createdAt: -1 });
+const OpdPatient = mongoose.model("OpdPatient", opdPatientSchema);
+
+// Safely drop any legacy unique index on phone so registrations without phone or shared phones succeed
+OpdPatient.collection.dropIndex("phone_1").catch(() => {});
+
+export default OpdPatient;

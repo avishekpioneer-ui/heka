@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import OpdBilling from "../models/OpdBilling.js";
 import OpdPatient from "../models/OpdPatient.js";
 import OpdMedicine from "../models/OpdMedicine.js";
+import OpdTestOrder from "../models/OpdTestOrder.js";
 import { emitOpdEvent } from "../socket.js";
 
 const sanitizeMedicines = (meds) => {
@@ -28,7 +29,9 @@ const sanitizeTests = (tests) => {
         const validId = (rawId && mongoose.Types.ObjectId.isValid(rawId)) ? rawId : undefined;
         const testObj = {
             name: t.name || "Diagnostic Test",
-            price: parseFloat(t.price || 0)
+            price: parseFloat(t.price || 0),
+            scheduledDate: t.scheduledDate || null,
+            notes: t.notes || ""
         };
         if (validId) {
             testObj.testId = validId;
@@ -124,9 +127,28 @@ export const createBill = async (req, res) => {
             billingType: billingType || "Combined"
         });
 
+        // Automatically schedule test orders for diagnostic tests in this invoice
+        if (cleanTests && cleanTests.length > 0) {
+            for (const t of cleanTests) {
+                if (t.testId) {
+                    const testOrder = await OpdTestOrder.create({
+                        patientId,
+                        testId: t.testId,
+                        testName: t.name,
+                        price: t.price,
+                        scheduledDate: t.scheduledDate || new Date(),
+                        notes: t.notes || "",
+                        billId: bill._id,
+                        status: "Ordered"
+                    });
+                    emitOpdEvent("opd:testorder", { type: "created", order: testOrder });
+                }
+            }
+        }
+
         emitOpdEvent("opd:bill", { type: "created", bill });
 
-        res.status(201).json({ message: "Bill generated successfully", bill });
+        res.status(201).json({ message: "Bill generated and diagnostic tests scheduled successfully", bill });
     } catch (error) {
         console.error("Create Bill Error:", error);
         res.status(500).json({ message: "Server error" });
@@ -297,6 +319,9 @@ export const deleteBill = async (req, res) => {
                 }
             }
         }
+
+        // Clean up any test orders linked to this bill
+        await OpdTestOrder.deleteMany({ billId: id });
 
         await OpdBilling.findByIdAndDelete(id);
 
