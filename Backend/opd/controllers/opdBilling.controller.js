@@ -3,7 +3,37 @@ import OpdBilling from "../models/OpdBilling.js";
 import OpdPatient from "../models/OpdPatient.js";
 import OpdMedicine from "../models/OpdMedicine.js";
 import OpdTestOrder from "../models/OpdTestOrder.js";
+import OpdReminder from "../models/OpdReminder.js";
 import { emitOpdEvent } from "../socket.js";
+
+const enrichBillsWithReminders = async (bills) => {
+    if (!Array.isArray(bills) || bills.length === 0) return [];
+    const billIds = bills.map(b => b._id);
+    const reminders = await OpdReminder.find({ billId: { $in: billIds } });
+    const reminderMap = {};
+    reminders.forEach(r => {
+        if (r.billId) reminderMap[r.billId.toString()] = r;
+    });
+
+    const enriched = await Promise.all(bills.map(async (bill) => {
+        const billObj = typeof bill.toObject === 'function' ? bill.toObject() : { ...bill };
+        let rem = reminderMap[billObj._id.toString()];
+        if (!rem && billObj.patientId) {
+            const pId = billObj.patientId._id || billObj.patientId;
+            if (billObj.appointmentId) {
+                const apptId = billObj.appointmentId._id || billObj.appointmentId;
+                rem = await OpdReminder.findOne({ patientId: pId, appointmentId: apptId });
+            }
+            if (!rem) {
+                rem = await OpdReminder.findOne({ patientId: pId }).sort({ followUpDate: -1, createdAt: -1 });
+            }
+        }
+        billObj.followUpDate = rem?.followUpDate || null;
+        billObj.reminderId = rem?._id || null;
+        return billObj;
+    }));
+    return enriched;
+};
 
 const sanitizeMedicines = (meds) => {
     if (!Array.isArray(meds)) return [];
@@ -42,7 +72,7 @@ const sanitizeTests = (tests) => {
 
 export const createBill = async (req, res) => {
     try {
-        let { patientId, appointmentId, consultationFee, tests, medicines, items, billingType, status, paymentStatus } = req.body;
+        let { patientId, appointmentId, consultationFee, tests, medicines, items, billingType, status, paymentStatus, followUpDate } = req.body;
 
         if (!patientId) {
             return res.status(400).json({ message: "Patient ID is required" });
@@ -146,9 +176,40 @@ export const createBill = async (req, res) => {
             }
         }
 
-        emitOpdEvent("opd:bill", { type: "created", bill });
+        // Automatically schedule follow-up OpdReminder if followUpDate is set
+        let reminderDoc = null;
+        if (followUpDate) {
+            const fDate = new Date(followUpDate);
+            if (!isNaN(fDate.getTime())) {
+                const pDoc = await OpdPatient.findById(patientId);
+                const message = `Clinical follow-up advisory: Advised revisit on ${fDate.toLocaleDateString()}.`;
 
-        res.status(201).json({ message: "Bill generated and diagnostic tests scheduled successfully", bill });
+                reminderDoc = await OpdReminder.create({
+                    patientId,
+                    followUpDate: fDate,
+                    message,
+                    billId: bill._id,
+                    appointmentId: appointmentId || undefined,
+                    status: "Scheduled"
+                });
+
+                emitOpdEvent("opd:reminder", {
+                    type: "created",
+                    reminder: { ...reminderDoc.toObject(), patientId: pDoc || patientId }
+                });
+            }
+        }
+
+        const populatedBill = await OpdBilling.findById(bill._id)
+            .populate("patientId")
+            .populate("appointmentId");
+        const billResult = populatedBill ? populatedBill.toObject() : bill.toObject();
+        billResult.followUpDate = reminderDoc?.followUpDate || null;
+        billResult.reminderId = reminderDoc?._id || null;
+
+        emitOpdEvent("opd:bill", { type: "created", bill: billResult });
+
+        res.status(201).json({ message: "Bill generated and diagnostic tests scheduled successfully", bill: billResult });
     } catch (error) {
         console.error("Create Bill Error:", error);
         res.status(500).json({ message: "Server error" });
@@ -161,7 +222,8 @@ export const getBills = async (req, res) => {
             .populate("patientId")
             .populate("appointmentId")
             .sort({ createdAt: -1 });
-        res.status(200).json(bills);
+        const enrichedBills = await enrichBillsWithReminders(bills);
+        res.status(200).json(enrichedBills);
     } catch (error) {
         console.error("Get Bills Error:", error);
         res.status(500).json({ message: "Server error" });
@@ -177,17 +239,17 @@ export const getBillById = async (req, res) => {
         if (!bill) {
             return res.status(404).json({ message: "Bill not found" });
         }
-        res.status(200).json(bill);
+        const [enrichedBill] = await enrichBillsWithReminders([bill]);
+        res.status(200).json(enrichedBill);
     } catch (error) {
         console.error("Get Bill By ID Error:", error);
         res.status(500).json({ message: "Server error" });
     }
 };
-
 export const updateBill = async (req, res) => {
     try {
         const { id } = req.params;
-        let { patientId, consultationFee, tests, medicines, items, status, paymentStatus, billingType } = req.body;
+        let { patientId, consultationFee, tests, medicines, items, status, paymentStatus, billingType, followUpDate } = req.body;
 
         const bill = await OpdBilling.findById(id);
         if (!bill) {
@@ -288,13 +350,63 @@ export const updateBill = async (req, res) => {
 
         await bill.save();
 
+        // Handle OpdReminder for followUpDate if passed
+        let reminderDoc = await OpdReminder.findOne({ billId: id });
+        if (!reminderDoc && bill.patientId && bill.appointmentId) {
+            reminderDoc = await OpdReminder.findOne({ patientId: bill.patientId, appointmentId: bill.appointmentId });
+        }
+
+        if (followUpDate !== undefined) {
+            if (followUpDate) {
+                const fDate = new Date(followUpDate);
+                if (!isNaN(fDate.getTime())) {
+                    const patientRefId = patientId || bill.patientId;
+                    const pDoc = await OpdPatient.findById(patientRefId);
+                    const message = `Clinical follow-up advisory: Advised revisit on ${fDate.toLocaleDateString()}.`;
+
+                    if (reminderDoc) {
+                        reminderDoc.followUpDate = fDate;
+                        reminderDoc.message = message;
+                        if (patientRefId) reminderDoc.patientId = patientRefId;
+                        if (!reminderDoc.billId) reminderDoc.billId = bill._id;
+                        await reminderDoc.save();
+                        emitOpdEvent("opd:reminder", { type: "updated", reminder: reminderDoc });
+                    } else {
+                        reminderDoc = await OpdReminder.create({
+                            patientId: patientRefId,
+                            followUpDate: fDate,
+                            message,
+                            billId: bill._id,
+                            appointmentId: bill.appointmentId || undefined,
+                            status: "Scheduled"
+                        });
+                        emitOpdEvent("opd:reminder", {
+                            type: "created",
+                            reminder: { ...reminderDoc.toObject(), patientId: pDoc || patientRefId }
+                        });
+                    }
+                }
+            } else {
+                // followUpDate is cleared
+                if (reminderDoc) {
+                    await OpdReminder.findByIdAndDelete(reminderDoc._id);
+                    emitOpdEvent("opd:reminder", { type: "deleted", reminderId: reminderDoc._id });
+                    reminderDoc = null;
+                }
+            }
+        }
+
         const updatedBill = await OpdBilling.findById(id)
             .populate("patientId")
             .populate("appointmentId");
 
-        emitOpdEvent("opd:bill", { type: "updated", bill: updatedBill });
+        const billResult = updatedBill ? updatedBill.toObject() : bill.toObject();
+        billResult.followUpDate = reminderDoc?.followUpDate || null;
+        billResult.reminderId = reminderDoc?._id || null;
 
-        res.status(200).json({ message: "Bill updated successfully", bill: updatedBill });
+        emitOpdEvent("opd:bill", { type: "updated", bill: billResult });
+
+        res.status(200).json({ message: "Bill updated successfully", bill: billResult });
     } catch (error) {
         console.error("Update Bill Error:", error);
         res.status(500).json({ message: "Server error" });
@@ -322,6 +434,9 @@ export const deleteBill = async (req, res) => {
 
         // Clean up any test orders linked to this bill
         await OpdTestOrder.deleteMany({ billId: id });
+
+        // Clean up any reminders linked to this bill
+        await OpdReminder.deleteMany({ billId: id });
 
         await OpdBilling.findByIdAndDelete(id);
 

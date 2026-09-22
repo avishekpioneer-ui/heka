@@ -19,6 +19,7 @@ const OpdBilling = () => {
   // Selected patient for new bill
   const [selectedPatientId, setSelectedPatientId] = useState('');
   const [consultationFee, setConsultationFee] = useState(0);
+  const [followUpDate, setFollowUpDate] = useState('');
   
   // Custom items to add to the invoice
   const [selectedTests, setSelectedTests] = useState([]);
@@ -33,6 +34,16 @@ const OpdBilling = () => {
   const userId = localStorage.getItem('userId');
   const userPermissions = JSON.parse(localStorage.getItem('userPermissions') || '[]');
   const hasPermission = (perm) => userPermissions.includes('*') || userPermissions.includes(perm);
+
+  const handleQuickFollowUp = (days) => {
+    if (days === 0) {
+      setFollowUpDate('');
+      return;
+    }
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    setFollowUpDate(d.toISOString().substring(0, 10));
+  };
 
   const fetchData = async () => {
     try {
@@ -73,6 +84,9 @@ const OpdBilling = () => {
     if (location.state?.consultationFee !== undefined) {
       setConsultationFee(location.state.consultationFee);
     }
+    if (location.state?.followUpDate) {
+      setFollowUpDate(new Date(location.state.followUpDate).toISOString().substring(0, 10));
+    }
   }, [location.state]);
 
   // Live-refresh the invoice audit log when any bill is generated, edited or deleted
@@ -83,6 +97,7 @@ const OpdBilling = () => {
     const patientId = e.target.value;
     setSelectedPatientId(patientId);
     setConsultationFee(0);
+    setFollowUpDate('');
     setSelectedTests([]);
     setSelectedMedicines([]);
 
@@ -95,6 +110,17 @@ const OpdBilling = () => {
       
       if (patientAppts.length > 0) {
         setConsultationFee(patientAppts[0].consultationFee);
+      }
+
+      // Check active reminders for this patient to autofill followUpDate
+      try {
+        const remsRes = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + `/api/opd/reminders/patient/${patientId}`, { headers });
+        const pReminders = Array.isArray(remsRes.data) ? remsRes.data : remsRes.data?.reminders || [];
+        if (pReminders.length > 0 && pReminders[0].followUpDate) {
+          setFollowUpDate(new Date(pReminders[0].followUpDate).toISOString().substring(0, 10));
+        }
+      } catch (remErr) {
+        console.error('Error fetching patient reminders:', remErr);
       }
     } catch (err) {
       console.error('Error searching patient appts:', err);
@@ -167,6 +193,7 @@ const OpdBilling = () => {
     setEditingBillId(bill._id);
     setSelectedPatientId(bill.patientId?._id || bill.patientId || '');
     setConsultationFee(bill.consultationFee || 0);
+    setFollowUpDate(bill.followUpDate ? new Date(bill.followUpDate).toISOString().substring(0, 10) : '');
     setSelectedTests((bill.tests || []).map(t => ({
       testId: t.testId?._id || t.testId || t._id || t.id,
       name: t.name,
@@ -187,6 +214,7 @@ const OpdBilling = () => {
     setEditingBillId(null);
     setSelectedPatientId('');
     setConsultationFee(0);
+    setFollowUpDate('');
     setSelectedTests([]);
     setSelectedMedicines([]);
     setError('');
@@ -228,6 +256,7 @@ const OpdBilling = () => {
         consultationFee: subtotalConsultation,
         tests: selectedTests,
         medicines: selectedMedicines,
+        followUpDate: followUpDate || null,
         billingType,
         status
       };
@@ -245,6 +274,7 @@ const OpdBilling = () => {
         setSuccess(`Invoice generated successfully in '${status}' state!`);
         setSelectedPatientId('');
         setConsultationFee(0);
+        setFollowUpDate('');
         setSelectedTests([]);
         setSelectedMedicines([]);
         fetchData();

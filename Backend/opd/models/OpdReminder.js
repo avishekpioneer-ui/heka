@@ -22,6 +22,16 @@ const opdReminderSchema = new mongoose.Schema(
         status: {
             type: String,
             default: "Sent"
+        },
+        billId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "OpdBilling",
+            required: false
+        },
+        appointmentId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "OpdAppointment",
+            required: false
         }
     },
     { timestamps: true }
@@ -29,5 +39,6 @@ const opdReminderSchema = new mongoose.Schema(
 
 opdReminderSchema.index({ followUpDate: -1 });
 opdReminderSchema.index({ patientId: 1 });
+opdReminderSchema.index({ billId: 1 });
 
 export default mongoose.model("OpdReminder", opdReminderSchema);
