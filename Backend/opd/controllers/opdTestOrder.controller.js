@@ -29,20 +29,26 @@ export const getTestOrders = async (req, res) => {
 export const updateTestOrderStatus = async (req, res) => {
     try {
         const { id } = req.params;
-        const { status } = req.body;
+        const { status, sampleCollectedDate, labSubmittedDate } = req.body;
 
-        if (!["Ordered", "Collected", "Reported"].includes(status)) {
+        const allowedStatuses = ["Ordered", "Collected", "Sample Collected", "Submitted to Lab", "Reported", "Completed"];
+        if (status && !allowedStatuses.includes(status)) {
             return res.status(400).json({ message: "Invalid status value" });
         }
 
-        const order = await OpdTestOrder.findByIdAndUpdate(id, { status }, { new: true });
+        const updateData = {};
+        if (status) updateData.status = status;
+        if (sampleCollectedDate !== undefined) updateData.sampleCollectedDate = sampleCollectedDate;
+        if (labSubmittedDate !== undefined) updateData.labSubmittedDate = labSubmittedDate;
+
+        const order = await OpdTestOrder.findByIdAndUpdate(id, updateData, { new: true });
         if (!order) {
             return res.status(404).json({ message: "Test order not found" });
         }
 
         emitOpdEvent("opd:testorder", { type: "updated", order });
 
-        res.status(200).json({ message: `Test order marked as ${status}`, order });
+        res.status(200).json({ message: `Test order marked as ${status || 'updated'}`, order });
     } catch (error) {
         console.error("Update Test Order Status Error:", error);
         res.status(500).json({ message: "Server error" });

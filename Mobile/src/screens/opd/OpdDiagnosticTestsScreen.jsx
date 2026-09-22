@@ -14,6 +14,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import apiClient from '../../config/api';
+import CalendarPickerModal from '../../components/CalendarPickerModal';
 
 export default function OpdDiagnosticTestsScreen() {
   const [tests, setTests] = useState([]);
@@ -22,6 +23,11 @@ export default function OpdDiagnosticTestsScreen() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // Date selection state for test orders
+  const [selectedOrderForDate, setSelectedOrderForDate] = useState(null);
+  const [datePickerAction, setDatePickerAction] = useState(null); // 'COLLECT' | 'SUBMIT_LAB'
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
   // Active tab: 'catalog' | 'orders'
   const [activeTab, setActiveTab] = useState('catalog');
@@ -233,6 +239,44 @@ export default function OpdDiagnosticTestsScreen() {
     }
   };
 
+  const handleOpenCollectSample = (ord) => {
+    setSelectedOrderForDate(ord);
+    setDatePickerAction('COLLECT');
+    setIsDatePickerOpen(true);
+  };
+
+  const handleOpenSubmitToLab = (ord) => {
+    setSelectedOrderForDate(ord);
+    setDatePickerAction('SUBMIT_LAB');
+    setIsDatePickerOpen(true);
+  };
+
+  const handleDateSelected = async (selectedDate) => {
+    setIsDatePickerOpen(false);
+    if (!selectedOrderForDate) return;
+    const orderId = selectedOrderForDate._id || selectedOrderForDate.id;
+    const action = datePickerAction;
+    try {
+      if (action === 'COLLECT') {
+        await apiClient.put(`/api/opd/test-orders/${orderId}/status`, {
+          status: 'Collected',
+          sampleCollectedDate: selectedDate,
+        });
+      } else if (action === 'SUBMIT_LAB') {
+        await apiClient.put(`/api/opd/test-orders/${orderId}/status`, {
+          status: 'Submitted to Lab',
+          labSubmittedDate: selectedDate,
+        });
+      }
+      fetchOrderData();
+    } catch (err) {
+      Alert.alert('Error', 'Failed to update test order status');
+    } finally {
+      setSelectedOrderForDate(null);
+      setDatePickerAction(null);
+    }
+  };
+
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
       <ScrollView
@@ -408,26 +452,49 @@ export default function OpdDiagnosticTestsScreen() {
                       styles.orderStatus,
                       ord.status === 'Reported' || ord.status === 'Completed'
                         ? styles.statusGreen
-                        : ord.status === 'Collected' || ord.status === 'Sample Collected'
-                          ? styles.statusBlue
-                          : styles.statusOrange,
+                        : ord.status === 'Submitted to Lab'
+                          ? styles.statusPurple
+                          : ord.status === 'Collected' || ord.status === 'Sample Collected'
+                            ? styles.statusBlue
+                            : styles.statusOrange,
                     ]}
                   >
-                    <Text style={styles.orderStatusText}>{ord.status?.toUpperCase()}</Text>
+                    <Text
+                      style={[
+                        styles.orderStatusText,
+                        ord.status === 'Submitted to Lab' ? { color: '#6b21a8' } : null,
+                      ]}
+                    >
+                      {ord.status?.toUpperCase()}
+                    </Text>
                   </View>
                 </View>
 
                 <Text style={styles.orderTest}>🔬 {ord.testName || ord.testId?.name || 'Diagnostic Test'}</Text>
-                <Text style={styles.orderDate}>
-                  📅 Date: {new Date(ord.scheduledDate || ord.createdAt).toLocaleDateString()}
-                </Text>
+
+                <View style={styles.orderDatesList}>
+                  <Text style={styles.orderDate}>
+                    📅 Ordered: {new Date(ord.scheduledDate || ord.createdAt).toLocaleDateString()}
+                  </Text>
+                  {ord.sampleCollectedDate ? (
+                    <Text style={[styles.orderDate, { color: '#1d4ed8', fontWeight: '600' }]}>
+                      🧪 Sample Collected: {new Date(ord.sampleCollectedDate).toLocaleDateString()}
+                    </Text>
+                  ) : null}
+                  {ord.labSubmittedDate ? (
+                    <Text style={[styles.orderDate, { color: '#7e22ce', fontWeight: '600' }]}>
+                      📤 Submitted to Lab: {new Date(ord.labSubmittedDate).toLocaleDateString()}
+                    </Text>
+                  ) : null}
+                </View>
+
                 {ord.notes ? <Text style={styles.orderNotes}>Note: {ord.notes}</Text> : null}
 
                 {ord.status === 'Ordered' && (
                   <View style={styles.orderActions}>
                     <TouchableOpacity
                       style={styles.collectBtn}
-                      onPress={() => handleUpdateOrderStatus(ord._id || ord.id, 'Collected')}
+                      onPress={() => handleOpenCollectSample(ord)}
                       activeOpacity={0.8}
                     >
                       <Text style={styles.collectBtnText}>🧪 Collect Sample</Text>
@@ -436,6 +503,25 @@ export default function OpdDiagnosticTestsScreen() {
                 )}
 
                 {(ord.status === 'Collected' || ord.status === 'Sample Collected') && (
+                  <View style={styles.orderActions}>
+                    <TouchableOpacity
+                      style={styles.submitLabBtn}
+                      onPress={() => handleOpenSubmitToLab(ord)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.submitLabBtnText}>📤 Submit to Lab</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.reportBtn}
+                      onPress={() => handleUpdateOrderStatus(ord._id || ord.id, 'Reported')}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.completeOrderBtnText}>✓ Report</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {ord.status === 'Submitted to Lab' && (
                   <View style={styles.orderActions}>
                     <TouchableOpacity
                       style={styles.reportBtn}
@@ -477,20 +563,22 @@ export default function OpdDiagnosticTestsScreen() {
                   <TextInput style={styles.fieldInput} placeholder="e.g. Complete Blood Count (CBC)"
                     value={formData.name} onChangeText={(text) => setFormData({ ...formData, name: text })} />
                 </View>
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>CATEGORY</Text>
-                  <TextInput style={styles.fieldInput} placeholder="e.g. Hematology"
-                    value={formData.category} onChangeText={(text) => setFormData({ ...formData, category: text })} />
-                </View>
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>PRICE (₹) *</Text>
-                  <TextInput style={styles.fieldInput} placeholder="350" keyboardType="number-pad"
-                    value={formData.price} onChangeText={(text) => setFormData({ ...formData, price: text })} />
+                <View style={styles.rowFields}>
+                  <View style={[styles.fieldGroup, { flex: 1 }]}>
+                    <Text style={styles.fieldLabel}>PRICE (₹) *</Text>
+                    <TextInput style={styles.fieldInput} placeholder="350" keyboardType="decimal-pad"
+                      value={formData.price} onChangeText={(text) => setFormData({ ...formData, price: text })} />
+                  </View>
+                  <View style={[styles.fieldGroup, { flex: 1 }]}>
+                    <Text style={styles.fieldLabel}>CATEGORY</Text>
+                    <TextInput style={styles.fieldInput} placeholder="Hematology"
+                      value={formData.category} onChangeText={(text) => setFormData({ ...formData, category: text })} />
+                  </View>
                 </View>
 
                 <TouchableOpacity style={[styles.submitBtn, submitting && styles.btnDisabled]}
                   onPress={handleAddTest} disabled={submitting} activeOpacity={0.8}>
-                  {submitting ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.submitBtnText}>Add Diagnostic Test</Text>}
+                  {submitting ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.submitBtnText}>Add Test to Catalog</Text>}
                 </TouchableOpacity>
               </ScrollView>
             </View>
@@ -546,6 +634,27 @@ export default function OpdDiagnosticTestsScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
+      {/* ── Interactive Date Picker for Sample Collection & Lab Submission ──── */}
+      <CalendarPickerModal
+        visible={isDatePickerOpen}
+        title={
+          datePickerAction === 'COLLECT'
+            ? 'Select Sample Collection Date'
+            : 'Select Lab Submission Date'
+        }
+        currentDate={
+          datePickerAction === 'COLLECT'
+            ? (selectedOrderForDate?.sampleCollectedDate ? new Date(selectedOrderForDate.sampleCollectedDate).toISOString().substring(0, 10) : new Date().toISOString().substring(0, 10))
+            : (selectedOrderForDate?.labSubmittedDate ? new Date(selectedOrderForDate.labSubmittedDate).toISOString().substring(0, 10) : new Date().toISOString().substring(0, 10))
+        }
+        onClose={() => {
+          setIsDatePickerOpen(false);
+          setSelectedOrderForDate(null);
+          setDatePickerAction(null);
+        }}
+        onSelectDate={handleDateSelected}
+      />
+
     </KeyboardAvoidingView>
   );
 }
@@ -584,13 +693,17 @@ const styles = StyleSheet.create({
   statusGreen: { backgroundColor: '#f0fdf4' },
   statusBlue: { backgroundColor: '#eff6ff' },
   statusOrange: { backgroundColor: '#fff7ed' },
+  statusPurple: { backgroundColor: '#faf5ff', borderWidth: 1, borderColor: '#e9d5ff' },
   orderStatusText: { fontSize: 10, fontWeight: '700', color: '#0f172a' },
   orderTest: { fontSize: 13, color: '#475569', fontWeight: '600' },
+  orderDatesList: { gap: 2, marginVertical: 2 },
   orderDate: { fontSize: 12, color: '#0f766e' },
   orderNotes: { fontSize: 12, color: '#64748b', fontStyle: 'italic' },
   orderActions: { flexDirection: 'row', gap: 8, marginTop: 4 },
   collectBtn: { flex: 1, backgroundColor: '#eff6ff', paddingVertical: 8, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#bfdbfe' },
   collectBtnText: { color: '#1d4ed8', fontWeight: '700', fontSize: 12 },
+  submitLabBtn: { flex: 1, backgroundColor: '#faf5ff', paddingVertical: 8, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#d8b4fe' },
+  submitLabBtnText: { color: '#7e22ce', fontWeight: '700', fontSize: 12 },
   reportBtn: { flex: 1, backgroundColor: '#f0fdf4', paddingVertical: 8, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#bbf7d0' },
   completeOrderBtnText: { color: '#15803d', fontWeight: '700', fontSize: 12 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },

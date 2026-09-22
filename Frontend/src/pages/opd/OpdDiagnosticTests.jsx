@@ -129,15 +129,59 @@ const OpdDiagnosticTests = () => {
   // Live-refresh the test orders board when any staff member updates a test order.
   useOpdSocketEvent('opd:testorder', fetchOrderData);
 
-  const handleOrderStatusChange = async (id, status) => {
+  // Date selection modal state for Collect Sample & Submit to Lab
+  const [dateModal, setDateModal] = useState({
+    isOpen: false,
+    orderId: null,
+    title: '',
+    action: '', // 'COLLECT' | 'SUBMIT_LAB'
+    date: new Date().toISOString().substring(0, 10),
+  });
+
+  const handleOrderStatusChange = async (id, status, extraData = {}) => {
     try {
       const headers = { 'x-user-id': userId };
-      await axios.put(`${import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001'}/api/opd/test-orders/${id}/status`, { status }, { headers });
+      await axios.put(
+        `${import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001'}/api/opd/test-orders/${id}/status`,
+        { status, ...extraData },
+        { headers }
+      );
       fetchOrderData();
     } catch (err) {
       console.error('Error updating test order status:', err);
       alert('Error updating test order status');
     }
+  };
+
+  const openCollectDialog = (order) => {
+    setDateModal({
+      isOpen: true,
+      orderId: order._id,
+      title: `Collect Sample for ${order.testName}`,
+      action: 'COLLECT',
+      date: new Date().toISOString().substring(0, 10),
+    });
+  };
+
+  const openSubmitLabDialog = (order) => {
+    setDateModal({
+      isOpen: true,
+      orderId: order._id,
+      title: `Submit ${order.testName} to Lab`,
+      action: 'SUBMIT_LAB',
+      date: new Date().toISOString().substring(0, 10),
+    });
+  };
+
+  const handleConfirmDateModal = async (e) => {
+    e.preventDefault();
+    if (!dateModal.orderId) return;
+    if (dateModal.action === 'COLLECT') {
+      await handleOrderStatusChange(dateModal.orderId, 'Collected', { sampleCollectedDate: dateModal.date });
+    } else if (dateModal.action === 'SUBMIT_LAB') {
+      await handleOrderStatusChange(dateModal.orderId, 'Submitted to Lab', { labSubmittedDate: dateModal.date });
+    }
+    setDateModal({ isOpen: false, orderId: null, title: '', action: '', date: '' });
   };
 
   const handleAddSubmit = async (e) => {
@@ -459,7 +503,17 @@ const OpdDiagnosticTests = () => {
                     <td className="py-3.5 pr-2 font-semibold text-gray-900">{order.patientId?.name || 'Walk-in'}</td>
                     <td className="py-3.5 pr-2 text-gray-700 font-medium">{order.testName}</td>
                     <td className="py-3.5 pr-2 text-gray-600 text-xs">
-                      {order.scheduledDate || order.createdAt ? new Date(order.scheduledDate || order.createdAt).toLocaleDateString() : '—'}
+                      <div>📅 {order.scheduledDate || order.createdAt ? new Date(order.scheduledDate || order.createdAt).toLocaleDateString() : '—'}</div>
+                      {order.sampleCollectedDate && (
+                        <div className="text-blue-600 font-semibold text-[11px] mt-0.5">
+                          🧪 Sample: {new Date(order.sampleCollectedDate).toLocaleDateString()}
+                        </div>
+                      )}
+                      {order.labSubmittedDate && (
+                        <div className="text-purple-600 font-semibold text-[11px] mt-0.5">
+                          📤 Lab: {new Date(order.labSubmittedDate).toLocaleDateString()}
+                        </div>
+                      )}
                     </td>
                     <td className="py-3.5 pr-2 text-gray-500 text-xs max-w-[200px] truncate">
                       {order.notes || '—'}
@@ -467,6 +521,7 @@ const OpdDiagnosticTests = () => {
                     <td className="py-3.5 pr-2">
                       <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
                         order.status === 'Reported' || order.status === 'Completed' ? 'bg-green-50 text-green-700' :
+                        order.status === 'Submitted to Lab' ? 'bg-purple-50 text-purple-700 border border-purple-200' :
                         order.status === 'Collected' || order.status === 'Sample Collected' ? 'bg-blue-50 text-blue-700' : 'bg-orange-50 text-orange-700'
                       }`}>
                         {order.status}
@@ -475,18 +530,34 @@ const OpdDiagnosticTests = () => {
                     <td className="py-3.5 text-right flex flex-wrap justify-end gap-1.5">
                       {order.status === 'Ordered' && (
                         <button
-                          onClick={() => handleOrderStatusChange(order._id, 'Collected')}
+                          onClick={() => openCollectDialog(order)}
                           className="bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs py-1 px-2.5 rounded-lg border border-blue-100 cursor-pointer font-semibold"
                         >
-                          Mark Collected
+                          🧪 Collect Sample
                         </button>
                       )}
                       {(order.status === 'Collected' || order.status === 'Sample Collected') && (
+                        <>
+                          <button
+                            onClick={() => openSubmitLabDialog(order)}
+                            className="bg-purple-50 text-purple-700 hover:bg-purple-100 text-xs py-1 px-2.5 rounded-lg border border-purple-100 cursor-pointer font-semibold"
+                          >
+                            📤 Submit to Lab
+                          </button>
+                          <button
+                            onClick={() => handleOrderStatusChange(order._id, 'Reported')}
+                            className="bg-green-50 text-green-700 hover:bg-green-100 text-xs py-1 px-2.5 rounded-lg border border-green-100 cursor-pointer font-semibold"
+                          >
+                            Mark Reported
+                          </button>
+                        </>
+                      )}
+                      {order.status === 'Submitted to Lab' && (
                         <button
                           onClick={() => handleOrderStatusChange(order._id, 'Reported')}
                           className="bg-green-50 text-green-700 hover:bg-green-100 text-xs py-1 px-2.5 rounded-lg border border-green-100 cursor-pointer font-semibold"
                         >
-                          Mark Reported
+                          ✓ Mark Reported
                         </button>
                       )}
                     </td>
@@ -497,6 +568,47 @@ const OpdDiagnosticTests = () => {
           )}
         </div>
       </div>
+
+      {/* Date Selection Modal */}
+      {dateModal.isOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl animate-fadeIn">
+            <h4 className="text-base font-bold text-gray-900 mb-2">{dateModal.title}</h4>
+            <p className="text-xs text-gray-500 mb-4">
+              {dateModal.action === 'COLLECT'
+                ? 'Specify the date when the diagnostic sample was collected from the patient.'
+                : 'Specify the date when the sample was handed over / submitted to the pathology lab.'}
+            </p>
+            <form onSubmit={handleConfirmDateModal}>
+              <div className="mb-4">
+                <label className="block text-[11px] font-bold text-gray-600 uppercase mb-1">Select Date</label>
+                <input
+                  type="date"
+                  required
+                  value={dateModal.date}
+                  onChange={(e) => setDateModal((prev) => ({ ...prev, date: e.target.value }))}
+                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDateModal({ isOpen: false, orderId: null, title: '', action: '', date: '' })}
+                  className="px-3.5 py-1.5 text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 rounded-lg cursor-pointer shadow-sm"
+                >
+                  Confirm & Save
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

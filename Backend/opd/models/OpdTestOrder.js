@@ -24,13 +24,21 @@ const opdTestOrderSchema = new mongoose.Schema(
             type: Date,
             required: false
         },
+        sampleCollectedDate: {
+            type: Date,
+            required: false
+        },
+        labSubmittedDate: {
+            type: Date,
+            required: false
+        },
         notes: {
             type: String,
             default: ""
         },
         status: {
             type: String,
-            enum: ["Ordered", "Collected", "Reported"],
+            enum: ["Ordered", "Collected", "Sample Collected", "Submitted to Lab", "Reported", "Completed"],
             default: "Ordered"
         },
         billId: {
