@@ -4,25 +4,28 @@ export const registerPatient = async (req, res) => {
     try {
         const { name, phone, email, gender, age, address } = req.body;
 
-        if (!name || !phone || !gender || !age) {
-            return res.status(400).json({ message: "Name, phone, gender, and age are required" });
+        if (!name || !gender || !age) {
+            return res.status(400).json({ message: "Name, gender, and age are required" });
         }
 
-        const existingPatient = await OpdPatient.findOne({ phone: phone.trim() });
-        if (existingPatient) {
-            return res.status(409).json({
-                message: "A patient with this phone number is already registered",
-                patient: existingPatient
-            });
+        const trimmedPhone = phone ? phone.trim() : "";
+        if (trimmedPhone) {
+            const existingPatient = await OpdPatient.findOne({ phone: trimmedPhone });
+            if (existingPatient) {
+                return res.status(409).json({
+                    message: "A patient with this phone number is already registered",
+                    patient: existingPatient
+                });
+            }
         }
 
         const patient = await OpdPatient.create({
-            name,
-            phone,
-            email,
+            name: name.trim(),
+            phone: trimmedPhone,
+            email: email ? email.trim() : "",
             gender,
             age,
-            address
+            address: address ? address.trim() : ""
         });
 
         res.status(201).json({ message: "Patient registered successfully", patient });

@@ -17,7 +17,6 @@ import apiClient from '../../config/api';
 
 export default function OpdDiagnosticTestsScreen() {
   const [tests, setTests] = useState([]);
-  const [patients, setPatients] = useState([]);
   const [testOrders, setTestOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -38,22 +37,17 @@ export default function OpdDiagnosticTestsScreen() {
   const [editingTestId, setEditingTestId] = useState(null);
   const [editFormData, setEditFormData] = useState({ name: '', price: '', category: '' });
 
-  // Schedule Test Order Modal
-  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
-  const [orderForm, setOrderForm] = useState({
-    patientId: '',
-    testId: '',
-    notes: '',
-    scheduledDate: new Date().toISOString().substring(0, 10),
-  });
-
   // Search & Pagination states
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
-  const [allTests, setAllTests] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
+
+  useEffect(() => {
+    fetchData(1, '', false, false);
+    fetchOrderData();
+  }, []);
 
   const fetchData = async (targetPage = 1, query = searchQuery, append = false, isSearch = false) => {
     try {
@@ -90,12 +84,6 @@ export default function OpdDiagnosticTestsScreen() {
       setTotal(newTotal);
       setTotalPages(newTotalPages);
       setPage(targetPage);
-
-      try {
-        const pRes = await apiClient.get('/api/opd/patients');
-        const pData = pRes.data?.patients || pRes.data || [];
-        setPatients(Array.isArray(pData) ? pData : []);
-      } catch (e) {}
     } catch (err) {
       console.error('Error fetching diagnostic tests:', err);
     } finally {
@@ -107,33 +95,20 @@ export default function OpdDiagnosticTestsScreen() {
   };
 
   const handleLoadMore = () => {
-    if (!loading && !loadingMore && !searchLoading && page < totalPages && activeTab === 'catalog') {
+    if (!loading && !loadingMore && !searchLoading && page < totalPages) {
       fetchData(page + 1, searchQuery, true, false);
     }
   };
 
   const handleRefresh = () => {
     setRefreshing(true);
-    if (activeTab === 'catalog') {
-      fetchData(1, searchQuery, false, false);
-      fetchAllTests();
-    } else {
-      fetchOrderData();
-      setRefreshing(false);
-    }
+    fetchData(1, searchQuery, false, false);
+    fetchOrderData();
   };
 
   const isCloseToBottom = ({ layoutMeasurement, contentOffset, contentSize }) => {
     const paddingToBottom = 60;
     return layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom;
-  };
-
-  const fetchAllTests = async () => {
-    try {
-      const res = await apiClient.get('/api/opd/tests?all=true');
-      const data = res.data?.tests || res.data || [];
-      setAllTests(Array.isArray(data) ? data : []);
-    } catch (e) {}
   };
 
   useEffect(() => {
@@ -142,10 +117,6 @@ export default function OpdDiagnosticTestsScreen() {
     }, 300);
     return () => clearTimeout(timer);
   }, [searchQuery]);
-
-  useEffect(() => {
-    fetchAllTests();
-  }, []);
 
   const fetchOrderData = async () => {
     try {
@@ -157,7 +128,7 @@ export default function OpdDiagnosticTestsScreen() {
 
   const handleAddTest = async () => {
     if (!formData.name || !formData.price) {
-      setError('Test name and price are required');
+      setError('Please fill in test name and price');
       return;
     }
 
@@ -168,31 +139,30 @@ export default function OpdDiagnosticTestsScreen() {
     try {
       await apiClient.post('/api/opd/tests', {
         name: formData.name,
-        price: Number(formData.price),
+        price: parseFloat(formData.price),
         category: formData.category || 'General',
       });
 
-      setSuccess('Diagnostic test added to catalog!');
+      setSuccess('Diagnostic test added successfully!');
       setFormData({ name: '', price: '', category: 'General' });
       fetchData(1, searchQuery, false);
-      fetchAllTests();
       setTimeout(() => {
         setIsAddModalOpen(false);
         setSuccess('');
       }, 1200);
     } catch (err) {
-      setError(err.response?.data?.message || 'Error creating test entry');
+      setError(err.response?.data?.message || 'Error adding test');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const openEditModal = (t) => {
-    setEditingTestId(t._id || t.id);
+  const handleOpenEdit = (test) => {
+    setEditingTestId(test._id || test.id);
     setEditFormData({
-      name: t.name,
-      price: String(t.price),
-      category: t.category || 'General',
+      name: test.name || '',
+      price: String(test.price || ''),
+      category: test.category || 'General',
     });
     setError('');
     setSuccess('');
@@ -201,7 +171,7 @@ export default function OpdDiagnosticTestsScreen() {
 
   const handleEditTest = async () => {
     if (!editFormData.name || !editFormData.price) {
-      setError('Test name and price are required');
+      setError('Please fill in test name and price');
       return;
     }
 
@@ -212,13 +182,12 @@ export default function OpdDiagnosticTestsScreen() {
     try {
       await apiClient.put(`/api/opd/tests/${editingTestId}`, {
         name: editFormData.name,
-        price: Number(editFormData.price),
+        price: parseFloat(editFormData.price),
         category: editFormData.category || 'General',
       });
 
-      setSuccess('Test updated successfully!');
-      fetchData(1, searchQuery, false);
-      fetchAllTests();
+      setSuccess('Diagnostic test updated!');
+      fetchData(page, searchQuery, false);
       setTimeout(() => {
         setIsEditModalOpen(false);
         setSuccess('');
@@ -230,10 +199,11 @@ export default function OpdDiagnosticTestsScreen() {
     }
   };
 
-  const handleDeleteTest = (tId, tName) => {
+  const handleDelete = (test) => {
+    const tId = test._id || test.id;
     Alert.alert(
       'Delete Diagnostic Test',
-      `Are you sure you want to remove "${tName}" from the catalog?`,
+      `Are you sure you want to remove "${test.name}" from catalog?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -243,51 +213,13 @@ export default function OpdDiagnosticTestsScreen() {
             try {
               await apiClient.delete(`/api/opd/tests/${tId}`);
               fetchData(1, searchQuery, false);
-              fetchAllTests();
             } catch (err) {
-              Alert.alert('Error', 'Failed to delete test entry');
+              Alert.alert('Error', 'Failed to delete test');
             }
           },
         },
       ]
     );
-  };
-
-  const handleScheduleOrder = async () => {
-    if (!orderForm.patientId || !orderForm.testId) {
-      setError('Please select both a patient and a test');
-      return;
-    }
-
-    setError('');
-    setSuccess('');
-    setSubmitting(true);
-
-    try {
-      await apiClient.post('/api/opd/test-orders', {
-        patientId: orderForm.patientId,
-        testId: orderForm.testId,
-        notes: orderForm.notes,
-        scheduledDate: orderForm.scheduledDate,
-      });
-
-      setSuccess('Diagnostic test scheduled successfully!');
-      setOrderForm({
-        patientId: '',
-        testId: '',
-        notes: '',
-        scheduledDate: new Date().toISOString().substring(0, 10),
-      });
-      fetchOrderData();
-      setTimeout(() => {
-        setIsOrderModalOpen(false);
-        setSuccess('');
-      }, 1200);
-    } catch (err) {
-      setError(err.response?.data?.message || 'Error scheduling test order');
-    } finally {
-      setSubmitting(false);
-    }
   };
 
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
@@ -329,20 +261,19 @@ export default function OpdDiagnosticTestsScreen() {
             <Text style={styles.subtitle}>Test catalog rates & lab investigation orders</Text>
           </View>
 
-          <TouchableOpacity
-            style={styles.addBtn}
-            onPress={() => {
-              setError('');
-              setSuccess('');
-              if (activeTab === 'catalog') setIsAddModalOpen(true);
-              else setIsOrderModalOpen(true);
-            }}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.addBtnText}>
-              {activeTab === 'catalog' ? '+ Add Test' : '+ Schedule Test'}
-            </Text>
-          </TouchableOpacity>
+          {activeTab === 'catalog' && (
+            <TouchableOpacity
+              style={styles.addBtn}
+              onPress={() => {
+                setError('');
+                setSuccess('');
+                setIsAddModalOpen(true);
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.addBtnText}>+ Add Test</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Tab Toggle Bar */}
@@ -368,7 +299,7 @@ export default function OpdDiagnosticTestsScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Search Bar - Mounted outside loading check so typing is never interrupted */}
+        {/* Search Bar */}
         {activeTab === 'catalog' && (
           <View style={styles.searchBarContainer}>
             <TextInput
@@ -465,7 +396,7 @@ export default function OpdDiagnosticTestsScreen() {
           testOrders.length === 0 ? (
             <View style={styles.emptyBox}>
               <Text style={styles.emptyTitle}>No Test Orders Queued</Text>
-              <Text style={styles.emptyText}>Tap "+ Schedule Test" to order an investigation for a patient.</Text>
+              <Text style={styles.emptyText}>Diagnostic test orders appear here when prescribed or billed.</Text>
             </View>
           ) : (
             testOrders.map((ord) => (
@@ -475,11 +406,11 @@ export default function OpdDiagnosticTestsScreen() {
                   <View
                     style={[
                       styles.orderStatus,
-                      ord.status === 'Completed'
+                      ord.status === 'Reported' || ord.status === 'Completed'
                         ? styles.statusGreen
-                        : ord.status === 'Sample Collected'
-                        ? styles.statusBlue
-                        : styles.statusOrange,
+                        : ord.status === 'Collected' || ord.status === 'Sample Collected'
+                          ? styles.statusBlue
+                          : styles.statusOrange,
                     ]}
                   >
                     <Text style={styles.orderStatusText}>{ord.status?.toUpperCase()}</Text>
@@ -488,7 +419,7 @@ export default function OpdDiagnosticTestsScreen() {
 
                 <Text style={styles.orderTest}>🔬 {ord.testName || ord.testId?.name || 'Diagnostic Test'}</Text>
                 <Text style={styles.orderDate}>
-                  📅 Scheduled: {new Date(ord.scheduledDate || ord.createdAt).toLocaleDateString()}
+                  📅 Date: {new Date(ord.scheduledDate || ord.createdAt).toLocaleDateString()}
                 </Text>
                 {ord.notes ? <Text style={styles.orderNotes}>Note: {ord.notes}</Text> : null}
 
@@ -496,7 +427,7 @@ export default function OpdDiagnosticTestsScreen() {
                   <View style={styles.orderActions}>
                     <TouchableOpacity
                       style={styles.collectBtn}
-                      onPress={() => handleUpdateOrderStatus(ord._id || ord.id, 'Sample Collected')}
+                      onPress={() => handleUpdateOrderStatus(ord._id || ord.id, 'Collected')}
                       activeOpacity={0.8}
                     >
                       <Text style={styles.collectBtnText}>🧪 Collect Sample</Text>
@@ -504,14 +435,14 @@ export default function OpdDiagnosticTestsScreen() {
                   </View>
                 )}
 
-                {ord.status === 'Sample Collected' && (
+                {(ord.status === 'Collected' || ord.status === 'Sample Collected') && (
                   <View style={styles.orderActions}>
                     <TouchableOpacity
                       style={styles.reportBtn}
-                      onPress={() => handleUpdateOrderStatus(ord._id || ord.id, 'Completed')}
+                      onPress={() => handleUpdateOrderStatus(ord._id || ord.id, 'Reported')}
                       activeOpacity={0.8}
                     >
-                      <Text style={styles.completeOrderBtnText}>✓ Mark Sample Collected & Done</Text>
+                      <Text style={styles.completeOrderBtnText}>✓ Mark Test Done / Reported</Text>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -615,89 +546,6 @@ export default function OpdDiagnosticTestsScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* ── Schedule Test Order Modal ───────────────────────────────────────── */}
-      <Modal visible={isOrderModalOpen} animationType="slide" transparent statusBarTranslucent onRequestClose={() => setIsOrderModalOpen(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} style={{ flex: 1 }}>
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContainer}>
-              <ScrollView
-                contentContainerStyle={styles.modalContent}
-                keyboardShouldPersistTaps="handled"
-                automaticallyAdjustKeyboardInsets={true}
-              >
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>Schedule Investigation</Text>
-                  <TouchableOpacity onPress={() => setIsOrderModalOpen(false)}>
-                    <Text style={styles.modalClose}>✕</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {success ? <View style={styles.successBox}><Text style={styles.successText}>{success}</Text></View> : null}
-                {error ? <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View> : null}
-
-                {/* Patient Selection */}
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>SELECT PATIENT *</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-                    {patients.map((p) => {
-                      const isSelected = orderForm.patientId === (p._id || p.id);
-                      return (
-                        <TouchableOpacity
-                          key={p._id || p.id}
-                          style={[styles.chip, isSelected && styles.chipActive]}
-                          onPress={() => setOrderForm({ ...orderForm, patientId: p._id || p.id })}
-                        >
-                          <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
-                            {p.name}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </ScrollView>
-                </View>
-
-                {/* Test Selection */}
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>SELECT TEST *</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-                    {(allTests.length > 0 ? allTests : tests).map((t) => {
-                      const isSelected = orderForm.testId === (t._id || t.id);
-                      return (
-                        <TouchableOpacity
-                          key={t._id || t.id}
-                          style={[styles.chip, isSelected && styles.chipActive]}
-                          onPress={() => setOrderForm({ ...orderForm, testId: t._id || t.id })}
-                        >
-                          <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
-                            {t.name} (₹{t.price})
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </ScrollView>
-                </View>
-
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>SCHEDULED DATE (YYYY-MM-DD) *</Text>
-                  <TextInput style={styles.fieldInput} placeholder="2026-08-10"
-                    value={orderForm.scheduledDate} onChangeText={(text) => setOrderForm({ ...orderForm, scheduledDate: text })} />
-                </View>
-
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>CLINICAL INSTRUCTIONS / NOTES</Text>
-                  <TextInput style={[styles.fieldInput, { height: 60 }]} placeholder="e.g. Fasting required"
-                    multiline value={orderForm.notes} onChangeText={(text) => setOrderForm({ ...orderForm, notes: text })} />
-                </View>
-
-                <TouchableOpacity style={[styles.submitBtn, submitting && styles.btnDisabled]}
-                  onPress={handleScheduleOrder} disabled={submitting} activeOpacity={0.8}>
-                  {submitting ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.submitBtnText}>Schedule Diagnostic Test</Text>}
-                </TouchableOpacity>
-              </ScrollView>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -744,11 +592,7 @@ const styles = StyleSheet.create({
   collectBtn: { flex: 1, backgroundColor: '#eff6ff', paddingVertical: 8, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#bfdbfe' },
   collectBtnText: { color: '#1d4ed8', fontWeight: '700', fontSize: 12 },
   reportBtn: { flex: 1, backgroundColor: '#f0fdf4', paddingVertical: 8, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#bbf7d0' },
-  reportBtnText: { color: '#15803d', fontWeight: '700', fontSize: 12 },
-  chip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, backgroundColor: '#f1f5f9', marginRight: 6 },
-  chipActive: { backgroundColor: '#0D9488' },
-  chipText: { fontSize: 12, fontWeight: '600', color: '#475569' },
-  chipTextActive: { color: '#ffffff', fontWeight: '700' },
+  completeOrderBtnText: { color: '#15803d', fontWeight: '700', fontSize: 12 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalContainer: { backgroundColor: '#ffffff', borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '90%' },
   modalContent: { padding: 20, gap: 12, paddingBottom: 100 },

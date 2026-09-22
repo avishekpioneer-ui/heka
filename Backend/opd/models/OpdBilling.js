@@ -13,6 +13,14 @@ const billedTestSchema = new mongoose.Schema({
     price: {
         type: Number,
         required: true
+    },
+    scheduledDate: {
+        type: Date,
+        required: false
+    },
+    notes: {
+        type: String,
+        default: ""
     }
 }, { _id: false });
 
@@ -73,5 +81,10 @@ const opdBillingSchema = new mongoose.Schema(
     },
     { timestamps: true }
 );
+
+opdBillingSchema.index({ createdAt: -1 });
+opdBillingSchema.index({ patientId: 1 });
+opdBillingSchema.index({ status: 1 });
+opdBillingSchema.index({ appointmentId: 1 });
 
 export default mongoose.model("OpdBilling", opdBillingSchema);

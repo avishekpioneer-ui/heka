@@ -116,7 +116,9 @@ const OpdBilling = () => {
     setSelectedTests([...selectedTests, {
       testId: testItem._id,
       name: testItem.name,
-      price: testItem.price
+      price: testItem.price,
+      scheduledDate: new Date().toISOString().substring(0, 10),
+      notes: ''
     }]);
     setTempTestId('');
   };
@@ -459,12 +461,40 @@ const OpdBilling = () => {
                   )}
 
                   {selectedTests.map((t, idx) => (
-                    <div key={`sel-t-${t.testId || t._id || t.id || idx}-${idx}`} className="flex justify-between py-1 border-b border-teal-100/10">
-                      <span className="flex items-center gap-1.5">
-                        <button onClick={() => removeTest(t.testId)} className="text-red-500 font-bold hover:text-red-700 cursor-pointer">×</button>
-                        Diagnostic: {t.name}
-                      </span>
-                      <span className="font-mono font-semibold">₹{t.price.toFixed(2)}</span>
+                    <div key={`sel-t-${t.testId || t._id || t.id || idx}-${idx}`} className="py-2 border-b border-teal-100/10 space-y-1">
+                      <div className="flex justify-between items-center">
+                        <span className="flex items-center gap-1.5 font-semibold text-gray-700">
+                          <button onClick={() => removeTest(t.testId)} className="text-red-500 font-bold hover:text-red-700 cursor-pointer">×</button>
+                          🧪 {t.name}
+                        </span>
+                        <span className="font-mono font-semibold">₹{t.price.toFixed(2)}</span>
+                      </div>
+                      <div className="flex items-center gap-2 pl-4 text-[11px] text-gray-500">
+                        <label className="flex items-center gap-1">
+                          <span>📅 Schedule:</span>
+                          <input
+                            type="date"
+                            value={t.scheduledDate ? t.scheduledDate.substring(0, 10) : ''}
+                            onChange={(e) => {
+                              const updated = [...selectedTests];
+                              updated[idx] = { ...updated[idx], scheduledDate: e.target.value };
+                              setSelectedTests(updated);
+                            }}
+                            className="border border-gray-200 rounded px-1.5 py-0.5 text-xs text-gray-700 bg-white"
+                          />
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Note (e.g. Fasting, Urgent)"
+                          value={t.notes || ''}
+                          onChange={(e) => {
+                            const updated = [...selectedTests];
+                            updated[idx] = { ...updated[idx], notes: e.target.value };
+                            setSelectedTests(updated);
+                          }}
+                          className="flex-1 border border-gray-200 rounded px-1.5 py-0.5 text-xs text-gray-700 bg-white"
+                        />
+                      </div>
                     </div>
                   ))}
 
