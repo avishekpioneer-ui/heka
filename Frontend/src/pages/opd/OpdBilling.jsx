@@ -48,12 +48,12 @@ const OpdBilling = () => {
       setPatients(patientsRes.data);
 
       // Load tests catalog
-      const testsRes = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/tests', { headers });
-      setTestsCatalog(testsRes.data);
+      const testsRes = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/tests?all=true', { headers });
+      setTestsCatalog(Array.isArray(testsRes.data) ? testsRes.data : testsRes.data?.tests || []);
 
       // Load medicines catalog
-      const medsRes = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/medicines', { headers });
-      setMedicinesCatalog(medsRes.data);
+      const medsRes = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/medicines?all=true', { headers });
+      setMedicinesCatalog(Array.isArray(medsRes.data) ? medsRes.data : medsRes.data?.medicines || []);
     } catch (err) {
       console.error('Error loading billing records:', err);
     } finally {

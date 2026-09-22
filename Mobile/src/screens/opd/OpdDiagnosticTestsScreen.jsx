@@ -11,6 +11,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  RefreshControl,
 } from 'react-native';
 import apiClient from '../../config/api';
 
@@ -19,6 +20,8 @@ export default function OpdDiagnosticTestsScreen() {
   const [patients, setPatients] = useState([]);
   const [testOrders, setTestOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   // Active tab: 'catalog' | 'orders'
@@ -44,16 +47,49 @@ export default function OpdDiagnosticTestsScreen() {
     scheduledDate: new Date().toISOString().substring(0, 10),
   });
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  // Search & Pagination states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [allTests, setAllTests] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
 
-  const fetchData = async () => {
+  const fetchData = async (targetPage = 1, query = searchQuery, append = false, isSearch = false) => {
     try {
-      setLoading(true);
-      const res = await apiClient.get('/api/opd/tests');
-      const data = res.data?.tests || res.data || [];
-      setTests(Array.isArray(data) ? data : []);
+      if (append) {
+        setLoadingMore(true);
+      } else if (isSearch) {
+        setSearchLoading(true);
+      } else {
+        setLoading(true);
+      }
+
+      const res = await apiClient.get('/api/opd/tests', {
+        params: {
+          page: targetPage,
+          limit: 50,
+          search: query?.trim() || undefined,
+        },
+      });
+
+      const newTests = res.data?.tests || (Array.isArray(res.data) ? res.data : []);
+      const newTotal = res.data?.total !== undefined ? res.data.total : (Array.isArray(res.data) ? res.data.length : 0);
+      const newTotalPages = res.data?.totalPages || 1;
+
+      if (append) {
+        setTests((prev) => {
+          const existingIds = new Set(prev.map((t) => t._id || t.id));
+          const filtered = newTests.filter((t) => !existingIds.has(t._id || t.id));
+          return [...prev, ...filtered];
+        });
+      } else {
+        setTests(newTests);
+      }
+
+      setTotal(newTotal);
+      setTotalPages(newTotalPages);
+      setPage(targetPage);
 
       try {
         const pRes = await apiClient.get('/api/opd/patients');
@@ -64,8 +100,52 @@ export default function OpdDiagnosticTestsScreen() {
       console.error('Error fetching diagnostic tests:', err);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
+      setSearchLoading(false);
+      setRefreshing(false);
     }
   };
+
+  const handleLoadMore = () => {
+    if (!loading && !loadingMore && !searchLoading && page < totalPages && activeTab === 'catalog') {
+      fetchData(page + 1, searchQuery, true, false);
+    }
+  };
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    if (activeTab === 'catalog') {
+      fetchData(1, searchQuery, false, false);
+      fetchAllTests();
+    } else {
+      fetchOrderData();
+      setRefreshing(false);
+    }
+  };
+
+  const isCloseToBottom = ({ layoutMeasurement, contentOffset, contentSize }) => {
+    const paddingToBottom = 60;
+    return layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom;
+  };
+
+  const fetchAllTests = async () => {
+    try {
+      const res = await apiClient.get('/api/opd/tests?all=true');
+      const data = res.data?.tests || res.data || [];
+      setAllTests(Array.isArray(data) ? data : []);
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchData(1, searchQuery, false, true);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    fetchAllTests();
+  }, []);
 
   const fetchOrderData = async () => {
     try {
@@ -94,7 +174,8 @@ export default function OpdDiagnosticTestsScreen() {
 
       setSuccess('Diagnostic test added to catalog!');
       setFormData({ name: '', price: '', category: 'General' });
-      fetchData();
+      fetchData(1, searchQuery, false);
+      fetchAllTests();
       setTimeout(() => {
         setIsAddModalOpen(false);
         setSuccess('');
@@ -136,7 +217,8 @@ export default function OpdDiagnosticTestsScreen() {
       });
 
       setSuccess('Test updated successfully!');
-      fetchData();
+      fetchData(1, searchQuery, false);
+      fetchAllTests();
       setTimeout(() => {
         setIsEditModalOpen(false);
         setSuccess('');
@@ -160,7 +242,8 @@ export default function OpdDiagnosticTestsScreen() {
           onPress: async () => {
             try {
               await apiClient.delete(`/api/opd/tests/${tId}`);
-              fetchData();
+              fetchData(1, searchQuery, false);
+              fetchAllTests();
             } catch (err) {
               Alert.alert('Error', 'Failed to delete test entry');
             }
@@ -224,6 +307,20 @@ export default function OpdDiagnosticTestsScreen() {
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets={true}
+        scrollEventThrottle={200}
+        onScroll={({ nativeEvent }) => {
+          if (isCloseToBottom(nativeEvent)) {
+            handleLoadMore();
+          }
+        }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={['#0D9488']}
+            tintColor="#0D9488"
+          />
+        }
       >
         {/* Header */}
         <View style={styles.headerRow}>
@@ -271,49 +368,98 @@ export default function OpdDiagnosticTestsScreen() {
           </TouchableOpacity>
         </View>
 
-        {loading ? (
+        {/* Search Bar - Mounted outside loading check so typing is never interrupted */}
+        {activeTab === 'catalog' && (
+          <View style={styles.searchBarContainer}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="🔍 Search test name, code, category..."
+              placeholderTextColor="#94a3b8"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              returnKeyType="search"
+            />
+            {searchLoading ? (
+              <ActivityIndicator size="small" color="#0D9488" style={styles.clearBtn} />
+            ) : searchQuery ? (
+              <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Text style={styles.clearBtnText}>✕</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        )}
+
+        {loading && tests.length === 0 && !searchQuery ? (
           <View style={styles.centerBox}>
             <ActivityIndicator size="large" color="#0f766e" />
             <Text style={styles.loadingText}>Loading...</Text>
           </View>
         ) : activeTab === 'catalog' ? (
           // ── Catalog Tab ──────────────────────────────────────────────────────
-          tests.length === 0 ? (
-            <View style={styles.emptyBox}>
-              <Text style={styles.emptyTitle}>No Diagnostic Tests Found</Text>
-              <Text style={styles.emptyText}>Tap "+ Add Test" to add lab tests to catalog.</Text>
-            </View>
-          ) : (
-            tests.map((t) => (
-              <View key={t._id || t.id} style={styles.card}>
-                <View style={styles.cardHeader}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.testName}>{t.name}</Text>
-                    <Text style={styles.testCategory}>{t.category || 'General Pathology'}</Text>
-                  </View>
-                  <Text style={styles.testPrice}>₹{t.price}</Text>
-                </View>
-
-                <View style={styles.cardActions}>
-                  <TouchableOpacity
-                    style={styles.actionBtn}
-                    onPress={() => handleOpenEdit(t)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.actionBtnText}>Edit</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.actionBtn, styles.deleteBtn]}
-                    onPress={() => handleDelete(t)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.actionBtnText, styles.deleteBtnText]}>Delete</Text>
-                  </TouchableOpacity>
-                </View>
+          <>
+            {tests.length === 0 ? (
+              <View style={styles.emptyBox}>
+                <Text style={styles.emptyTitle}>No Diagnostic Tests Found</Text>
+                <Text style={styles.emptyText}>
+                  {searchQuery ? `No diagnostic tests matching "${searchQuery}".` : 'Tap "+ Add Test" to add lab tests to catalog.'}
+                </Text>
               </View>
-            ))
-          )
+            ) : (
+              <>
+                {tests.map((t) => (
+                  <View key={t._id || t.id} style={styles.card}>
+                    <View style={styles.cardHeader}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.testName}>{t.name}</Text>
+                        <Text style={styles.testCategory}>{t.category || 'General Pathology'}</Text>
+                      </View>
+                      <Text style={styles.testPrice}>₹{t.price}</Text>
+                    </View>
+
+                    <View style={styles.cardActions}>
+                      <TouchableOpacity
+                        style={styles.actionBtn}
+                        onPress={() => handleOpenEdit(t)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.actionBtnText}>Edit</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.actionBtn, styles.deleteBtn]}
+                        onPress={() => handleDelete(t)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.actionBtnText, styles.deleteBtnText]}>Delete</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+
+                {/* Scroll Down Pagination Footer */}
+                {loadingMore && (
+                  <View style={styles.loadMoreBox}>
+                    <ActivityIndicator size="small" color="#0D9488" />
+                    <Text style={styles.loadMoreText}>Loading more tests...</Text>
+                  </View>
+                )}
+
+                {!loadingMore && page < totalPages && (
+                  <TouchableOpacity style={styles.loadMoreBtn} onPress={handleLoadMore} activeOpacity={0.7}>
+                    <Text style={styles.loadMoreBtnText}>
+                      Scroll down or tap to load more ({tests.length} of {total})
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                {!loadingMore && page >= totalPages && tests.length > 0 && (
+                  <View style={styles.endListBox}>
+                    <Text style={styles.endListText}>✓ All {total} diagnostic tests loaded</Text>
+                  </View>
+                )}
+              </>
+            )}
+          </>
         ) : (
           // ── Orders Tab ───────────────────────────────────────────────────────
           testOrders.length === 0 ? (
@@ -514,7 +660,7 @@ export default function OpdDiagnosticTestsScreen() {
                 <View style={styles.fieldGroup}>
                   <Text style={styles.fieldLabel}>SELECT TEST *</Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-                    {tests.map((t) => {
+                    {(allTests.length > 0 ? allTests : tests).map((t) => {
                       const isSelected = orderForm.testId === (t._id || t.id);
                       return (
                         <TouchableOpacity
@@ -620,4 +766,21 @@ const styles = StyleSheet.create({
   submitBtn: { backgroundColor: '#0D9488', paddingVertical: 14, borderRadius: 12, alignItems: 'center', marginTop: 8 },
   submitBtnText: { color: '#ffffff', fontWeight: '700', fontSize: 15 },
   btnDisabled: { opacity: 0.6 },
+  searchBarContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#ffffff', borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', paddingHorizontal: 12, marginBottom: 4 },
+  searchInput: { flex: 1, paddingVertical: 10, fontSize: 13, color: '#0f172a' },
+  clearBtn: { padding: 4 },
+  clearBtnText: { color: '#94a3b8', fontSize: 13, fontWeight: '700' },
+  paginationRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, marginTop: 6, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
+  pageBtn: { paddingVertical: 8, paddingHorizontal: 14, backgroundColor: '#0D9488', borderRadius: 8 },
+  pageBtnDisabled: { backgroundColor: '#e2e8f0' },
+  pageBtnText: { color: '#ffffff', fontWeight: '700', fontSize: 12 },
+  pageBtnTextDisabled: { color: '#94a3b8' },
+  pageInfoText: { fontSize: 12, color: '#64748b' },
+  pageInfoBold: { fontWeight: '700', color: '#0f172a' },
+  loadMoreBox: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 16 },
+  loadMoreText: { fontSize: 13, color: '#0D9488', fontWeight: '600' },
+  loadMoreBtn: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#f0fdfa', borderWidth: 1, borderColor: '#99f6e4', borderRadius: 10, paddingVertical: 12, marginVertical: 8 },
+  loadMoreBtnText: { color: '#0f766e', fontSize: 12, fontWeight: '700' },
+  endListBox: { alignItems: 'center', paddingVertical: 16 },
+  endListText: { fontSize: 12, color: '#94a3b8', fontWeight: '600' },
 });

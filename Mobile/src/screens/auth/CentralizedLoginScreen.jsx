@@ -18,57 +18,27 @@ export default function CentralizedLoginScreen({ onLoginSuccess }) {
     setError('');
     setLoading(true);
 
-    let authSuccess = false;
-
-    // 1. First attempt Admin endpoint (/api/auth/login)
     try {
-      const response = await apiClient.post('/api/auth/login', { email, password });
+      const response = await apiClient.post('/api/opd/auth/login', { email, password });
       const user = response.data?.user;
 
-      if (user && user.category === 'admin') {
+      if (user) {
         await storage.setItem('userId', user.id);
         await storage.setItem('userName', user.name);
         await storage.setItem('userEmail', user.email);
-        await storage.setItem('userCategory', 'admin');
-        await storage.setItem('userRoleName', 'Admin');
-        await storage.setItem('userPermissions', JSON.stringify(['*']));
+        await storage.setItem('userCategory', user.category || 'opd');
+        await storage.setItem('userRoleName', user.roleName || 'OPD Staff');
+        await storage.setItem('userPermissions', JSON.stringify(user.permissions || ['*']));
 
-        authSuccess = true;
         if (onLoginSuccess) {
-          onLoginSuccess(user, 'ADMIN');
+          onLoginSuccess(user);
         }
         return;
       }
-    } catch (adminErr) {
-      // Admin auth failed or not admin, fallback to OPD auth endpoint
+    } catch (opdErr) {
+      console.error('OPD Auth error:', opdErr);
     }
 
-    // 2. Second attempt OPD endpoint (/api/opd/auth/login)
-    if (!authSuccess) {
-      try {
-        const response = await apiClient.post('/api/opd/auth/login', { email, password });
-        const user = response.data?.user;
-
-        if (user) {
-          await storage.setItem('userId', user.id);
-          await storage.setItem('userName', user.name);
-          await storage.setItem('userEmail', user.email);
-          await storage.setItem('userCategory', user.category || 'opd');
-          await storage.setItem('userRoleName', user.roleName || 'OPD Staff');
-          await storage.setItem('userPermissions', JSON.stringify(user.permissions || ['*']));
-
-          authSuccess = true;
-          if (onLoginSuccess) {
-            onLoginSuccess(user, 'OPD');
-          }
-          return;
-        }
-      } catch (opdErr) {
-        console.error('OPD Auth error:', opdErr);
-      }
-    }
-
-    // 3. If both attempts failed
     setError('Invalid email or password. Please check your credentials.');
     setLoading(false);
   };
@@ -245,7 +215,7 @@ const styles = StyleSheet.create({
     color: '#0f172a',
   },
   submitBtn: {
-    backgroundColor: '#1b4332',
+    backgroundColor: '#0f766e',
     paddingVertical: 13,
     borderRadius: 12,
     alignItems: 'center',

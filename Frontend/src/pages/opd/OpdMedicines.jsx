@@ -5,6 +5,14 @@ const OpdMedicines = () => {
   const [medicines, setMedicines] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState(null);
+
+  // Pagination and Search states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [limit] = useState(50);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
   
   // Form states
   const [name, setName] = useState('');
@@ -21,22 +29,63 @@ const OpdMedicines = () => {
 
   const userId = localStorage.getItem('userId');
 
-  const fetchMedicines = async () => {
+  const fetchMedicines = async (targetPage = 1, query = searchQuery, append = false) => {
     try {
-      setLoading(true);
+      if (append) {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+      }
       const headers = { 'x-user-id': userId };
-      const res = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/medicines', { headers });
-      setMedicines(res.data);
+      const res = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/medicines', {
+        headers,
+        params: {
+          page: targetPage,
+          limit,
+          search: query.trim() || undefined
+        }
+      });
+      if (res.data && res.data.medicines) {
+        const newMeds = res.data.medicines;
+        if (append) {
+          setMedicines(prev => {
+            const existingIds = new Set(prev.map(m => m._id));
+            const filtered = newMeds.filter(m => !existingIds.has(m._id));
+            return [...prev, ...filtered];
+          });
+        } else {
+          setMedicines(newMeds);
+        }
+        setTotal(res.data.total || 0);
+        setTotalPages(res.data.totalPages || 1);
+        setPage(res.data.page || targetPage);
+      } else if (Array.isArray(res.data)) {
+        setMedicines(res.data);
+        setTotal(res.data.length);
+        setTotalPages(1);
+        setPage(1);
+      }
     } catch (err) {
       console.error('Error fetching medicines catalog:', err);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  const handleScroll = (e) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    if (scrollHeight - scrollTop - clientHeight < 60 && !loading && !loadingMore && page < totalPages) {
+      fetchMedicines(page + 1, searchQuery, true);
     }
   };
 
   useEffect(() => {
-    fetchMedicines();
-  }, [userId]);
+    const timer = setTimeout(() => {
+      fetchMedicines(1, searchQuery, false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery, userId]);
 
   const handleAddSubmit = async (e) => {
     e.preventDefault();
@@ -195,7 +244,32 @@ const OpdMedicines = () => {
 
         {/* Medicines List */}
         <div className="lg:col-span-2 bg-white rounded-2xl shadow-[0_4px_20px_rgb(0,0,0,0.01)] border border-gray-100 p-6 flex flex-col">
-          <h3 className="text-lg font-bold text-teal-950 mb-6 font-literata">Pharmacy Medicine Catalog List</h3>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div>
+              <h3 className="text-lg font-bold text-teal-950 font-literata">Pharmacy Medicine Catalog List</h3>
+              <p className="text-xs text-gray-500">
+                {total > 0 ? `Showing ${(page - 1) * limit + 1}–${Math.min(page * limit, total)} of ${total} medicines` : 'No medicines found'}
+              </p>
+            </div>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search medicine name..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full sm:w-64 px-3.5 py-2 pr-8 bg-slate-50 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white transition-all"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs font-bold cursor-pointer"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
 
           {success && editingId && (
             <div className="mb-4 p-3 bg-emerald-50 border border-emerald-100 text-emerald-700 rounded-xl text-sm font-semibold">
@@ -209,7 +283,7 @@ const OpdMedicines = () => {
             </div>
           )}
 
-          <div className="flex-1 overflow-x-auto">
+          <div className="flex-1 overflow-x-auto max-h-[550px] overflow-y-auto pr-1" onScroll={handleScroll}>
             {loading ? (
               <div className="flex items-center justify-center min-h-[200px]">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
@@ -340,6 +414,32 @@ const OpdMedicines = () => {
                   ))}
                 </tbody>
               </table>
+            )}
+
+            {/* Scroll Down Pagination Footer */}
+            {loadingMore && (
+              <div className="flex items-center justify-center gap-2 py-3 text-xs text-teal-600 font-semibold">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-teal-600"></div>
+                <span>Loading more medicines...</span>
+              </div>
+            )}
+
+            {!loadingMore && page < totalPages && (
+              <div className="text-center py-2.5">
+                <button
+                  type="button"
+                  onClick={() => fetchMedicines(page + 1, searchQuery, true)}
+                  className="text-xs text-teal-700 bg-teal-50 hover:bg-teal-100 font-bold py-1.5 px-4 rounded-lg cursor-pointer transition-colors border border-teal-200"
+                >
+                  Scroll down or click to load more ({medicines.length} of {total})
+                </button>
+              </div>
+            )}
+
+            {!loadingMore && page >= totalPages && medicines.length > 0 && (
+              <div className="text-center py-2.5 text-xs text-gray-400 font-medium">
+                ✓ All {total} medicines loaded
+              </div>
             )}
           </div>
         </div>

@@ -4,14 +4,25 @@ import { useOpdSocketEvent } from './useOpdSocket';
 
 const OpdDiagnosticTests = () => {
   const [tests, setTests] = useState([]);
+  const [allTests, setAllTests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState(null);
+
+  // Pagination & Search states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [limit] = useState(50);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalTests, setTotalTests] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   // Form states
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
   const [editName, setEditName] = useState('');
   const [editPrice, setEditPrice] = useState('');
+  const [code, setCode] = useState('');
+  const [editCode, setEditCode] = useState('');
 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -29,16 +40,64 @@ const OpdDiagnosticTests = () => {
 
   const userId = localStorage.getItem('userId');
 
-  const fetchTests = async () => {
+  const fetchTests = async (targetPage = 1, query = searchQuery, append = false) => {
     try {
-      setLoading(true);
+      if (append) {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+      }
       const headers = { 'x-user-id': userId };
-      const res = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/tests', { headers });
-      setTests(res.data);
+      const res = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/tests', {
+        headers,
+        params: {
+          page: targetPage,
+          limit,
+          search: query.trim() || undefined
+        }
+      });
+      if (res.data && res.data.tests) {
+        const newTests = res.data.tests;
+        if (append) {
+          setTests(prev => {
+            const existingIds = new Set(prev.map(t => t._id));
+            const filtered = newTests.filter(t => !existingIds.has(t._id));
+            return [...prev, ...filtered];
+          });
+        } else {
+          setTests(newTests);
+        }
+        setTotalTests(res.data.total || 0);
+        setTotalPages(res.data.totalPages || 1);
+        setPage(res.data.page || targetPage);
+      } else if (Array.isArray(res.data)) {
+        setTests(res.data);
+        setTotalTests(res.data.length);
+        setTotalPages(1);
+        setPage(1);
+      }
     } catch (err) {
       console.error('Error fetching tests catalog:', err);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  const handleScroll = (e) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    if (scrollHeight - scrollTop - clientHeight < 60 && !loading && !loadingMore && page < totalPages) {
+      fetchTests(page + 1, searchQuery, true);
+    }
+  };
+
+  const fetchAllTests = async () => {
+    try {
+      const headers = { 'x-user-id': userId };
+      const res = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/tests?all=true', { headers });
+      setAllTests(Array.isArray(res.data) ? res.data : res.data?.tests || []);
+    } catch (err) {
+      console.error('Error fetching all tests catalog:', err);
     }
   };
 
@@ -58,9 +117,23 @@ const OpdDiagnosticTests = () => {
   };
 
   useEffect(() => {
-    fetchTests();
+    const timer = setTimeout(() => {
+      fetchTests(1, searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery, userId]);
+
+  useEffect(() => {
+    fetchAllTests();
     fetchOrderData();
   }, [userId]);
+
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= totalPages && newPage !== page) {
+      setPage(newPage);
+      fetchTests(newPage, searchQuery);
+    }
+  };
 
   // Live-refresh the scheduled tests board when any staff member orders or updates a test.
   useOpdSocketEvent('opd:testorder', fetchOrderData);
@@ -113,6 +186,7 @@ const OpdDiagnosticTests = () => {
       setName('');
       setPrice('');
       fetchTests();
+      fetchAllTests();
     } catch (err) {
       setError(err.response?.data?.message || 'Error adding test.');
     }
@@ -135,6 +209,7 @@ const OpdDiagnosticTests = () => {
       setSuccess('Test updated successfully!');
       setEditingId(null);
       fetchTests();
+      fetchAllTests();
     } catch (err) {
       setError(err.response?.data?.message || 'Error updating test.');
     }
@@ -150,6 +225,7 @@ const OpdDiagnosticTests = () => {
       await axios.delete(`${import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001'}/api/opd/tests/${id}`, { headers });
       setSuccess('Test deleted successfully!');
       fetchTests();
+      fetchAllTests();
     } catch (err) {
       setError(err.response?.data?.message || 'Error deleting test.');
     }
@@ -217,7 +293,32 @@ const OpdDiagnosticTests = () => {
 
         {/* Tests List */}
         <div className="lg:col-span-2 bg-white rounded-2xl shadow-[0_4px_20px_rgb(0,0,0,0.01)] border border-gray-100 p-6 flex flex-col">
-          <h3 className="text-lg font-bold text-teal-950 mb-6 font-literata">Diagnostic Test Catalog List</h3>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div>
+              <h3 className="text-lg font-bold text-teal-950 font-literata">Diagnostic Test Catalog List</h3>
+              <p className="text-xs text-gray-500">
+                {totalTests > 0 ? `Showing ${tests.length} of ${totalTests} tests` : 'No diagnostic tests found'}
+              </p>
+            </div>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search by test name, code, category..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full sm:w-64 px-3.5 py-2 pr-8 bg-slate-50 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white transition-all"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs font-bold cursor-pointer"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
 
           {success && editingId && (
             <div className="mb-4 p-3 bg-emerald-50 border border-emerald-100 text-emerald-700 rounded-xl text-sm font-semibold">
@@ -231,7 +332,7 @@ const OpdDiagnosticTests = () => {
             </div>
           )}
 
-          <div className="flex-1 overflow-x-auto">
+          <div className="flex-1 overflow-x-auto max-h-[550px] overflow-y-auto pr-1" onScroll={handleScroll}>
             {loading ? (
               <div className="flex items-center justify-center min-h-[200px]">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
@@ -242,7 +343,7 @@ const OpdDiagnosticTests = () => {
               </div>
             ) : (
               <table className="w-full min-w-[420px] text-left border-collapse text-sm">
-                <thead>
+                <thead className="sticky top-0 bg-white z-10">
                   <tr className="border-b border-gray-100 text-gray-400 font-bold uppercase text-[10px]">
                     <th className="pb-3">Test Name</th>
                     <th className="pb-3">Rate/Price</th>
@@ -287,7 +388,12 @@ const OpdDiagnosticTests = () => {
                         </td>
                       ) : (
                         <>
-                          <td className="py-3.5 pr-2 font-semibold text-gray-900 whitespace-nowrap">
+                          <td className="py-3.5 pr-2 font-semibold text-gray-900">
+                            {test.code && (
+                              <span className="inline-block mr-2 px-1.5 py-0.5 text-[10px] font-mono font-bold bg-teal-50 text-teal-700 border border-teal-200 rounded">
+                                {test.code}
+                              </span>
+                            )}
                             {test.name}
                           </td>
                           <td className="py-3.5 pr-2 font-mono text-teal-800 font-semibold whitespace-nowrap">
@@ -313,6 +419,32 @@ const OpdDiagnosticTests = () => {
                   ))}
                 </tbody>
               </table>
+            )}
+
+            {/* Scroll Down Pagination Footer */}
+            {loadingMore && (
+              <div className="flex items-center justify-center gap-2 py-3 text-xs text-teal-600 font-semibold">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-teal-600"></div>
+                <span>Loading more tests...</span>
+              </div>
+            )}
+
+            {!loadingMore && page < totalPages && (
+              <div className="text-center py-2.5">
+                <button
+                  type="button"
+                  onClick={() => fetchTests(page + 1, searchQuery, true)}
+                  className="text-xs text-teal-700 bg-teal-50 hover:bg-teal-100 font-bold py-1.5 px-4 rounded-lg cursor-pointer transition-colors border border-teal-200"
+                >
+                  Scroll down or click to load more ({tests.length} of {totalTests})
+                </button>
+              </div>
+            )}
+
+            {!loadingMore && page >= totalPages && tests.length > 0 && (
+              <div className="text-center py-2.5 text-xs text-gray-400 font-medium">
+                ✓ All {totalTests} tests loaded
+              </div>
             )}
           </div>
         </div>
@@ -359,7 +491,7 @@ const OpdDiagnosticTests = () => {
                 className="w-full px-4 py-2.5 bg-slate-50 border border-gray-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500 outline-none text-sm text-gray-800"
               >
                 <option value="">-- Choose Test --</option>
-                {tests.map(t => (
+                {(allTests.length > 0 ? allTests : tests).map(t => (
                   <option key={t._id} value={t._id}>{t.name} (₹{t.price})</option>
                 ))}
               </select>

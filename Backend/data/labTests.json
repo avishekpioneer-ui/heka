@@ -1,0 +1,4226 @@
+[
+  {
+    "code": "LD-1",
+    "name": "Blast Cell",
+    "price": 50.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-2",
+    "name": "1.25 -Dihydroxy Cholecalciferol (Vitamin D)",
+    "price": 6200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-3",
+    "name": "17 Hydroxy Corticosteroids(ketogenic steroids)",
+    "price": 2500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-4",
+    "name": "17-OH Progesterone / 17-Hydroxyprogesterone/17-OHP",
+    "price": 2200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-5",
+    "name": "24 Hours Urine for Uric Acid",
+    "price": 200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-6",
+    "name": "24 hr Urine for Phosphorous",
+    "price": 300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-7",
+    "name": "24 hrs Urine for  Protein",
+    "price": 200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-8",
+    "name": "24 hrs Urine for Calcium",
+    "price": 200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-9",
+    "name": "24 hrs Urine for Creatinine",
+    "price": 150.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-10",
+    "name": "24 hrs Urine for Micro-Albumin",
+    "price": 500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-11",
+    "name": "24 hrs Urine for Pottasium",
+    "price": 300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-12",
+    "name": "24 hrs Urine for Sodium",
+    "price": 300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-13",
+    "name": "24 hrs Urine for Urea",
+    "price": 150.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-14",
+    "name": "24hrs. Urine for Sulfate",
+    "price": 300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-15",
+    "name": "25 OH Cholecalciferol (Vitamin D3)",
+    "price": 1500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-16",
+    "name": "5 - HT (Hydroxytryptamine) 24 hour , Urine",
+    "price": 4200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-17",
+    "name": "5 AIA (5 -Aminolevulinic Acid)",
+    "price": 7500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-18",
+    "name": "5-Dihydrotestosterone/5-DHT",
+    "price": 2500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-19",
+    "name": "5-HIAA (Hydroxi Indole Acetic Acid)",
+    "price": 5800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-20",
+    "name": "50 OH Vitamin D3",
+    "price": 3400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-21",
+    "name": "A:G Ratio",
+    "price": 150.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-22",
+    "name": "Abnormal cell",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-23",
+    "name": "Absolute eosinophil count",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-24",
+    "name": "Absolute lymphocyte count",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-25",
+    "name": "absolute monocyte count",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-26",
+    "name": "Absolute neutrophil count",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-27",
+    "name": "Acetone, Serum",
+    "price": 1500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-28",
+    "name": "Acetyle Choline Receptor Binding Antibody/ACHR ab",
+    "price": 6200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-29",
+    "name": "Acetyle Cholinesterse Antibody (MG)",
+    "price": 3400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-30",
+    "name": "Acid Phosphatase",
+    "price": 200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-31",
+    "name": "Acid Phosphatase Prostate / PAP",
+    "price": 250.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-32",
+    "name": "ACTH (Adrenocorticoprotic Hormone)",
+    "price": 2000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-33",
+    "name": "Activated Partial Thromboplastin Time,(APTT)",
+    "price": 300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-34",
+    "name": "Activated protein C-resistance /APCR",
+    "price": 6000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-35",
+    "name": "ADA (Adenosine Deaminase)",
+    "price": 700.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-36",
+    "name": "ADH (Antidiuretic Hormone)",
+    "price": 4500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-37",
+    "name": "AFB (Z-N Stain) of Smears",
+    "price": 200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-38",
+    "name": "AFB CULTURE (BACTEC METHOD)",
+    "price": 1800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-39",
+    "name": "AFB Culture (Conventional)",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-40",
+    "name": "AFB Culture(Rapid)",
+    "price": 1000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-41",
+    "name": "AFB Sensitivity, Per Drug",
+    "price": 2500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-42",
+    "name": "Albert stain",
+    "price": 250.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-43",
+    "name": "Albumin",
+    "price": 150.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-44",
+    "name": "Alcohol (Blood)",
+    "price": 1500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-45",
+    "name": "Alcohol Screen, Urine",
+    "price": 1500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-46",
+    "name": "Aldehyde Test/Chopra Test",
+    "price": 200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-47",
+    "name": "Aldolase",
+    "price": 3200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-48",
+    "name": "Aldosterone",
+    "price": 4000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-49",
+    "name": "Aldosterone Renin Ratio(ARR)",
+    "price": 4000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-50",
+    "name": "Alkaline Phosphatase - Isoenzymes",
+    "price": 5200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-51",
+    "name": "Alkaline Phosphatase(AlP), Total",
+    "price": 150.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-52",
+    "name": "Alkaline Phosphatase-Bone Specific(BSAP)",
+    "price": 3500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-53",
+    "name": "Alkaptonuria",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-54",
+    "name": "Allergy (Blood) EIISA with IgE",
+    "price": 2000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-55",
+    "name": "Alpha Feto Protein (AFP)",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-56",
+    "name": "Alpha-1 Antitrypsin Quantitation",
+    "price": 4000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-57",
+    "name": "Aluminium",
+    "price": 3600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-58",
+    "name": "Amino Acid",
+    "price": 6500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-59",
+    "name": "Ammonia",
+    "price": 1200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-60",
+    "name": "Amylase",
+    "price": 300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-61",
+    "name": "Amylase/Diastase (Urine)",
+    "price": 450.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-62",
+    "name": "ANCA",
+    "price": 1200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-63",
+    "name": "ANCA in dilution",
+    "price": 1600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-64",
+    "name": "Androgens (Testosterone & DHEA - S)",
+    "price": 2000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-65",
+    "name": "Androsteindione (A4)",
+    "price": 3000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-66",
+    "name": "Angiotensin Converting Enzyme(ACE)",
+    "price": 2800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-67",
+    "name": "Anti - TPO Antibody.",
+    "price": 1000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-68",
+    "name": "Anti A titre",
+    "price": 300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-69",
+    "name": "Anti B titre",
+    "price": 300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-70",
+    "name": "Anti Cardiolipin Antibody IgA",
+    "price": 800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-71",
+    "name": "Anti Cardiolipin Antibody IgA, IgG & IgM",
+    "price": 2400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-72",
+    "name": "Anti Cardiolipin Antibody IgG",
+    "price": 800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-73",
+    "name": "Anti Cardiolipin Antibody IgM",
+    "price": 800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-74",
+    "name": "Anti CCP /Anti Cyclic Citrulinated Peptide",
+    "price": 1200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-75",
+    "name": "Anti Centromere Antibody",
+    "price": 3000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-76",
+    "name": "Anti DNase B/Antideoxyribonuclease B",
+    "price": 1600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-77",
+    "name": "Anti ds DNA Antibody",
+    "price": 650.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-78",
+    "name": "Anti ds DNA antibody/IFA in dilutions",
+    "price": 2600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-79",
+    "name": "Anti EBV (Epstein barr virus), Nuclear Ag IgG",
+    "price": 1800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-80",
+    "name": "Anti EBV (epstein barr virus), Viral capsid Ag IgG",
+    "price": 3500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-81",
+    "name": "Anti EBV(Epstein barr virus), Early Ag IgG",
+    "price": 1600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-82",
+    "name": "Anti Endomysial Antibody IgA IFA Method",
+    "price": 7500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-83",
+    "name": "Anti Epidermal antibody/anti pemphigus antibody",
+    "price": 3000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-84",
+    "name": "Anti Gliadin antibody IgA & IgG",
+    "price": 2800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-85",
+    "name": "Anti GQ 1b Antibody",
+    "price": 7000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-86",
+    "name": "Anti Hbc IgG",
+    "price": 1000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-87",
+    "name": "Anti HbE IgG",
+    "price": 1000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-88",
+    "name": "Anti Histone antibodies",
+    "price": 2500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-89",
+    "name": "Anti Insulin Antibody",
+    "price": 1400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-90",
+    "name": "Anti Intrinsic anti body",
+    "price": 4000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-91",
+    "name": "Anti Jo-1 Antibody",
+    "price": 1600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-92",
+    "name": "ANTI KERATIN ANTIBODY",
+    "price": 4500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-93",
+    "name": "Anti Kp 90, IgA Antibodies",
+    "price": 2200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-94",
+    "name": "Anti Mitochondrial Antibody, AMA Anti M2",
+    "price": 2500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-95",
+    "name": "Anti MOG Antibody",
+    "price": 11000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-96",
+    "name": "Anti Mullerian Hormone (AMH)",
+    "price": 2200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-97",
+    "name": "Anti Nuclear Aantibody/Factor,ANA/ANF(HEP-2)",
+    "price": 1200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-98",
+    "name": "Anti Nuclear Antibody/ Factor (ANA / ANF)",
+    "price": 700.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-99",
+    "name": "Anti Parietal Cell antibody, IFA Method",
+    "price": 2800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-100",
+    "name": "Anti Phospholipid Antibody (IgG)",
+    "price": 1000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-101",
+    "name": "Anti Phospholipid Antibody (IgM)",
+    "price": 1000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-102",
+    "name": "Anti ribonucleoprotein-Smith Ag complex(RNP-Sm)IgG",
+    "price": 2600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-103",
+    "name": "Anti Skeletal Muscle Antibody, ASKA",
+    "price": 2600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-104",
+    "name": "Anti Smooth Muscle Antibody, ASMA by IFA",
+    "price": 3500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-105",
+    "name": "Anti Sperm Antibody",
+    "price": 1000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-106",
+    "name": "Anti ss DNA Antibody",
+    "price": 1800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-107",
+    "name": "Anti Streptolysin - O(ASO)",
+    "price": 425.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-108",
+    "name": "Anti tissue transglutaminase,(TtG) IgA",
+    "price": 2500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-109",
+    "name": "Anti tissue transglutaminase,(TtG) IgG",
+    "price": 3500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-110",
+    "name": "Anti-GBM (Glomerular Basement Membrane)",
+    "price": 4500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-111",
+    "name": "Antibodies to SS-A/Ro",
+    "price": 1400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-112",
+    "name": "Antibodies to SS-B/Ia",
+    "price": 1400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-113",
+    "name": "Antithrombin (III ) Functional",
+    "price": 3200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-114",
+    "name": "Antithyroglobulin (Anti-Tg)",
+    "price": 1300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-115",
+    "name": "Apolipoprotien A1",
+    "price": 700.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-116",
+    "name": "Apolipoprotien B",
+    "price": 700.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-117",
+    "name": "Aquaporin - 4 Receptor Antibody / Anti NMO antibody",
+    "price": 4500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-118",
+    "name": "Arsenic (Blood)",
+    "price": 3600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-119",
+    "name": "Arsenic (Urine)",
+    "price": 3600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-120",
+    "name": "ASCA IgG & IgA",
+    "price": 4000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-121",
+    "name": "ASMA in DIlUTION",
+    "price": 6000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-122",
+    "name": "Aspergillosis Antibody - IgG",
+    "price": 1800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-123",
+    "name": "Aspergillosis Antibody - IgM",
+    "price": 1800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-124",
+    "name": "Aspergillus Fumigatus , IgE",
+    "price": 4500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-125",
+    "name": "Atypical lymphocytes",
+    "price": 400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-126",
+    "name": "BCR-ABl Fusion Transcript Detection (Qualitative)",
+    "price": 7000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-127",
+    "name": "Beta hCG for Urine Pregnancy Qualitative",
+    "price": 200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-128",
+    "name": "Beta hCG Quantitative",
+    "price": 650.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-129",
+    "name": "Beta-2 Microglobulin (Beta - 2M), Blood",
+    "price": 2800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-130",
+    "name": "Beta-2 Microglobulin (Beta - 2M), Urine",
+    "price": 2800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-131",
+    "name": "Beta-2-Glycoprotein IgG",
+    "price": 2400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-132",
+    "name": "Beta-2-glycoprotein IgM",
+    "price": 2400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-133",
+    "name": "Bicarbonate in Urine",
+    "price": 300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-134",
+    "name": "Bicarbonate(HCo3)",
+    "price": 300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-135",
+    "name": "Bile Acid Test",
+    "price": 500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-136",
+    "name": "Bilirubin Total, Direct & Indirect",
+    "price": 200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-137",
+    "name": "Biopsy (Opinion Slide) Each Slide",
+    "price": 300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-138",
+    "name": "Biopsy,Each section",
+    "price": 300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-139",
+    "name": "Blood Culture & Sensitivity (Aerobic)",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-140",
+    "name": "Blood culture & sensitivity (Anaerobic)",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-141",
+    "name": "Blood Culture & Sensitivity for Aerobic Bacteria",
+    "price": 700.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-142",
+    "name": "Blood Culture & SensitivityFor Anaerobic Bacteria",
+    "price": 700.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-143",
+    "name": "Blood for Urate (Qualitative)",
+    "price": 500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-144",
+    "name": "Blood Group (A, B & O) & Rh factor",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-145",
+    "name": "Blood Picture/ Peripheral Blood Smear Examination",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-146",
+    "name": "Blood Urea Nitrogen(BUN)",
+    "price": 200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-147",
+    "name": "Body Fluid (Cell Type, Cell Count & Biochemistry)",
+    "price": 400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-148",
+    "name": "Body Fluid Culture & Sensitivity",
+    "price": 400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-149",
+    "name": "Body Fluid for Glucose, M-Protein, Chloride",
+    "price": 300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-150",
+    "name": "Body Fluids (Cell Count,type , Biochemistry,cyto)",
+    "price": 700.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-151",
+    "name": "Body Fluids (Cell Type & Cell Count)",
+    "price": 200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-152",
+    "name": "Bone Gla protein(BGP)/Osteocalcine",
+    "price": 3800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-153",
+    "name": "Bone marrow (Report only)",
+    "price": 400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-154",
+    "name": "Bone Marrow, Iron stain",
+    "price": 400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-155",
+    "name": "Brucella IgG",
+    "price": 1000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-156",
+    "name": "Brucella IgM",
+    "price": 1000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-157",
+    "name": "BT (Bleeding Time)",
+    "price": 50.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-158",
+    "name": "BT (Bleeding Time) & CT (Clotting Time)",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-159",
+    "name": "C -Peptide (Fasting)",
+    "price": 1800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-160",
+    "name": "C- Peptide (PP)",
+    "price": 1800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-161",
+    "name": "C-Anti Neutrophil Cytoplasmic Antibody,C-ANCA PR3",
+    "price": 1200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-162",
+    "name": "C-Reactive Protein Cardio (hs-CRP)",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-163",
+    "name": "C-Reactive Protein(CRP)",
+    "price": 500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-164",
+    "name": "C1-inhibitor/C1 Esterase Inhibitor,Quantitative",
+    "price": 5500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-165",
+    "name": "CA 15.3(Breast Cancer Marker)",
+    "price": 1200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-166",
+    "name": "CA 27 - 29",
+    "price": 1500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-167",
+    "name": "CA-72.4(Gastric cancer Marker)",
+    "price": 2500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-168",
+    "name": "CA-125(Ovarian Cancer Marker)",
+    "price": 900.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-169",
+    "name": "CA-19.9(Pancreatic Cancer Marker)",
+    "price": 1000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-170",
+    "name": "Cadmium",
+    "price": 2500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-171",
+    "name": "Calcitonin",
+    "price": 2400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-172",
+    "name": "Calcium",
+    "price": 200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-173",
+    "name": "Calcium & creatinine ratio",
+    "price": 450.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-174",
+    "name": "Calcium (Ionised)",
+    "price": 400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-175",
+    "name": "Calcium Phosphate Ratio",
+    "price": 400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-176",
+    "name": "Carbamazepine",
+    "price": 1000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-177",
+    "name": "CEA(Carcino Embryonic Antigen)",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-178",
+    "name": "Catecholamine(Adrenaline & nor adrenaline), Plasma",
+    "price": 4000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-179",
+    "name": "Catecholamine(Adrenaline & nor adrenaline), Urine",
+    "price": 5600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-180",
+    "name": "CD 19 /CD 20",
+    "price": 5000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-181",
+    "name": "CD 3 count",
+    "price": 1500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-182",
+    "name": "CD 4 count",
+    "price": 1500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-183",
+    "name": "CD 8 count",
+    "price": 1500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-184",
+    "name": "Ceruloplasmin",
+    "price": 2000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-185",
+    "name": "CFT (Complement Fixation Test)",
+    "price": 1800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-186",
+    "name": "CH50 (Complement, Total)",
+    "price": 6000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-187",
+    "name": "Chikun-Guniya IgG & IgM",
+    "price": 1200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-188",
+    "name": "Chlamydia Tracomatis Antibody IgG/IgM/IgA",
+    "price": 2800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-189",
+    "name": "Chloride(Blood)",
+    "price": 200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-190",
+    "name": "Chloride(Urine)",
+    "price": 200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-191",
+    "name": "Cholesterol - Total",
+    "price": 200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-192",
+    "name": "Cholinesterase, (Serum)",
+    "price": 2600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-193",
+    "name": "Chromium",
+    "price": 4200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-194",
+    "name": "Chromogranin-A/CGA",
+    "price": 5800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-195",
+    "name": "Chromosomal Analysis for Haematologic Malignancy",
+    "price": 2400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-196",
+    "name": "Chyle Test",
+    "price": 300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-197",
+    "name": "Chylomicrons (Qualitative)",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-198",
+    "name": "Citrate (Urine)",
+    "price": 2400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-199",
+    "name": "Clostridium difficle GDH Ag from Stool",
+    "price": 5100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-200",
+    "name": "Clot Retraction Time",
+    "price": 120.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-201",
+    "name": "CMV (IgG) Avidity.",
+    "price": 700.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-202",
+    "name": "Cobalt",
+    "price": 3500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-203",
+    "name": "Complement -3,(C3)",
+    "price": 1400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-204",
+    "name": "Complement -4,(C4)",
+    "price": 1600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-205",
+    "name": "Complete Haemogram",
+    "price": 400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-206",
+    "name": "Coomb s Test Direct",
+    "price": 300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-207",
+    "name": "Coomb s Test Indirect",
+    "price": 400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-208",
+    "name": "Copper",
+    "price": 3500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-209",
+    "name": "Corrected Calcium",
+    "price": 720.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-210",
+    "name": "Cortisol (Evening)",
+    "price": 1000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-211",
+    "name": "Cortisol (Midnight)",
+    "price": 1000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-212",
+    "name": "Cortisol (Morning)",
+    "price": 1000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-213",
+    "name": "Cortisol (Morning, Evening & Midnight)",
+    "price": 2400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-214",
+    "name": "Cortisol (Urine)",
+    "price": 1000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-215",
+    "name": "Cortisol Free",
+    "price": 1200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-216",
+    "name": "Coxsackie Antibody IgG/IgM",
+    "price": 2800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-217",
+    "name": "CPK (HORSE)",
+    "price": 1200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-218",
+    "name": "CPK - MM",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-219",
+    "name": "CPK,Creatinine Phospho Kinase",
+    "price": 350.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-220",
+    "name": "CPK-MB",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-221",
+    "name": "Creatinine (Serum)",
+    "price": 200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-222",
+    "name": "Creatinine (Urine)",
+    "price": 300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-223",
+    "name": "Creatinine Clearance Test(CCT)",
+    "price": 300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-224",
+    "name": "Cryoglobulins Screening Test",
+    "price": 1300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-225",
+    "name": "Cryptococcal Antigen",
+    "price": 2000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-226",
+    "name": "Cryptosporidium Antigen from Stool",
+    "price": 2350.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-227",
+    "name": "CT (Clotting Time)",
+    "price": 50.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-228",
+    "name": "Culture for GND",
+    "price": 400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-229",
+    "name": "Culture for KIB, Diptheria",
+    "price": 350.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-230",
+    "name": "CYFRA 21-1,Iung cancer marker",
+    "price": 5200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-231",
+    "name": "Cystatin C",
+    "price": 2500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-232",
+    "name": "Cysticircosis Antibody/Taenia solium IgG",
+    "price": 3500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-233",
+    "name": "Cytomegalovirus Antibody (CMV) IgG",
+    "price": 350.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-234",
+    "name": "Cytomegalovirus Antibody (CMV) IgM",
+    "price": 350.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-235",
+    "name": "Cytomegalovirus,DNA PCR(Qualitative)",
+    "price": 4500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-236",
+    "name": "D-Dimer",
+    "price": 1100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-237",
+    "name": "DC/MP",
+    "price": 150.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-238",
+    "name": "Dehydroepiandrosterone(DHEA)",
+    "price": 1500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-239",
+    "name": "Dehydroepiandrosterone-Sulphate(DHEA-S)",
+    "price": 800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-240",
+    "name": "DElTA -AlA(Delta -Aminolevulinic Acid)24 Hrs Urine",
+    "price": 6500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-241",
+    "name": "Dengue - IgG",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-242",
+    "name": "Dengue - IgM",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-243",
+    "name": "DENGUE EARlY EIlSA - NS1",
+    "price": 800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-244",
+    "name": "Dengue IgG & IgM",
+    "price": 1200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-245",
+    "name": "Dengue IgG, IgM & NS1",
+    "price": 1800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-246",
+    "name": "Differential Count(DC)",
+    "price": 150.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-247",
+    "name": "Digoxin (Dilantin/Janoxin)",
+    "price": 1500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-248",
+    "name": "Direct lDl - Cholesterol",
+    "price": 400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-249",
+    "name": "DNPH Test",
+    "price": 150.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-250",
+    "name": "DOB, (Barbiturate/Benzoduazepine/Cannabinoids/Marij",
+    "price": 6000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-251",
+    "name": "Drugs of Abuse Prefile (Eight Drugs)",
+    "price": 6000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-252",
+    "name": "dRVVT (Russel viper venom time)",
+    "price": 850.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-253",
+    "name": "DUAl/DOUBlE MARKER",
+    "price": 2500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-254",
+    "name": "E1 (Estrone)",
+    "price": 8200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-255",
+    "name": "E2 (Estradiol)",
+    "price": 1000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-256",
+    "name": "EBV(VCA) -IgG/IgM Antibodies to Viral Capsid",
+    "price": 3500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-257",
+    "name": "Echinococcus (Hydatid ) IgM",
+    "price": 2100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-258",
+    "name": "Echinococcus (Hydatid) IgA",
+    "price": 2100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-259",
+    "name": "Echinococcus (Hydatid) IgG",
+    "price": 2100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-260",
+    "name": "Echovirus antibody IgG/IgM",
+    "price": 4200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-261",
+    "name": "Egra",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-262",
+    "name": "Enterovirus Qualitative by RT-PCR",
+    "price": 6000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-263",
+    "name": "Epinephrines / Nor Epinephrines",
+    "price": 3500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-264",
+    "name": "Erythropoietin,EPO",
+    "price": 2600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-265",
+    "name": "ESR (Erythrocyte Sedimentation Rate)",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-266",
+    "name": "EstrogenReceptor(ER)/Progesterone  Receptor(PR)",
+    "price": 4000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-267",
+    "name": "F-T3, F-T4 & TSH",
+    "price": 800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-268",
+    "name": "F-T4 & TSH",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-269",
+    "name": "Factor II (Prothrombin) by RT-PCR",
+    "price": 6900.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-270",
+    "name": "Factor IX Assay(Photooptical Clot Detection)",
+    "price": 4800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-271",
+    "name": "Factor V (leiden) by RT-PCR",
+    "price": 6500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-272",
+    "name": "Factor V Activity Test",
+    "price": 5000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-273",
+    "name": "Factor VIII Assay Activity",
+    "price": 4000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-274",
+    "name": "Factor VIII Inhibitor Study",
+    "price": 16000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-275",
+    "name": "Factor X, functional",
+    "price": 8500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-276",
+    "name": "Factor XI, functional",
+    "price": 8500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-277",
+    "name": "Factor XII, functional",
+    "price": 8500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-278",
+    "name": "Fecal Cal Protein",
+    "price": 3000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-279",
+    "name": "Ferric Chloride Test",
+    "price": 300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-280",
+    "name": "Ferritin",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-281",
+    "name": "Fetal Haemoglobin by HPlC",
+    "price": 500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-282",
+    "name": "Fibrin Degeneration Product,(FDP)",
+    "price": 1500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-283",
+    "name": "Fibrinogen level",
+    "price": 1400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-284",
+    "name": "FIlARIA ANTIGEN",
+    "price": 1500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-285",
+    "name": "Filaria Antibody IgG",
+    "price": 1300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-286",
+    "name": "Filaria Antibody IgM",
+    "price": 1300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-287",
+    "name": "Filaria IgG4 Antibody",
+    "price": 1200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-288",
+    "name": "Filaria Recombinant Antigen WbSXP - 1",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-289",
+    "name": "FlC (Free light Chain) Ratio",
+    "price": 6200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-290",
+    "name": "Fluid for Crystal study",
+    "price": 1100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-291",
+    "name": "Fluorescent treponemal antibody (FTA-Abs)",
+    "price": 3500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-292",
+    "name": "FNAC (Deep Organ)",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-293",
+    "name": "FNAC (Report Only)",
+    "price": 300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-294",
+    "name": "FNAC (Superficial Organ)",
+    "price": 400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-295",
+    "name": "Folate & Vitamin B12",
+    "price": 1300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-296",
+    "name": "Folate/Folic Acid, RBC",
+    "price": 700.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-297",
+    "name": "Folic Acid / Folate",
+    "price": 1000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-298",
+    "name": "Follicle Stimulating Hormone (FSH)",
+    "price": 350.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-299",
+    "name": "Free Androgen Index",
+    "price": 3200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-300",
+    "name": "Free Beta hCG Quantitative",
+    "price": 1000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-301",
+    "name": "Free Insulin",
+    "price": 800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-302",
+    "name": "Free Metrnephrine",
+    "price": 6800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-303",
+    "name": "Free Testosterone",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-304",
+    "name": "Free Thyroxine(F-T4)",
+    "price": 300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-305",
+    "name": "Free Tri-iodothyronine (F-T3)",
+    "price": 300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-306",
+    "name": "Fructosamine (Blood)",
+    "price": 2200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-307",
+    "name": "Fungul Stain Of Smears",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-308",
+    "name": "Fungus culture",
+    "price": 700.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-309",
+    "name": "Fungus culture & sensitivity (4 drugs)",
+    "price": 3000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-310",
+    "name": "G6PD Quantitative (at 30\u00baC)",
+    "price": 400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-311",
+    "name": "GAD-65 (Glutamic acid decarboxylase) antibodies",
+    "price": 4000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-312",
+    "name": "Galactose -1 Phosphate, Quantitative, Blood",
+    "price": 1600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-313",
+    "name": "Galactose, Quantitative, Plasma",
+    "price": 1600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-314",
+    "name": "Galactosemia screening,blood",
+    "price": 1000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-315",
+    "name": "Gall stone analysis",
+    "price": 1000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-316",
+    "name": "Gastrin level",
+    "price": 3000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-317",
+    "name": "Gastrin, Secretin stimulation test",
+    "price": 3800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-318",
+    "name": "Gaucher Disease, Quantitative (Blood)",
+    "price": 2600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-319",
+    "name": "GENE X PERT ASSAY/ TB NAAT",
+    "price": 4200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-320",
+    "name": "GGT (Gamma GT)",
+    "price": 400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-321",
+    "name": "Globulin",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-322",
+    "name": "Glomorulous Filtration Rate",
+    "price": 300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-323",
+    "name": "Glucose Fasting",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-324",
+    "name": "Glucose PP (Post Prandial)",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-325",
+    "name": "Glucose Random",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-326",
+    "name": "Glucose Tolerance Test(GTT)",
+    "price": 400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-327",
+    "name": "Gonococcus smear examination",
+    "price": 150.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-328",
+    "name": "Growth Hormone (GH)/Human Growth Hormone(hGH)",
+    "price": 1400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-329",
+    "name": "Haemoglobin (Hb)",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-330",
+    "name": "Haemoglobin (Hb) & ESR",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-331",
+    "name": "Haemoglobinopathy Screen/ Hb% Electrophoresis",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-332",
+    "name": "Haemoglobinuria",
+    "price": 1000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-333",
+    "name": "HAM's test/PNH(Paroxysmal nocturnalHemoglobinuria)",
+    "price": 8000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-334",
+    "name": "Hanging Drop Preparation",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-335",
+    "name": "Haptoglobulin",
+    "price": 1400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-336",
+    "name": "HbA1c (Glycosylated Haemoglobin) [HPlC system]",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-337",
+    "name": "HBcAb-IgM (Hepatitis B core antibody)",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-338",
+    "name": "HBDH /lDH - 1(a-hydroxybutyrate dehydrogenas",
+    "price": 400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-339",
+    "name": "HBsAb (Hepatitis B surface Antibody)",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-340",
+    "name": "HBsAg Test (Australia Antigen Test)",
+    "price": 400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-341",
+    "name": "HBV Genotypeing",
+    "price": 8500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-342",
+    "name": "HCV (Hepatitis C Virus) IgG",
+    "price": 1200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-343",
+    "name": "HCV (Hepatitis C Virus) IgM",
+    "price": 1200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-344",
+    "name": "HCV Genotypeing",
+    "price": 6800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-345",
+    "name": "HCV Elisa",
+    "price": 400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-346",
+    "name": "HDl & lDl Ratio",
+    "price": 400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-347",
+    "name": "HDl-Cholesterol",
+    "price": 200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-348",
+    "name": "Heinz bodies",
+    "price": 150.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-349",
+    "name": "Helicobacter pylori IgA",
+    "price": 1000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-350",
+    "name": "Helicobacter pylori IgG",
+    "price": 1000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-351",
+    "name": "Helicobacter pylori IgM",
+    "price": 1000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-352",
+    "name": "Hemosiderin",
+    "price": 1300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-353",
+    "name": "Hepatitis A Virus (HAV) IgG",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-354",
+    "name": "Hepatitis A Virus (HAV) IgM",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-355",
+    "name": "Hepatitis A Virus (HAV) Total",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-356",
+    "name": "Hepatitis A Virus Surface Antigen (HAsAg)",
+    "price": 2000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-357",
+    "name": "Hepatitis B Core antibody (HbcAB) Total",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-358",
+    "name": "Hepatitis B Core Antigen (Hbcag)IgM",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-359",
+    "name": "Hepatitis B envelope Antibody (HbeAb)",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-360",
+    "name": "Hepatitis B envelope Antigen(HbeAg)",
+    "price": 650.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-361",
+    "name": "Hepatitis B surface Antigen(HbsAg)",
+    "price": 300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-362",
+    "name": "Hepatitis B Viral DNA Qualitative",
+    "price": 2800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-363",
+    "name": "Hepatitis B viral DNA Quantitative",
+    "price": 4400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-364",
+    "name": "Hepatitis C Viral RNA (Quantitave)",
+    "price": 4800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-365",
+    "name": "Hepatitis C Virus Antibody, (HCV) Screening",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-366",
+    "name": "Hepatitis D Virus Antibody,(HDV) Total",
+    "price": 1000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-367",
+    "name": "Hepatitis E Virus (HEV) IgG",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-368",
+    "name": "Hepatitis E Virus (HEV) IgM",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-369",
+    "name": "Hepatitis E Virus Antibody,(HEV) Total",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-370",
+    "name": "Herpes simplex virus (HSV)1/2, DNA PCR",
+    "price": 3400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-371",
+    "name": "Hg (Mercury), Blood/Urine",
+    "price": 2800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-372",
+    "name": "Histo/Cytochemistry (PAS/Peroxidase/SUDAN stain)",
+    "price": 500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-373",
+    "name": "HIV 1 & 2 Antibodies, Western Blot",
+    "price": 2000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-374",
+    "name": "HIV 1 & 2 Antibody",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-375",
+    "name": "HIV 1 & 2 Antibody, 3rd Generation",
+    "price": 650.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-376",
+    "name": "HIV 1 & 2 Rapid Test",
+    "price": 400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-377",
+    "name": "HIV 1 RNA Quantitative,Reverse Transcriptase PCR",
+    "price": 3800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-378",
+    "name": "HlAB27 PCR METHOD",
+    "price": 3800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-379",
+    "name": "HOMA IR",
+    "price": 1800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-380",
+    "name": "Homocystine - Blood",
+    "price": 2200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-381",
+    "name": "Homocystine - Urine",
+    "price": 2200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-382",
+    "name": "Homogentisic Acid (Alkaptinuria) Urine",
+    "price": 400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-383",
+    "name": "HSV (Herpes Simplex Virus )1/2 IgG",
+    "price": 650.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-384",
+    "name": "HSV (Herpes simplex virus) IgG & IgM antibody",
+    "price": 2000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-385",
+    "name": "HSV (Herpes simplex virux)1 / 2 IgM",
+    "price": 650.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-386",
+    "name": "HSV-1 & 2 (Herpes Simplex Virus-1 & 2)  IgG",
+    "price": 650.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-387",
+    "name": "HSV-1 & 2 (Herpes Simplex Virus-1 & 2) IgM",
+    "price": 650.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-388",
+    "name": "Human papilloma virus(16 & 18), DNA PCR",
+    "price": 3400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-389",
+    "name": "HIV,HCV,HBsAg(Serology)",
+    "price": 1300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-390",
+    "name": "IgA (Immunoglobulin A)",
+    "price": 650.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-391",
+    "name": "IgD (Immunoglobulin - D)",
+    "price": 1400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-392",
+    "name": "IgE (Immunoglobulin E) Total",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-393",
+    "name": "IgE with Sub type",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-394",
+    "name": "IGF-1 (Somatomedin C)",
+    "price": 2000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-395",
+    "name": "IgG (Immunoglobulin G)",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-396",
+    "name": "IgG-4",
+    "price": 3000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-397",
+    "name": "IgG4 - Subclass",
+    "price": 6000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-398",
+    "name": "IgM (Immunoglobulin M)",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-399",
+    "name": "IGRA (Interferron for gamma releasing assay)",
+    "price": 2800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-400",
+    "name": "Immunofixation Test(IFE)",
+    "price": 5500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-401",
+    "name": "Immunoglobulin G, IgG, CSF",
+    "price": 1500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-402",
+    "name": "India Ink Preperation",
+    "price": 500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-403",
+    "name": "Infectious Mononucleosis IgM",
+    "price": 1200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-404",
+    "name": "Influenza A & B Antibodies",
+    "price": 1600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-405",
+    "name": "Inhibin A, Maternal Screening",
+    "price": 2800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-406",
+    "name": "Inhibin B",
+    "price": 3500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-407",
+    "name": "Inorganic Phosphate",
+    "price": 250.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-408",
+    "name": "Insulin (Fasting)",
+    "price": 700.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-409",
+    "name": "Insulin (Midnight)",
+    "price": 700.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-410",
+    "name": "Insulin (PP)",
+    "price": 700.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-411",
+    "name": "Insulin antibodies",
+    "price": 1800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-412",
+    "name": "Insulin Autoantibody",
+    "price": 3900.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-413",
+    "name": "Iron & TIBC",
+    "price": 650.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-414",
+    "name": "Iron ( Blood)",
+    "price": 250.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-415",
+    "name": "Iron (Urine)",
+    "price": 400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-416",
+    "name": "Islet cell antibody",
+    "price": 5500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-417",
+    "name": "JAK2(V617F) MUTATION",
+    "price": 8500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-418",
+    "name": "Japanese Encephalitis Virus (JEV) by RT-PCR",
+    "price": 8500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-419",
+    "name": "KAHN Test",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-420",
+    "name": "Karryotyping/Choromosomal analysis, Philadelphia",
+    "price": 2400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-421",
+    "name": "Karyotyping With C-Banding",
+    "price": 2500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-422",
+    "name": "Karyotyping(Chromosomal Analysis) Blood",
+    "price": 2500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-423",
+    "name": "KlB Detection",
+    "price": 150.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-424",
+    "name": "KOH Preparation",
+    "price": 1000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-425",
+    "name": "lactate Dehydrogenase,lDH",
+    "price": 400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-426",
+    "name": "lactate, lactic Acid",
+    "price": 680.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-427",
+    "name": "lactose Intolerance Test",
+    "price": 650.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-428",
+    "name": "lDH Isoenzymes",
+    "price": 2200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-429",
+    "name": "lDl & HDl Ratio",
+    "price": 500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-430",
+    "name": "lDl subfraction",
+    "price": 4200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-431",
+    "name": "l-Cholesterol",
+    "price": 500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-432",
+    "name": "lE Cell",
+    "price": 250.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-433",
+    "name": "lead level,Blood",
+    "price": 3800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-434",
+    "name": "lead level,Urine",
+    "price": 3800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-435",
+    "name": "leismania kala-Azar Antibody,rK 39",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-436",
+    "name": "lEPROSY ANTIGEN",
+    "price": 400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-437",
+    "name": "lEPTIN",
+    "price": 7200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-438",
+    "name": "leptospira Antibodies IgG & IgM",
+    "price": 1200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-439",
+    "name": "leptospira Antibody IgG",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-440",
+    "name": "leptospira Antibody IgM",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-441",
+    "name": "leptospira Antigen IgM",
+    "price": 4000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-442",
+    "name": "leucocyte Alkaline Phosphatase Score, lAPscore",
+    "price": 1100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-443",
+    "name": "lFT (liver Function Test)",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-444",
+    "name": "lH, FSH & PRl",
+    "price": 1200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-445",
+    "name": "lipase",
+    "price": 400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-446",
+    "name": "lIPASE      (Urine)",
+    "price": 1200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-447",
+    "name": "lipid Profile",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-448",
+    "name": "lipoprotein-A/lP(a)",
+    "price": 1500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-449",
+    "name": "lithium",
+    "price": 350.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-450",
+    "name": "lKM-1, liver kidney Microsomal Antibody",
+    "price": 2800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-451",
+    "name": "lTH / luteotropic Hormone",
+    "price": 2200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-452",
+    "name": "lupus Anticoagulent by Drvvt",
+    "price": 1000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-453",
+    "name": "lutenising Hormone,lH",
+    "price": 350.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-454",
+    "name": "M leprae Antibody Test",
+    "price": 2400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-455",
+    "name": "Magnesium,Blood",
+    "price": 500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-456",
+    "name": "Magnesium,Urine",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-457",
+    "name": "Malaria Parasites, (MP)",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-458",
+    "name": "Malaria Pf Antigen",
+    "price": 500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-459",
+    "name": "Manganese,Blood",
+    "price": 3500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-460",
+    "name": "Mantoux Test (PPD 5 TU & 10 TU)",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-461",
+    "name": "MCH (Mean Corpuscular Haemoglobin)",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-462",
+    "name": "MCHC (Mean Corpuscular Hb Concentration)",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-463",
+    "name": "MCV (Mean Corpuscular Volume)",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-464",
+    "name": "Metanephrines",
+    "price": 6000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-465",
+    "name": "Meth haemoglobin",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-466",
+    "name": "Methadone / Dolophine (Urine)",
+    "price": 1500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-467",
+    "name": "Micro filaria",
+    "price": 700.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-468",
+    "name": "Microalbumin & Creatinine Ratio,ACR",
+    "price": 550.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-469",
+    "name": "Microfilaria (Wet preparation)",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-470",
+    "name": "Mucopolysaccharide (MPS) Screening test",
+    "price": 1200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-471",
+    "name": "Mumps IgG / IgM Antibody(EACH)",
+    "price": 1000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-472",
+    "name": "Mycobacterium tuberculosis DNA PCR",
+    "price": 2000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-473",
+    "name": "Mycobacterium turberculosis RNA PCR",
+    "price": 3000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-474",
+    "name": "Mycoplasma Pneumoniae IgM Antibody",
+    "price": 2600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-475",
+    "name": "Myoglobin (Serum)",
+    "price": 1500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-476",
+    "name": "Myoglobin (Tissue)",
+    "price": 2500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-477",
+    "name": "Myoglobin (Urine)",
+    "price": 1800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-478",
+    "name": "Nasal swab for eosinophil count",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-479",
+    "name": "NBT (Nitroblue tetrazolium) Reduction Test",
+    "price": 1600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-480",
+    "name": "Neuron specific enolase, NSE",
+    "price": 2500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-481",
+    "name": "Nickel",
+    "price": 3000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-482",
+    "name": "Nicotine Metabolis / Cotinine",
+    "price": 4500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-483",
+    "name": "Nitrogen(N2)",
+    "price": 700.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-484",
+    "name": "Nitroprusside Test (Urine)",
+    "price": 150.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-485",
+    "name": "Nitrosonapthal (Urine)",
+    "price": 150.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-486",
+    "name": "Non - Metanephrine",
+    "price": 5000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-487",
+    "name": "Non Protein Nitrogen,NPN",
+    "price": 120.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-488",
+    "name": "NT-PRO BNP",
+    "price": 2400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-489",
+    "name": "Opiates screening / Morphine",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-490",
+    "name": "Osmolality (Serum)",
+    "price": 620.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-491",
+    "name": "Osmolarity (Urine)",
+    "price": 620.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-492",
+    "name": "Osmotic / RBC fragility test",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-493",
+    "name": "Oxalic Acid / Oxalate Urine",
+    "price": 1400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-494",
+    "name": "P 24 Core Antigen Assay",
+    "price": 1400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-495",
+    "name": "P Time",
+    "price": 250.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-496",
+    "name": "p-Anti Neutrophil Cytoplasmic Antibody(P-ANCA/MPO)",
+    "price": 1000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-497",
+    "name": "Packed Cell Volume,(PCV)",
+    "price": 80.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-498",
+    "name": "PAP Stain for Tissue & Body Fluid",
+    "price": 400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-499",
+    "name": "PAPPA",
+    "price": 1900.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-500",
+    "name": "Parathyroid Hormone Intact,(PTH) intact",
+    "price": 1200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-501",
+    "name": "Parvo Virus B19 IgG",
+    "price": 3800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-502",
+    "name": "Parvo Virus B19 IgM",
+    "price": 3800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-503",
+    "name": "PBI (Protein-Bound Iodine) level",
+    "price": 1200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-504",
+    "name": "PCOD (POlYCYSTIC OVARIAN DISEASE)",
+    "price": 2000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-505",
+    "name": "PG E2 (Prostaglandin E2)",
+    "price": 2000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-506",
+    "name": "pH / Blood",
+    "price": 900.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-507",
+    "name": "Phencyclidine, (PCP)",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-508",
+    "name": "Phenobarbitole,(Gardenal/Juminal)",
+    "price": 900.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-509",
+    "name": "Phenylketoneurea (Urine)",
+    "price": 2400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-510",
+    "name": "Phenytoin (Dilantin/Eptoin/Eosolin)",
+    "price": 1500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-511",
+    "name": "Plasma CO2 contents, (PCO2)",
+    "price": 900.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-512",
+    "name": "Plasma O2 Contents (PO2)",
+    "price": 900.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-513",
+    "name": "Plasma Renin Activity (PRA)",
+    "price": 3800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-514",
+    "name": "Plasminogen (Functional)",
+    "price": 2000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-515",
+    "name": "Platelet / Thrombocyte Count",
+    "price": 120.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-516",
+    "name": "PorPhyrins-Total, Qualitative",
+    "price": 3300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-517",
+    "name": "Potassium (Serum)",
+    "price": 200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-518",
+    "name": "Potassium (Urine)",
+    "price": 300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-519",
+    "name": "Pregnancy Test",
+    "price": 120.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-520",
+    "name": "Pro-Calcitonin",
+    "price": 4000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-521",
+    "name": "Progesterone",
+    "price": 500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-522",
+    "name": "Prolactin, (PRl)",
+    "price": 450.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-523",
+    "name": "Prostate Specific Antigen (PSA), Free",
+    "price": 800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-524",
+    "name": "Prostate Specific Antigen, (PSA)",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-525",
+    "name": "Prostatic Fraction",
+    "price": 150.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-526",
+    "name": "Protein C (Functional)",
+    "price": 6000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-527",
+    "name": "Protein Electrophoresis",
+    "price": 1000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-528",
+    "name": "Protein S (Functional)",
+    "price": 5800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-529",
+    "name": "Prothrombin Time(PT) with INR",
+    "price": 250.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-530",
+    "name": "Pseudocholinesterase",
+    "price": 2000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-531",
+    "name": "Pus Swab Culture & Sensitivity",
+    "price": 250.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-532",
+    "name": "Pyruvate, Pyruvic Acid(Blood)",
+    "price": 4000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-533",
+    "name": "Quadruple Marfier Screening",
+    "price": 5000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-534",
+    "name": "Quantiferon - TB Gold",
+    "price": 3000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-535",
+    "name": "Quantitation of Fecal Fat Output by Chem-Analysis.",
+    "price": 1800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-536",
+    "name": "R.P.I (Reticulocyte Production Index)",
+    "price": 400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-537",
+    "name": "Rabbies Antibody",
+    "price": 5500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-538",
+    "name": "Ratio",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-539",
+    "name": "RBC Count",
+    "price": 80.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-540",
+    "name": "RBC Distribution Width (RDW)",
+    "price": 150.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-541",
+    "name": "RBC Morphology",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-542",
+    "name": "Reticulocyte Count",
+    "price": 300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-543",
+    "name": "Rh Antibody Titre",
+    "price": 700.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-544",
+    "name": "Rheumatoid Factor (RF)",
+    "price": 400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-545",
+    "name": "RNP ANTIBODIES (U1 - RNP)",
+    "price": 2500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-546",
+    "name": "ROMA Index",
+    "price": 6000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-547",
+    "name": "Rose Wallar Test,(RA)",
+    "price": 400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-548",
+    "name": "RPR(Rapid Plasma Reagin)",
+    "price": 1300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-549",
+    "name": "Rota Virus Antigen from Stool",
+    "price": 2000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-550",
+    "name": "Rubella IgG",
+    "price": 400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-551",
+    "name": "Rubella IgG & IgM",
+    "price": 750.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-552",
+    "name": "Rubella IgM",
+    "price": 400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-553",
+    "name": "Rubeola (Measles) Antibodies IgG & IgM",
+    "price": 2400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-554",
+    "name": "Rubeola (Measles) Antibody IgG/IgM(EACH)",
+    "price": 1400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-555",
+    "name": "Salicylate",
+    "price": 1300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-556",
+    "name": "Scl-70 antibody (DNA Topoisomerase-I),serum.",
+    "price": 2500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-557",
+    "name": "Scrapings Examination for Hansen`s Bacillus",
+    "price": 200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-558",
+    "name": "Scrub Typhus  IgM",
+    "price": 1200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-559",
+    "name": "Scrub Typhus  IgG",
+    "price": 1200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-560",
+    "name": "Selenium",
+    "price": 3500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-561",
+    "name": "Semen Analysis",
+    "price": 200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-562",
+    "name": "Semen Analysis with Fructose",
+    "price": 700.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-563",
+    "name": "Serum Ascites Albumin Gradient,(SAAG) Ratio",
+    "price": 800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-564",
+    "name": "Sex Chromatin/Buccal Smear/Bar Bodies",
+    "price": 500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-565",
+    "name": "Sex Hormone Binding Globulin,(SHBG)",
+    "price": 2800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-566",
+    "name": "SGOT / AST",
+    "price": 200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-567",
+    "name": "SGPT / AlT",
+    "price": 200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-568",
+    "name": "Sickle Cell Gene Sequencing",
+    "price": 11000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-569",
+    "name": "Sickle Cell Test",
+    "price": 150.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-570",
+    "name": "Skin smears for AFB / Gram stain",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-571",
+    "name": "Smear for Gram stain",
+    "price": 250.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-572",
+    "name": "Sodium (Serum)",
+    "price": 200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-573",
+    "name": "Sodium (Urine)",
+    "price": 300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-574",
+    "name": "Sodium Valproate",
+    "price": 800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-575",
+    "name": "Spherocytosis (Blood)",
+    "price": 1200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-576",
+    "name": "Spot Urine For Albumin",
+    "price": 500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-577",
+    "name": "Spot Urine for Calcium",
+    "price": 200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-578",
+    "name": "Spot Urine for MicroProtein",
+    "price": 250.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-579",
+    "name": "Spot Urine for Triglycerides",
+    "price": 300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-580",
+    "name": "Spot urine Micro-Albumin",
+    "price": 500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-581",
+    "name": "Sputum Culture & Sensitivity",
+    "price": 400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-582",
+    "name": "Sputum for AFB (Z-N stain) for 3 consecutive Days",
+    "price": 250.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-583",
+    "name": "Sputum for OBT (Ocult Blood Test)",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-584",
+    "name": "Sputum RE (Routine Examination)",
+    "price": 300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-585",
+    "name": "Standar Short Synacthen Test",
+    "price": 1600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-586",
+    "name": "Stone Analysis",
+    "price": 800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-587",
+    "name": "Stool Culture & Sensitivity",
+    "price": 400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-588",
+    "name": "Stool for Ocult Blood Test,(OBT)",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-589",
+    "name": "Stool for OPC (Ova Parasite Cyst)",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-590",
+    "name": "Stool for pH",
+    "price": 40.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-591",
+    "name": "Stool for Reducing substance",
+    "price": 80.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-592",
+    "name": "Stool RE (Routine Examination)",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-593",
+    "name": "Streptococcus gr. \"B\" antigen detection",
+    "price": 700.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-594",
+    "name": "Swab for AFB stain",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-595",
+    "name": "Swab for Fungal Stain",
+    "price": 200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-596",
+    "name": "Synovial Fluid for crystal",
+    "price": 500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-597",
+    "name": "Syphilis Antibodies Screening Test / TPHA",
+    "price": 350.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-598",
+    "name": "T3 & TSH",
+    "price": 400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-599",
+    "name": "T3, T4 & TSH",
+    "price": 900.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-600",
+    "name": "T4 & TSH",
+    "price": 400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-601",
+    "name": "T4 & US-TSH",
+    "price": 400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-602",
+    "name": "Tacrolimus level",
+    "price": 4000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-603",
+    "name": "TC & DC",
+    "price": 80.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-604",
+    "name": "TC (Total leucocyte Count)",
+    "price": 40.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-605",
+    "name": "TC, DC & ESR",
+    "price": 120.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-606",
+    "name": "TC, DC & Hb",
+    "price": 120.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-607",
+    "name": "TC, DC & MP",
+    "price": 120.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-608",
+    "name": "TC, DC, ESR, Hb & MP",
+    "price": 200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-609",
+    "name": "TC, DC, HB & ESR",
+    "price": 200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-610",
+    "name": "TC, DC,Hb & MP",
+    "price": 150.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-611",
+    "name": "TC, DC,Hb & PCV",
+    "price": 120.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-612",
+    "name": "Testosterone",
+    "price": 1000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-613",
+    "name": "Thallium",
+    "price": 4500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-614",
+    "name": "Theophyline",
+    "price": 800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-615",
+    "name": "Throat swab Culture & Sensitivity",
+    "price": 400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-616",
+    "name": "Thrombin Time, (TT)",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-617",
+    "name": "Thyroglobulin, (TG)",
+    "price": 1250.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-618",
+    "name": "Thyroid Antibody",
+    "price": 550.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-619",
+    "name": "Thyroid Binding Globulin, (TBG)",
+    "price": 750.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-620",
+    "name": "Thyroid Receptor/Thyrotropin Receptor Antibody",
+    "price": 6000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-621",
+    "name": "Thyroid Stimulating Hormone, (TSH)",
+    "price": 300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-622",
+    "name": "TORCH (PCR) REAl TIME",
+    "price": 5800.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-623",
+    "name": "Torch panel (IgG & IgM )10 parameters",
+    "price": 2500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-624",
+    "name": "Torch Panel (IgG & IgM) 8 Parameters",
+    "price": 2100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-625",
+    "name": "Torch Panel IgG",
+    "price": 1200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-626",
+    "name": "Torch Panel IgM",
+    "price": 1200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-627",
+    "name": "Total cholesterol & HDl Ratio",
+    "price": 200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-628",
+    "name": "Total Iron Binding Capacity, (TIBC)",
+    "price": 400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-629",
+    "name": "Total lipid",
+    "price": 400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-630",
+    "name": "Total Protein",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-631",
+    "name": "Total Protein & Albumin (With A-G ratio)",
+    "price": 150.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-632",
+    "name": "Total Thyroxine, (T4)",
+    "price": 300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-633",
+    "name": "Total Tri-iodothyronine, (T3)",
+    "price": 300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-634",
+    "name": "Toxo IgG Avidity",
+    "price": 3000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-635",
+    "name": "Toxoplasma IgG",
+    "price": 300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-636",
+    "name": "Toxoplasma IgG & IgM",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-637",
+    "name": "Toxoplasma IgM",
+    "price": 300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-638",
+    "name": "TPA (Treponema Pallidum Antibody)",
+    "price": 1200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-639",
+    "name": "Transferrin",
+    "price": 700.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-640",
+    "name": "Transferrin, Saturation",
+    "price": 500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-641",
+    "name": "Triglycerides",
+    "price": 250.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-642",
+    "name": "Triglycerides (Urine)",
+    "price": 300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-643",
+    "name": "Triple Marker Screening",
+    "price": 2500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-644",
+    "name": "Troponin I, (Trop-I)",
+    "price": 1200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-645",
+    "name": "Troponin T (Quantification)",
+    "price": 2000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-646",
+    "name": "Troponin T, (Trop-T)",
+    "price": 1500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-647",
+    "name": "Typhoid Antibodies Screening Test / Typhi Dot",
+    "price": 400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-648",
+    "name": "Tzanck Smear",
+    "price": 500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-649",
+    "name": "UE3 (Estriol/Oestrogen)",
+    "price": 1500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-650",
+    "name": "UIBC (Unsaturated Iron Binding Capasity)",
+    "price": 500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-651",
+    "name": "Unconjugated Estriol,uE3 ,Blood",
+    "price": 1300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-652",
+    "name": "Unconjugated Estriol,uE3 ,Urine",
+    "price": 1300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-653",
+    "name": "Urea (Blood)",
+    "price": 200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-654",
+    "name": "Urea (Urine)",
+    "price": 200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-655",
+    "name": "Uric Acid (Blood)",
+    "price": 200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-656",
+    "name": "Uric Acid (Urine)",
+    "price": 200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-657",
+    "name": "Urinary 17 Hydroxycorticosteroids, 17-OHCS",
+    "price": 3100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-658",
+    "name": "Urinary 17 Ketogenic Steroids",
+    "price": 1500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-659",
+    "name": "Urinary 17 ketosteroids & Hydroxycorticosteroids",
+    "price": 5400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-660",
+    "name": "Urinary 17 Oxysteroid",
+    "price": 2200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-661",
+    "name": "Urinary HVA (Homo Vanillic Acid)",
+    "price": 1500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-662",
+    "name": "Urinary V.M.A./Vanilmandelic Acid",
+    "price": 2400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-663",
+    "name": "Urine Albumin",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-664",
+    "name": "Urine Culture & Sensitivity",
+    "price": 400.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-665",
+    "name": "Urine for Bence Jones Protein",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-666",
+    "name": "Urine for Bile salts & Bile pigments",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-667",
+    "name": "Urine for Ketonebody / Acetone",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-668",
+    "name": "Urine for Metachromatic Granules",
+    "price": 600.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-669",
+    "name": "Urine for MIC",
+    "price": 900.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-670",
+    "name": "Urine for Micro Cholesterol",
+    "price": 160.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-671",
+    "name": "Urine for Nitrate",
+    "price": 300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-672",
+    "name": "Urine for OBT",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-673",
+    "name": "Urine for pH",
+    "price": 40.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-674",
+    "name": "Urine for Phosphorus",
+    "price": 300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-675",
+    "name": "Urine for Porphobilinogen",
+    "price": 2000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-676",
+    "name": "Urine for Redusing Subtance",
+    "price": 160.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-677",
+    "name": "URINE FOR URATE",
+    "price": 300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-678",
+    "name": "Urine RE (Routine Examination)",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-679",
+    "name": "Urine Sugar",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-680",
+    "name": "Urobilinogen",
+    "price": 100.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-681",
+    "name": "US-TSH (Ultra sensitive - TSH)",
+    "price": 300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-682",
+    "name": "Vaginal / Cervical swab for Trichomonas vaginalis",
+    "price": 120.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-683",
+    "name": "Varicella Zoster Virus IgG Antibody",
+    "price": 1000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-684",
+    "name": "Varicella Zoster Virus IgM Antibody",
+    "price": 1000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-685",
+    "name": "VDRl (Rapid Plasma reagin)",
+    "price": 1200.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-686",
+    "name": "VDRl/RPR (Dilution Method)",
+    "price": 300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-687",
+    "name": "VDRl/RPR  Test",
+    "price": 150.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-688",
+    "name": "Vitamin A,(Ratinol)",
+    "price": 4000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-689",
+    "name": "Vitamin B1 (Thiamine)",
+    "price": 4000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-690",
+    "name": "Vitamin B12,(Cyanocobalamin)",
+    "price": 1000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-691",
+    "name": "Vitamin B2,(Riboflavin)",
+    "price": 4000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-692",
+    "name": "Vitamin B6 (Pyridoxine)",
+    "price": 4000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-693",
+    "name": "Vitamin C(l- Ascorbic Acid)",
+    "price": 4500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-694",
+    "name": "Vitamin D3",
+    "price": 1500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-695",
+    "name": "Vitamin E ,(Tocopherol)",
+    "price": 4000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-696",
+    "name": "V(l)-Cholesterol",
+    "price": 300.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-697",
+    "name": "Von Willbrand Factor Antigen,vWFAg",
+    "price": 10000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-698",
+    "name": "Wasserman Test/VDRl",
+    "price": 150.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-699",
+    "name": "WATER C.FORM AND EIECTROlYTES",
+    "price": 3000.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-700",
+    "name": "Weil Felix Test",
+    "price": 500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-701",
+    "name": "Widal Test (Slide method)",
+    "price": 150.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-702",
+    "name": "Widal Test (Tube method)",
+    "price": 150.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-703",
+    "name": "Xylose-D",
+    "price": 2500.0,
+    "category": "General Pathology"
+  },
+  {
+    "code": "LD-704",
+    "name": "Zinc",
+    "price": 2000.0,
+    "category": "General Pathology"
+  }
+]

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -11,12 +11,15 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  RefreshControl,
 } from 'react-native';
 import apiClient from '../../config/api';
 
 export default function OpdMedicinesScreen() {
   const [medicines, setMedicines] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   // Add Modal
@@ -29,28 +32,86 @@ export default function OpdMedicinesScreen() {
   const [restockTarget, setRestockTarget] = useState(null);
   const [restockQty, setRestockQty] = useState('');
 
+  // Search & Pagination states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [searchLoading, setSearchLoading] = useState(false);
+
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
   const [formData, setFormData] = useState({ name: '', stock: '', price: '' });
   const [editFormData, setEditFormData] = useState({ name: '', stock: '', price: '' });
 
-  useEffect(() => {
-    fetchMedicines();
-  }, []);
-
-  const fetchMedicines = async () => {
+  const fetchMedicines = async (targetPage = 1, query = searchQuery, append = false, isSearch = false) => {
     try {
-      setLoading(true);
-      const res = await apiClient.get('/api/opd/medicines');
-      const data = res.data?.medicines || res.data || [];
-      setMedicines(Array.isArray(data) ? data : []);
+      if (append) {
+        setLoadingMore(true);
+      } else if (isSearch) {
+        setSearchLoading(true);
+      } else {
+        setLoading(true);
+      }
+
+      const res = await apiClient.get('/api/opd/medicines', {
+        params: {
+          page: targetPage,
+          limit: 50,
+          search: query?.trim() || undefined,
+        },
+      });
+
+      const newMeds = res.data?.medicines || (Array.isArray(res.data) ? res.data : []);
+      const newTotal = res.data?.total !== undefined ? res.data.total : (Array.isArray(res.data) ? res.data.length : 0);
+      const newTotalPages = res.data?.totalPages || 1;
+
+      if (append) {
+        setMedicines((prev) => {
+          const existingIds = new Set(prev.map((m) => m._id || m.id));
+          const filtered = newMeds.filter((m) => !existingIds.has(m._id || m.id));
+          return [...prev, ...filtered];
+        });
+      } else {
+        setMedicines(newMeds);
+      }
+
+      setTotal(newTotal);
+      setTotalPages(newTotalPages);
+      setPage(targetPage);
     } catch (err) {
       console.error('Error fetching medicines:', err);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
+      setSearchLoading(false);
+      setRefreshing(false);
     }
   };
+
+  const handleLoadMore = () => {
+    if (!loading && !loadingMore && !searchLoading && page < totalPages) {
+      fetchMedicines(page + 1, searchQuery, true, false);
+    }
+  };
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchMedicines(1, searchQuery, false, false);
+  };
+
+  const isCloseToBottom = ({ layoutMeasurement, contentOffset, contentSize }) => {
+    const paddingToBottom = 60;
+    return layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom;
+  };
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchMedicines(1, searchQuery, false, true);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const handleAddMedicine = async () => {
     if (!formData.name || !formData.stock || !formData.price) {
@@ -71,7 +132,7 @@ export default function OpdMedicinesScreen() {
 
       setSuccess('Medicine added to inventory!');
       setFormData({ name: '', stock: '', price: '' });
-      fetchMedicines();
+      fetchMedicines(1, searchQuery, false);
       setTimeout(() => {
         setIsAddModalOpen(false);
         setSuccess('');
@@ -113,7 +174,7 @@ export default function OpdMedicinesScreen() {
       });
 
       setSuccess('Medicine updated successfully!');
-      fetchMedicines();
+      fetchMedicines(1, searchQuery, false);
       setTimeout(() => {
         setIsEditModalOpen(false);
         setSuccess('');
@@ -136,7 +197,7 @@ export default function OpdMedicinesScreen() {
   const handleRestock = async () => {
     const qty = parseInt(restockQty, 10);
     if (isNaN(qty) || qty <= 0) {
-      setError('Please enter a valid stock quantity');
+      setError('Please enter a valid positive quantity');
       return;
     }
 
@@ -150,7 +211,7 @@ export default function OpdMedicinesScreen() {
       });
 
       setSuccess(`Added ${qty} units to ${restockTarget.name}!`);
-      fetchMedicines();
+      fetchMedicines(1, searchQuery, false);
       setTimeout(() => {
         setIsRestockModalOpen(false);
         setSuccess('');
@@ -174,7 +235,7 @@ export default function OpdMedicinesScreen() {
           onPress: async () => {
             try {
               await apiClient.delete(`/api/opd/medicines/${med._id || med.id}`);
-              fetchMedicines();
+              fetchMedicines(1, searchQuery, false);
             } catch (err) {
               Alert.alert('Error', 'Failed to delete medicine');
             }
@@ -190,6 +251,20 @@ export default function OpdMedicinesScreen() {
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets={true}
+        scrollEventThrottle={200}
+        onScroll={({ nativeEvent }) => {
+          if (isCloseToBottom(nativeEvent)) {
+            handleLoadMore();
+          }
+        }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={['#0D9488']}
+            tintColor="#0D9488"
+          />
+        }
       >
         {/* Header */}
         <View style={styles.headerRow}>
@@ -202,8 +277,27 @@ export default function OpdMedicinesScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Search Bar */}
+        <View style={styles.searchBarContainer}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="🔍 Search medicine name..."
+            placeholderTextColor="#94a3b8"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            returnKeyType="search"
+          />
+          {searchLoading ? (
+            <ActivityIndicator size="small" color="#0D9488" style={styles.clearBtn} />
+          ) : searchQuery ? (
+            <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={styles.clearBtnText}>✕</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+
         {/* Medicines List */}
-        {loading ? (
+        {loading && medicines.length === 0 && !searchQuery ? (
           <View style={styles.centerBox}>
             <ActivityIndicator size="large" color="#0f766e" />
             <Text style={styles.loadingText}>Loading Pharmacy Stock...</Text>
@@ -211,63 +305,89 @@ export default function OpdMedicinesScreen() {
         ) : medicines.length === 0 ? (
           <View style={styles.emptyBox}>
             <Text style={styles.emptyTitle}>No Medicines Found</Text>
-            <Text style={styles.emptyText}>Add medicines to your catalogue to manage stock and billing.</Text>
+            <Text style={styles.emptyText}>
+              {searchQuery ? `No medicines matching "${searchQuery}".` : 'Add medicines to your catalogue to manage stock and billing.'}
+            </Text>
           </View>
         ) : (
-          medicines.map((med) => {
-            const isLowStock = (med.stock || 0) < 10;
-            const isOutOfStock = (med.stock || 0) === 0;
+          <>
+            {medicines.map((med) => {
+              const isLowStock = (med.stock || 0) < 10;
+              const isOutOfStock = (med.stock || 0) === 0;
 
-            return (
-              <View key={med._id || med.id} style={styles.card}>
-                <View style={styles.cardHeader}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.name}>{med.name}</Text>
-                    <Text style={styles.category}>{med.category || 'General Medicine'}</Text>
+              return (
+                <View key={med._id || med.id} style={styles.card}>
+                  <View style={styles.cardHeader}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.name}>{med.name}</Text>
+                      <Text style={styles.category}>{med.category || 'General Medicine'}</Text>
+                    </View>
+                    <Text style={styles.price}>₹{med.price}</Text>
                   </View>
-                  <Text style={styles.price}>₹{med.price}</Text>
+
+                  <View style={styles.stockRow}>
+                    <Text style={styles.stockLabel}>Available Stock:</Text>
+                    <Text
+                      style={[
+                        styles.stockValue,
+                        isOutOfStock ? styles.textRed : isLowStock ? styles.textOrange : styles.textGreen,
+                      ]}
+                    >
+                      {med.stock || 0} units {isOutOfStock ? '(Out of Stock)' : isLowStock ? '(Low Stock)' : ''}
+                    </Text>
+                  </View>
+
+                  <View style={styles.cardActions}>
+                    <TouchableOpacity
+                      style={styles.actionBtn}
+                      onPress={() => handleOpenRestock(med)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.actionBtnText}>+ Restock</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.actionBtn}
+                      onPress={() => handleOpenEdit(med)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.actionBtnText}>Edit</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.actionBtn, styles.deleteBtn]}
+                      onPress={() => handleDelete(med)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.actionBtnText, styles.deleteBtnText]}>Delete</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
+              );
+            })}
 
-                <View style={styles.stockRow}>
-                  <Text style={styles.stockLabel}>Available Stock:</Text>
-                  <Text
-                    style={[
-                      styles.stockValue,
-                      isOutOfStock ? styles.textRed : isLowStock ? styles.textOrange : styles.textGreen,
-                    ]}
-                  >
-                    {med.stock || 0} units {isOutOfStock ? '(Out of Stock)' : isLowStock ? '(Low Stock)' : ''}
-                  </Text>
-                </View>
-
-                <View style={styles.cardActions}>
-                  <TouchableOpacity
-                    style={styles.actionBtn}
-                    onPress={() => handleOpenRestock(med)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.actionBtnText}>+ Restock</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.actionBtn}
-                    onPress={() => handleOpenEdit(med)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.actionBtnText}>Edit</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.actionBtn, styles.deleteBtn]}
-                    onPress={() => handleDelete(med)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.actionBtnText, styles.deleteBtnText]}>Delete</Text>
-                  </TouchableOpacity>
-                </View>
+            {/* Scroll Down Pagination Footer */}
+            {loadingMore && (
+              <View style={styles.loadMoreBox}>
+                <ActivityIndicator size="small" color="#0D9488" />
+                <Text style={styles.loadMoreText}>Loading more medicines...</Text>
               </View>
-            );
-          })
+            )}
+
+            {!loadingMore && page < totalPages && (
+              <TouchableOpacity style={styles.loadMoreBtn} onPress={handleLoadMore} activeOpacity={0.7}>
+                <Text style={styles.loadMoreBtnText}>
+                  Scroll down or tap to load more ({medicines.length} of {total})
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {!loadingMore && page >= totalPages && medicines.length > 0 && (
+              <View style={styles.endListBox}>
+                <Text style={styles.endListText}>✓ All {total} medicines loaded</Text>
+              </View>
+            )}
+          </>
         )}
       </ScrollView>
 
@@ -467,4 +587,21 @@ const styles = StyleSheet.create({
   restockInfo: { backgroundColor: '#f0fdfa', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#99f6e4', gap: 4 },
   restockName: { fontSize: 16, fontWeight: '700', color: '#0f172a' },
   restockCurrent: { fontSize: 13, color: '#0f766e', fontWeight: '600' },
+  searchBarContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#ffffff', borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', paddingHorizontal: 12, marginBottom: 4 },
+  searchInput: { flex: 1, paddingVertical: 10, fontSize: 13, color: '#0f172a' },
+  clearBtn: { padding: 4 },
+  clearBtnText: { color: '#94a3b8', fontSize: 13, fontWeight: '700' },
+  paginationRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, marginTop: 6, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
+  pageBtn: { paddingVertical: 8, paddingHorizontal: 14, backgroundColor: '#0D9488', borderRadius: 8 },
+  pageBtnDisabled: { backgroundColor: '#e2e8f0' },
+  pageBtnText: { color: '#ffffff', fontWeight: '700', fontSize: 12 },
+  pageBtnTextDisabled: { color: '#94a3b8' },
+  pageInfoText: { fontSize: 12, color: '#64748b' },
+  pageInfoBold: { fontWeight: '700', color: '#0f172a' },
+  loadMoreBox: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 16 },
+  loadMoreText: { fontSize: 13, color: '#0D9488', fontWeight: '600' },
+  loadMoreBtn: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#f0fdfa', borderWidth: 1, borderColor: '#99f6e4', borderRadius: 10, paddingVertical: 12, marginVertical: 8 },
+  loadMoreBtnText: { color: '#0f766e', fontSize: 12, fontWeight: '700' },
+  endListBox: { alignItems: 'center', paddingVertical: 16 },
+  endListText: { fontSize: 12, color: '#94a3b8', fontWeight: '600' },
 });

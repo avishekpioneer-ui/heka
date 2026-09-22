@@ -49,8 +49,8 @@ const OpdConsultations = () => {
       setAppointments(activeAppts);
 
       // Load medicines database for prescription autocomplete/selector
-      const medsRes = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/medicines', { headers });
-      setMedicinesList(medsRes.data);
+      const medsRes = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/medicines?all=true', { headers });
+      setMedicinesList(Array.isArray(medsRes.data) ? medsRes.data : medsRes.data?.medicines || []);
 
       // Load clinical consultation history logs
       const consultsRes = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/consultations', { headers });
