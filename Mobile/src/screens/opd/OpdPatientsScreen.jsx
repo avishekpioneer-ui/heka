@@ -25,7 +25,8 @@ export default function OpdPatientsScreen({ onNavigate, routeParams }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [genderFilter, setGenderFilter] = useState('ALL'); // 'ALL' | 'Male' | 'Female' | 'Other'
+  const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL' | 'DUE' | 'PAID'
+  const [bills, setBills] = useState([]);
   const [sortBy, setSortBy] = useState('newest'); // 'newest' | 'name'
 
   // Modal State for New Patient Registration
@@ -73,9 +74,14 @@ export default function OpdPatientsScreen({ onNavigate, routeParams }) {
     try {
       setLoading(true);
       const url = query ? `/api/opd/patients?search=${encodeURIComponent(query)}` : '/api/opd/patients';
-      const res = await apiClient.get(url);
-      const data = res.data?.patients || res.data || [];
+      const [pRes, bRes] = await Promise.all([
+        apiClient.get(url),
+        apiClient.get('/api/opd/billing').catch(() => ({ data: [] })),
+      ]);
+      const data = pRes.data?.patients || pRes.data || [];
+      const bData = bRes.data?.billings || bRes.data || [];
       setPatients(Array.isArray(data) ? data : []);
+      setBills(Array.isArray(bData) ? bData : []);
     } catch (err) {
       console.error('Error fetching patients:', err);
     } finally {
@@ -255,7 +261,27 @@ export default function OpdPatientsScreen({ onNavigate, routeParams }) {
     });
   };
 
-  // Filter and sort patients
+  // Map patientId -> { dueCount, dueAmount, paidCount, paidAmount }
+  const patientBillingMap = useMemo(() => {
+    const map = {};
+    bills.forEach((b) => {
+      const pId = String(b.patientId?._id || b.patientId || '');
+      if (!pId) return;
+      if (!map[pId]) {
+        map[pId] = { dueCount: 0, dueAmount: 0, paidCount: 0, paidAmount: 0 };
+      }
+      const amt = Number(b.totalAmount) || 0;
+      if (b.status === 'Paid') {
+        map[pId].paidCount += 1;
+        map[pId].paidAmount += amt;
+      } else {
+        map[pId].dueCount += 1;
+        map[pId].dueAmount += amt;
+      }
+    });
+    return map;
+  }, [bills]);
+
   const filteredPatients = useMemo(() => {
     let result = patients.filter((p) => {
       const term = searchTerm.toLowerCase().trim();
@@ -266,8 +292,16 @@ export default function OpdPatientsScreen({ onNavigate, routeParams }) {
         (p.uhid && p.uhid.toLowerCase().includes(term)) ||
         (p.email && p.email.toLowerCase().includes(term));
 
-      const matchGender = genderFilter === 'ALL' || p.gender === genderFilter;
-      return matchSearch && matchGender;
+      const pId = String(p._id || p.id || '');
+      const bInfo = patientBillingMap[pId];
+      let matchStatus = true;
+      if (statusFilter === 'DUE') {
+        matchStatus = bInfo ? bInfo.dueCount > 0 : false;
+      } else if (statusFilter === 'PAID') {
+        matchStatus = bInfo ? (bInfo.paidCount > 0 && bInfo.dueCount === 0) : false;
+      }
+
+      return matchSearch && matchStatus;
     });
 
     if (sortBy === 'name') {
@@ -277,21 +311,34 @@ export default function OpdPatientsScreen({ onNavigate, routeParams }) {
     }
 
     return result;
-  }, [patients, searchTerm, genderFilter, sortBy]);
+  }, [patients, searchTerm, statusFilter, sortBy, patientBillingMap]);
 
   // Metric stats
   const stats = useMemo(() => {
     const total = patients.length;
-    const males = patients.filter((p) => p.gender === 'Male').length;
-    const females = patients.filter((p) => p.gender === 'Female').length;
+    let dueCount = 0;
+    let paidCount = 0;
+
+    patients.forEach((p) => {
+      const pId = String(p._id || p.id || '');
+      const bInfo = patientBillingMap[pId];
+      if (bInfo) {
+        if (bInfo.dueCount > 0) {
+          dueCount += 1;
+        } else if (bInfo.paidCount > 0) {
+          paidCount += 1;
+        }
+      }
+    });
+
     const now = new Date();
     const thisMonth = patients.filter((p) => {
       if (!p.createdAt) return false;
       const d = new Date(p.createdAt);
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     }).length;
-    return { total, males, females, thisMonth };
-  }, [patients]);
+    return { total, dueCount, paidCount, thisMonth };
+  }, [patients, patientBillingMap]);
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
@@ -335,9 +382,9 @@ export default function OpdPatientsScreen({ onNavigate, routeParams }) {
               style={[
                 styles.statCard,
                 isTablet ? styles.statCardTablet : styles.statCardMobile,
-                genderFilter === 'ALL' && styles.statCardHighlight,
+                statusFilter === 'ALL' && styles.statCardHighlight,
               ]}
-              onPress={() => setGenderFilter('ALL')}
+              onPress={() => setStatusFilter('ALL')}
               activeOpacity={0.75}
             >
               <View style={[styles.statIconBadge, { backgroundColor: '#ccfbf1' }]}>
@@ -349,41 +396,41 @@ export default function OpdPatientsScreen({ onNavigate, routeParams }) {
               </View>
             </TouchableOpacity>
 
-            {/* 2. Male Count */}
+            {/* 2. Due Count */}
             <TouchableOpacity
               style={[
                 styles.statCard,
                 isTablet ? styles.statCardTablet : styles.statCardMobile,
-                genderFilter === 'Male' && styles.statCardHighlight,
+                statusFilter === 'DUE' && styles.statCardHighlight,
               ]}
-              onPress={() => setGenderFilter(genderFilter === 'Male' ? 'ALL' : 'Male')}
+              onPress={() => setStatusFilter(statusFilter === 'DUE' ? 'ALL' : 'DUE')}
               activeOpacity={0.75}
             >
-              <View style={[styles.statIconBadge, { backgroundColor: '#e0f2fe' }]}>
-                <Text style={styles.statIconText}>👨</Text>
+              <View style={[styles.statIconBadge, { backgroundColor: '#fff7ed' }]}>
+                <Text style={styles.statIconText}>⏳</Text>
               </View>
               <View style={styles.statMetaBox}>
-                <Text style={styles.statNumber}>{stats.males}</Text>
-                <Text style={styles.statLabel} numberOfLines={1}>Male</Text>
+                <Text style={[styles.statNumber, { color: '#ea580c' }]}>{stats.dueCount}</Text>
+                <Text style={styles.statLabel} numberOfLines={1}>Due</Text>
               </View>
             </TouchableOpacity>
 
-            {/* 3. Female Count */}
+            {/* 3. Paid Count */}
             <TouchableOpacity
               style={[
                 styles.statCard,
                 isTablet ? styles.statCardTablet : styles.statCardMobile,
-                genderFilter === 'Female' && styles.statCardHighlight,
+                statusFilter === 'PAID' && styles.statCardHighlight,
               ]}
-              onPress={() => setGenderFilter(genderFilter === 'Female' ? 'ALL' : 'Female')}
+              onPress={() => setStatusFilter(statusFilter === 'PAID' ? 'ALL' : 'PAID')}
               activeOpacity={0.75}
             >
-              <View style={[styles.statIconBadge, { backgroundColor: '#fce7f3' }]}>
-                <Text style={styles.statIconText}>👩</Text>
+              <View style={[styles.statIconBadge, { backgroundColor: '#f0fdf4' }]}>
+                <Text style={styles.statIconText}>💳</Text>
               </View>
               <View style={styles.statMetaBox}>
-                <Text style={styles.statNumber}>{stats.females}</Text>
-                <Text style={styles.statLabel} numberOfLines={1}>Female</Text>
+                <Text style={[styles.statNumber, { color: '#16a34a' }]}>{stats.paidCount}</Text>
+                <Text style={styles.statLabel} numberOfLines={1}>Paid</Text>
               </View>
             </TouchableOpacity>
 
@@ -432,21 +479,20 @@ export default function OpdPatientsScreen({ onNavigate, routeParams }) {
             ) : null}
           </View>
 
-          {/* Gender Filter Chips & Sort Switcher */}
+          {/* Status Filter Chips & Sort Switcher */}
           <View style={styles.filterRow}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterPillsScroll}>
               {[
                 { id: 'ALL', label: 'All Patients' },
-                { id: 'Male', label: '👨 Male' },
-                { id: 'Female', label: '👩 Female' },
-                { id: 'Other', label: '⚧ Other' },
+                { id: 'DUE', label: '⚠️ Due' },
+                { id: 'PAID', label: '✅ Paid' },
               ].map((filter) => {
-                const isActive = genderFilter === filter.id;
+                const isActive = statusFilter === filter.id;
                 return (
                   <TouchableOpacity
                     key={filter.id}
                     style={[styles.filterPill, isActive && styles.filterPillActive]}
-                    onPress={() => setGenderFilter(filter.id)}
+                    onPress={() => setStatusFilter(filter.id)}
                     activeOpacity={0.8}
                   >
                     <Text style={[styles.filterPillText, isActive && styles.filterPillTextActive]}>
@@ -486,19 +532,19 @@ export default function OpdPatientsScreen({ onNavigate, routeParams }) {
               <Text style={styles.emptyIconText}>🧑‍⚕️</Text>
             </View>
             <Text style={styles.emptyTitle}>
-              {searchTerm || genderFilter !== 'ALL' ? 'No Matching Patients' : 'No Patients Registered'}
+              {searchTerm || statusFilter !== 'ALL' ? 'No Matching Patients' : 'No Patients Registered'}
             </Text>
             <Text style={styles.emptyText}>
-              {searchTerm || genderFilter !== 'ALL'
+              {searchTerm || statusFilter !== 'ALL'
                 ? 'Try adjusting your search query or reset your active filters.'
                 : 'Get started by creating a new patient record in the OPD system.'}
             </Text>
-            {searchTerm || genderFilter !== 'ALL' ? (
+            {searchTerm || statusFilter !== 'ALL' ? (
               <TouchableOpacity
                 style={styles.resetFilterBtn}
                 onPress={() => {
                   setSearchTerm('');
-                  setGenderFilter('ALL');
+                  setStatusFilter('ALL');
                   fetchPatients('');
                 }}
               >
@@ -540,6 +586,9 @@ export default function OpdPatientsScreen({ onNavigate, routeParams }) {
                 })
               : null;
 
+            const pId = String(p._id || p.id || '');
+            const bInfo = patientBillingMap[pId];
+
             return (
               <View key={p._id || p.id || `patient-card-${idx}`} style={styles.card}>
                 {/* Top Row: Avatar, Name, UHID & Quick Contact Actions */}
@@ -571,6 +620,16 @@ export default function OpdPatientsScreen({ onNavigate, routeParams }) {
                           {p.gender || 'N/A'} • {p.age ? `${p.age} yrs` : 'Age N/A'}
                         </Text>
                       </View>
+
+                      {bInfo && bInfo.dueCount > 0 ? (
+                        <View style={styles.dueBadge}>
+                          <Text style={styles.dueBadgeText}>⚠️ Due: ₹{bInfo.dueAmount}</Text>
+                        </View>
+                      ) : bInfo && bInfo.paidCount > 0 ? (
+                        <View style={styles.paidBadge}>
+                          <Text style={styles.paidBadgeText}>✓ Paid</Text>
+                        </View>
+                      ) : null}
 
                       {(p.uhid || p.patientId) ? (
                         <View style={styles.uhidBadge}>
@@ -1508,6 +1567,32 @@ const styles = StyleSheet.create({
   genderTagText: {
     fontSize: 11,
     fontWeight: '700',
+  },
+  dueBadge: {
+    backgroundColor: '#fff7ed',
+    borderWidth: 1,
+    borderColor: '#fed7aa',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  dueBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#c2410c',
+  },
+  paidBadge: {
+    backgroundColor: '#f0fdf4',
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  paidBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#15803d',
   },
   uhidBadge: {
     backgroundColor: '#f1f5f9',
