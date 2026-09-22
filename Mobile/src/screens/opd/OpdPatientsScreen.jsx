@@ -318,6 +318,17 @@ export default function OpdPatientsScreen({ onNavigate, routeParams }) {
     const total = patients.length;
     let dueCount = 0;
     let paidCount = 0;
+    let dueAmount = 0;
+    let paidAmount = 0;
+
+    bills.forEach((b) => {
+      const amt = Number(b.totalAmount) || 0;
+      if (b.status === 'Paid') {
+        paidAmount += amt;
+      } else {
+        dueAmount += amt;
+      }
+    });
 
     patients.forEach((p) => {
       const pId = String(p._id || p.id || '');
@@ -337,8 +348,8 @@ export default function OpdPatientsScreen({ onNavigate, routeParams }) {
       const d = new Date(p.createdAt);
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     }).length;
-    return { total, dueCount, paidCount, thisMonth };
-  }, [patients, patientBillingMap]);
+    return { total, dueCount, dueAmount, paidCount, paidAmount, thisMonth };
+  }, [patients, bills, patientBillingMap]);
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
@@ -396,7 +407,7 @@ export default function OpdPatientsScreen({ onNavigate, routeParams }) {
               </View>
             </TouchableOpacity>
 
-            {/* 2. Due Count */}
+            {/* 2. Due */}
             <TouchableOpacity
               style={[
                 styles.statCard,
@@ -410,12 +421,18 @@ export default function OpdPatientsScreen({ onNavigate, routeParams }) {
                 <Text style={styles.statIconText}>⏳</Text>
               </View>
               <View style={styles.statMetaBox}>
-                <Text style={[styles.statNumber, { color: '#ea580c' }]}>{stats.dueCount}</Text>
-                <Text style={styles.statLabel} numberOfLines={1}>Due</Text>
+                <Text
+                  style={[styles.statNumber, { color: '#ea580c' }]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                >
+                  ₹{Number(stats.dueAmount || 0).toLocaleString('en-IN')}
+                </Text>
+                <Text style={styles.statLabel} numberOfLines={1}>Due ({stats.dueCount})</Text>
               </View>
             </TouchableOpacity>
 
-            {/* 3. Paid Count */}
+            {/* 3. Paid */}
             <TouchableOpacity
               style={[
                 styles.statCard,
@@ -429,8 +446,14 @@ export default function OpdPatientsScreen({ onNavigate, routeParams }) {
                 <Text style={styles.statIconText}>💳</Text>
               </View>
               <View style={styles.statMetaBox}>
-                <Text style={[styles.statNumber, { color: '#16a34a' }]}>{stats.paidCount}</Text>
-                <Text style={styles.statLabel} numberOfLines={1}>Paid</Text>
+                <Text
+                  style={[styles.statNumber, { color: '#16a34a' }]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                >
+                  ₹{Number(stats.paidAmount || 0).toLocaleString('en-IN')}
+                </Text>
+                <Text style={styles.statLabel} numberOfLines={1}>Paid ({stats.paidCount})</Text>
               </View>
             </TouchableOpacity>
 
@@ -484,8 +507,8 @@ export default function OpdPatientsScreen({ onNavigate, routeParams }) {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterPillsScroll}>
               {[
                 { id: 'ALL', label: 'All Patients' },
-                { id: 'DUE', label: '⚠️ Due' },
-                { id: 'PAID', label: '✅ Paid' },
+                { id: 'DUE', label: `⚠️ Due (₹${Number(stats.dueAmount || 0).toLocaleString('en-IN')})` },
+                { id: 'PAID', label: `✅ Paid (₹${Number(stats.paidAmount || 0).toLocaleString('en-IN')})` },
               ].map((filter) => {
                 const isActive = statusFilter === filter.id;
                 return (
@@ -623,11 +646,11 @@ export default function OpdPatientsScreen({ onNavigate, routeParams }) {
 
                       {bInfo && bInfo.dueCount > 0 ? (
                         <View style={styles.dueBadge}>
-                          <Text style={styles.dueBadgeText}>⚠️ Due: ₹{bInfo.dueAmount}</Text>
+                          <Text style={styles.dueBadgeText}>⚠️ Due: ₹{Number(bInfo.dueAmount || 0).toLocaleString('en-IN')}</Text>
                         </View>
                       ) : bInfo && bInfo.paidCount > 0 ? (
                         <View style={styles.paidBadge}>
-                          <Text style={styles.paidBadgeText}>✓ Paid</Text>
+                          <Text style={styles.paidBadgeText}>✓ Paid: ₹{Number(bInfo.paidAmount || 0).toLocaleString('en-IN')}</Text>
                         </View>
                       ) : null}
 
