@@ -31,9 +31,20 @@ export default function OpdBillingScreen({ routeParams }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Calendar Picker State
+  // Calendar Picker State for Tests
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [calendarTargetTestIdx, setCalendarTargetTestIdx] = useState(null);
+
+  // Follow-up Date (OpdReminder Model)
+  const [followUpDate, setFollowUpDate] = useState('');
+  const [followUpNote, setFollowUpNote] = useState('');
+  const [isFollowUpCalendarOpen, setIsFollowUpCalendarOpen] = useState(false);
+
+  const setPresetDate = (days) => {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    setFollowUpDate(d.toISOString().substring(0, 10));
+  };
 
   const [selectedPatientId, setSelectedPatientId] = useState('');
   const [consultationFee, setConsultationFee] = useState('0');
@@ -90,6 +101,11 @@ export default function OpdBillingScreen({ routeParams }) {
       if (routeParams.consultationFee) {
         setConsultationFee(String(routeParams.consultationFee));
       }
+      if (routeParams.followUpDate) {
+        try {
+          setFollowUpDate(new Date(routeParams.followUpDate).toISOString().substring(0, 10));
+        } catch (e) {}
+      }
       setEditingBillId(null);
       setIsModalOpen(true);
     }
@@ -100,6 +116,8 @@ export default function OpdBillingScreen({ routeParams }) {
     setConsultationFee('0');
     setSelectedTests([]);
     setSelectedMedicines([]);
+    setFollowUpDate('');
+    setFollowUpNote('');
     setEditingBillId(null);
     setPatientSearchQuery('');
     setIsPatientDropdownOpen(false);
@@ -142,6 +160,8 @@ export default function OpdBillingScreen({ routeParams }) {
 
   const handlePatientSelect = async (patientId) => {
     setSelectedPatientId(patientId);
+    setFollowUpDate('');
+    setFollowUpNote('');
     try {
       const res = await apiClient.get('/api/opd/appointments');
       const appts = res.data?.appointments || res.data || [];
@@ -152,6 +172,17 @@ export default function OpdBillingScreen({ routeParams }) {
       );
       if (match && match.consultationFee) {
         setConsultationFee(String(match.consultationFee));
+      }
+    } catch (e) {}
+
+    // Check for active follow-up reminder from OpdReminder model
+    try {
+      const remRes = await apiClient.get(`/api/opd/reminders/patient/${patientId}`).catch(() => ({ data: [] }));
+      const pReminders = Array.isArray(remRes.data) ? remRes.data : remRes.data?.reminders || [];
+      if (pReminders.length > 0 && pReminders[0].followUpDate) {
+        const dStr = new Date(pReminders[0].followUpDate).toISOString().substring(0, 10);
+        setFollowUpDate(dStr);
+        if (pReminders[0].message) setFollowUpNote(pReminders[0].message);
       }
     } catch (e) {}
   };
@@ -330,6 +361,14 @@ export default function OpdBillingScreen({ routeParams }) {
         };
       })
     );
+    if (bill.followUpDate) {
+      setFollowUpDate(new Date(bill.followUpDate).toISOString().substring(0, 10));
+    } else if (bill.followUpReminder?.followUpDate) {
+      setFollowUpDate(new Date(bill.followUpReminder.followUpDate).toISOString().substring(0, 10));
+    } else {
+      setFollowUpDate('');
+    }
+    setFollowUpNote(bill.followUpReminder?.message || '');
     setPatientSearchQuery('');
     setIsPatientDropdownOpen(false);
     setTestSearchQuery('');
@@ -468,6 +507,8 @@ export default function OpdBillingScreen({ routeParams }) {
         totalAmount: grandTotal,
         status,
         items,
+        followUpDate: followUpDate || null,
+        followUpNote: followUpNote || '',
       };
 
       if (editingBillId) {
@@ -502,6 +543,7 @@ export default function OpdBillingScreen({ routeParams }) {
       `Patient       : ${bill.patientName || bill.patientId?.name || 'Patient'}\n` +
       `Date          : ${new Date(bill.createdAt || Date.now()).toLocaleDateString()}\n` +
       `Status        : ${isPaid ? 'PAID' : 'PENDING'}\n` +
+      (bill.followUpDate ? `Follow-up     : ${new Date(bill.followUpDate).toLocaleDateString()}\n` : '') +
       `Total Amount  : ₹${bill.totalAmount}\n` +
       `----------------------------------------\n` +
       `Thank you for choosing Heka Healthcare! 🏥`;
@@ -631,6 +673,26 @@ export default function OpdBillingScreen({ routeParams }) {
                   <Text style={styles.totalLabel}>Total Amount</Text>
                   <Text style={styles.totalValue}>₹{b.totalAmount}</Text>
                 </View>
+
+                {b.followUpDate ? (
+                  <View style={styles.followUpCardRow}>
+                    <Text style={styles.followUpCardLabel}>⏰ Follow-up Revisit:</Text>
+                    <View style={styles.followUpBadgeBox}>
+                      <Text style={styles.followUpBadgeDate}>
+                        {new Date(b.followUpDate).toLocaleDateString('en-IN', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric',
+                        })}
+                      </Text>
+                      {b.followUpReminder?.status ? (
+                        <View style={styles.followUpStatusPill}>
+                          <Text style={styles.followUpStatusPillText}>{b.followUpReminder.status}</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  </View>
+                ) : null}
 
                 {/* Actions */}
                 <View style={styles.billActions}>
@@ -835,6 +897,63 @@ export default function OpdBillingScreen({ routeParams }) {
                   {parseFloat(consultationFee) > 0 && (
                     <Text style={styles.feeHint}>💡 Auto-filled from last completed appointment</Text>
                   )}
+                </View>
+
+                {/* Follow-Up Date & Reminder */}
+                <View style={styles.fieldGroup}>
+                  <View style={styles.fieldLabelRow}>
+                    <Text style={styles.fieldLabel}>⏰ FOLLOW-UP DATE (OPTIONAL)</Text>
+                    {followUpDate ? (
+                      <TouchableOpacity onPress={() => setFollowUpDate('')}>
+                        <Text style={styles.clearDateText}>✕ Clear</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+
+                  {/* Date Quick Presets */}
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.presetScroll}>
+                    {[
+                      { label: '3 Days', days: 3 },
+                      { label: '5 Days', days: 5 },
+                      { label: '1 Week', days: 7 },
+                      { label: '2 Weeks', days: 14 },
+                      { label: '1 Month', days: 30 },
+                    ].map((p) => (
+                      <TouchableOpacity
+                        key={p.label}
+                        style={styles.presetChip}
+                        onPress={() => setPresetDate(p.days)}
+                      >
+                        <Text style={styles.presetChipText}>+{p.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                    {followUpDate ? (
+                      <TouchableOpacity
+                        style={[styles.presetChip, styles.presetChipClear]}
+                        onPress={() => setFollowUpDate('')}
+                      >
+                        <Text style={styles.presetChipClearText}>Clear</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </ScrollView>
+
+                  {/* Pick Date Button */}
+                  <TouchableOpacity
+                    style={[styles.datePickerBtn, followUpDate ? styles.datePickerBtnActive : null]}
+                    onPress={() => setIsFollowUpCalendarOpen(true)}
+                  >
+                    <Text style={styles.datePickerBtnIcon}>📅</Text>
+                    <Text style={[styles.datePickerBtnText, followUpDate ? styles.datePickerBtnTextActive : null]}>
+                      {followUpDate
+                        ? `Follow-up on: ${new Date(followUpDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`
+                        : 'Select Follow-up Revisit Date...'}
+                    </Text>
+                    <Text style={styles.datePickerBtnArrow}>→</Text>
+                  </TouchableOpacity>
+
+                  <Text style={styles.followUpHint}>
+                    💡 Creates an OpdReminder alert for patient revisit in Reminders feed.
+                  </Text>
                 </View>
 
                 {/* Add Diagnostic Tests Dropdown */}
@@ -1194,7 +1313,7 @@ export default function OpdBillingScreen({ routeParams }) {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Interactive Calendar Date Picker Modal */}
+      {/* Interactive Calendar Date Picker Modal for Tests */}
       <CalendarPickerModal
         visible={isCalendarOpen}
         currentDate={
@@ -1211,6 +1330,19 @@ export default function OpdBillingScreen({ routeParams }) {
           if (calendarTargetTestIdx !== null) {
             handleTestScheduleDateChange(calendarTargetTestIdx, newDate);
           }
+        }}
+      />
+
+      {/* Follow-up Interactive Calendar Date Picker Modal */}
+      <CalendarPickerModal
+        visible={isFollowUpCalendarOpen}
+        currentDate={followUpDate || undefined}
+        title="Select Patient Follow-up Date"
+        minDate={new Date().toISOString().substring(0, 10)}
+        onClose={() => setIsFollowUpCalendarOpen(false)}
+        onSelectDate={(newDate) => {
+          setFollowUpDate(newDate);
+          setIsFollowUpCalendarOpen(false);
         }}
       />
     </KeyboardAvoidingView>
@@ -1519,5 +1651,118 @@ const styles = StyleSheet.create({
   },
   dropdownItemTextDisabled: {
     color: '#94a3b8',
+  },
+  followUpCardRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#fffbeb',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: '#fef3c7',
+  },
+  followUpCardLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#92400e',
+  },
+  followUpBadgeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  followUpBadgeDate: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#78350f',
+  },
+  followUpStatusPill: {
+    backgroundColor: '#fde68a',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  followUpStatusPillText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#92400e',
+  },
+  fieldLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  clearDateText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#e11d48',
+  },
+  presetScroll: {
+    marginBottom: 8,
+  },
+  presetChip: {
+    backgroundColor: '#f0fdfa',
+    borderWidth: 1,
+    borderColor: '#ccfbf1',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    marginRight: 6,
+  },
+  presetChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#0f766e',
+  },
+  presetChipClear: {
+    backgroundColor: '#fff1f2',
+    borderColor: '#ffe4e6',
+  },
+  presetChipClearText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#e11d48',
+  },
+  datePickerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  datePickerBtnActive: {
+    backgroundColor: '#f0fdfa',
+    borderColor: '#0D9488',
+  },
+  datePickerBtnIcon: {
+    fontSize: 16,
+    marginRight: 8,
+  },
+  datePickerBtnText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#64748b',
+    fontWeight: '500',
+  },
+  datePickerBtnTextActive: {
+    color: '#0f766e',
+    fontWeight: '700',
+  },
+  datePickerBtnArrow: {
+    fontSize: 14,
+    color: '#94a3b8',
+    fontWeight: '700',
+  },
+  followUpHint: {
+    fontSize: 11,
+    color: '#94a3b8',
+    marginTop: 4,
   },
 });

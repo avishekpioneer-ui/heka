@@ -20,6 +20,10 @@ const OpdBilling = () => {
   const [selectedPatientId, setSelectedPatientId] = useState('');
   const [consultationFee, setConsultationFee] = useState(0);
   
+  // Follow-up Date and Note (OpdReminder)
+  const [followUpDate, setFollowUpDate] = useState('');
+  const [followUpNote, setFollowUpNote] = useState('');
+  
   // Custom items to add to the invoice
   const [selectedTests, setSelectedTests] = useState([]);
   const [selectedMedicines, setSelectedMedicines] = useState([]);
@@ -33,6 +37,12 @@ const OpdBilling = () => {
   const userId = localStorage.getItem('userId');
   const userPermissions = JSON.parse(localStorage.getItem('userPermissions') || '[]');
   const hasPermission = (perm) => userPermissions.includes('*') || userPermissions.includes(perm);
+
+  const setPresetDate = (days) => {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    setFollowUpDate(d.toISOString().substring(0, 10));
+  };
 
   const fetchData = async () => {
     try {
@@ -73,10 +83,16 @@ const OpdBilling = () => {
     if (location.state?.consultationFee !== undefined) {
       setConsultationFee(location.state.consultationFee);
     }
+    if (location.state?.followUpDate) {
+      try {
+        setFollowUpDate(new Date(location.state.followUpDate).toISOString().substring(0, 10));
+      } catch (e) {}
+    }
   }, [location.state]);
 
   // Live-refresh the invoice audit log when any bill is generated, edited or deleted
   useOpdSocketEvent('opd:bill', fetchData);
+  useOpdSocketEvent('opd:reminder', fetchData);
 
   // If patient changes, check if they have a pending appointment or consultation fee to autofill
   const handlePatientChange = async (e) => {
@@ -85,6 +101,8 @@ const OpdBilling = () => {
     setConsultationFee(0);
     setSelectedTests([]);
     setSelectedMedicines([]);
+    setFollowUpDate('');
+    setFollowUpNote('');
 
     if (!patientId) return;
 
@@ -96,6 +114,17 @@ const OpdBilling = () => {
       if (patientAppts.length > 0) {
         setConsultationFee(patientAppts[0].consultationFee);
       }
+
+      // Check for active follow-up reminder from OpdReminder model
+      try {
+        const remRes = await axios.get(`${import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001'}/api/opd/reminders/patient/${patientId}`, { headers });
+        const pReminders = Array.isArray(remRes.data) ? remRes.data : [];
+        if (pReminders.length > 0 && pReminders[0].followUpDate) {
+          const dStr = new Date(pReminders[0].followUpDate).toISOString().substring(0, 10);
+          setFollowUpDate(dStr);
+          if (pReminders[0].message) setFollowUpNote(pReminders[0].message);
+        }
+      } catch (e) {}
     } catch (err) {
       console.error('Error searching patient appts:', err);
     }
@@ -178,6 +207,14 @@ const OpdBilling = () => {
       price: m.price,
       quantity: m.quantity || 1
     })));
+    if (bill.followUpDate) {
+      setFollowUpDate(new Date(bill.followUpDate).toISOString().substring(0, 10));
+    } else if (bill.followUpReminder?.followUpDate) {
+      setFollowUpDate(new Date(bill.followUpReminder.followUpDate).toISOString().substring(0, 10));
+    } else {
+      setFollowUpDate('');
+    }
+    setFollowUpNote(bill.followUpReminder?.message || '');
     setError('');
     setSuccess('');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -189,6 +226,8 @@ const OpdBilling = () => {
     setConsultationFee(0);
     setSelectedTests([]);
     setSelectedMedicines([]);
+    setFollowUpDate('');
+    setFollowUpNote('');
     setError('');
   };
 
@@ -229,7 +268,9 @@ const OpdBilling = () => {
         tests: selectedTests,
         medicines: selectedMedicines,
         billingType,
-        status
+        status,
+        followUpDate: followUpDate || null,
+        followUpNote: followUpNote || ''
       };
 
       if (editingBillId) {
@@ -247,6 +288,8 @@ const OpdBilling = () => {
         setConsultationFee(0);
         setSelectedTests([]);
         setSelectedMedicines([]);
+        setFollowUpDate('');
+        setFollowUpNote('');
         fetchData();
         if (res.data.bill) {
           handlePrintBill(res.data.bill);
@@ -366,6 +409,54 @@ const OpdBilling = () => {
                 className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/20 focus:border-[#0D9488] transition-all text-sm font-mono font-medium"
                 placeholder="0.00"
               />
+            </div>
+
+            {/* Follow-up Date & Reminder (OpdReminder) */}
+            <div className="border-t border-gray-100 pt-5">
+              <div className="flex justify-between items-center mb-2">
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide">
+                  ⏰ Follow-up Date (Optional)
+                </label>
+                {followUpDate && (
+                  <button
+                    type="button"
+                    onClick={() => setFollowUpDate('')}
+                    className="text-[11px] text-rose-500 hover:text-rose-700 font-medium cursor-pointer"
+                  >
+                    ✕ Clear Date
+                  </button>
+                )}
+              </div>
+
+              {/* Presets */}
+              <div className="flex flex-wrap gap-1.5 mb-2.5">
+                {[
+                  { label: '+3 Days', days: 3 },
+                  { label: '+1 Week', days: 7 },
+                  { label: '+2 Weeks', days: 14 },
+                  { label: '+1 Month', days: 30 }
+                ].map((p) => (
+                  <button
+                    key={p.label}
+                    type="button"
+                    onClick={() => setPresetDate(p.days)}
+                    className="px-2.5 py-1 text-[11px] rounded-lg bg-teal-50 hover:bg-teal-100 text-[#0D9488] font-medium transition cursor-pointer border border-teal-100"
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+
+              <input
+                type="date"
+                value={followUpDate}
+                min={new Date().toISOString().substring(0, 10)}
+                onChange={(e) => setFollowUpDate(e.target.value)}
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/20 focus:border-[#0D9488] transition-all text-xs font-medium"
+              />
+              <p className="text-[11px] text-gray-400 mt-1">
+                Synchronizes automatically with OpdReminder model for patient revisit alerts.
+              </p>
             </div>
 
             {/* Add Diagnostics Line Items */}
@@ -630,6 +721,22 @@ const OpdBilling = () => {
                       <span>Total Amount:</span>
                       <span>₹{parseFloat(bill.totalAmount || 0).toFixed(2)}</span>
                     </div>
+
+                    {bill.followUpDate && (
+                      <div className="flex items-center justify-between px-2.5 py-1.5 bg-amber-50 text-amber-900 border border-amber-200/60 rounded-lg text-[10px] font-medium mt-1">
+                        <span className="flex items-center gap-1 font-semibold text-amber-800">
+                          ⏰ Follow-up Revisit:
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold">{new Date(bill.followUpDate).toLocaleDateString()}</span>
+                          {bill.followUpReminder?.status && (
+                            <span className="text-[9px] px-1.5 py-0.5 bg-amber-200/60 text-amber-900 rounded font-semibold">
+                              {bill.followUpReminder.status}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex flex-wrap gap-2 mt-3.5 pt-2 border-t border-slate-200/40">
@@ -705,6 +812,15 @@ const OpdBilling = () => {
                   {printBill.status.toUpperCase()}
                 </span>
               </div>
+
+              {printBill.followUpDate && (
+                <div className="flex justify-between bg-amber-50/70 border border-amber-200/60 p-2 rounded-lg text-xs">
+                  <span className="text-amber-800 font-semibold">⏰ Follow-up Date:</span>
+                  <span className="font-mono font-bold text-amber-950">
+                    {new Date(printBill.followUpDate).toLocaleDateString()}
+                  </span>
+                </div>
+              )}
 
               <div className="border-t border-dashed border-gray-200 pt-3 mt-3">
                 <p className="font-bold text-gray-500 uppercase tracking-wide text-[10px] mb-2">Itemized Breakdown</p>

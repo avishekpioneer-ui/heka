@@ -6,10 +6,10 @@ const router = express.Router();
 
 router.use(verifyOpdUser);
 
-router.post("/", requirePermission("manage_patients"), registerPatient);
-router.get("/", requirePermission("manage_patients"), getPatients);
-router.get("/:id", requirePermission("manage_patients"), getPatientById);
-router.put("/:id", requirePermission("manage_patients"), updatePatient);
-router.delete("/:id", requirePermission("manage_patients"), deletePatient);
+router.post("/", requirePermission("patients:add"), registerPatient);
+router.get("/", requirePermission("patients:read"), getPatients);
+router.get("/:id", requirePermission("patients:read"), getPatientById);
+router.put("/:id", requirePermission("patients:edit"), updatePatient);
+router.delete("/:id", requirePermission("patients:delete"), deletePatient);
 
 export default router;

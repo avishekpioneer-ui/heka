@@ -16,16 +16,34 @@ import {
 } from 'react-native';
 import apiClient from '../../config/api';
 
-const AVAILABLE_PERMISSIONS = [
-  { id: 'access_opd', label: 'Access OPD Portal / View Dashboard' },
-  { id: 'manage_patients', label: 'Register & View Patients' },
-  { id: 'manage_appointments', label: 'Book & View Appointments' },
-  { id: 'manage_consultations', label: 'Doctor Workspaces & Clinical Prescriptions' },
-  { id: 'manage_tests', label: 'Manage Diagnostics & Test Price catalogs' },
-  { id: 'manage_medicines', label: 'Manage Pharmacy stock & Medicine price catalogs' },
-  { id: 'manage_billing', label: 'Generate bills, invoices, checkouts, and record payments' },
-  { id: 'manage_roles', label: 'Configure Custom roles, permissions, and Staff logins' },
+export const PERMISSION_ACTIONS = [
+  { id: 'read', label: 'Read', color: '#0369a1', bg: '#e0f2fe', border: '#bae6fd' },
+  { id: 'add', label: 'Add', color: '#15803d', bg: '#dcfce7', border: '#bbf7d0' },
+  { id: 'edit', label: 'Edit', color: '#b45309', bg: '#fef3c7', border: '#fde68a' },
+  { id: 'delete', label: 'Delete', color: '#b91c1c', bg: '#fee2e2', border: '#fecaca' },
 ];
+
+export const PERMISSION_MODULES = [
+  { id: 'patients', name: 'Patients Registry', icon: '🧑‍🤝‍🧑' },
+  { id: 'appointments', name: 'Appointments Queue', icon: '📅' },
+  { id: 'consultations', name: 'Clinical Consults', icon: '💬' },
+  { id: 'medicines', name: 'Pharmacy Stock', icon: '💊' },
+  { id: 'tests', name: 'Diagnostics & Lab', icon: '🧪' },
+  { id: 'billing', name: 'Billing & Invoices', icon: '🧾' },
+  { id: 'roles', name: 'Staff & Roles Access', icon: '🛡️' },
+  { id: 'reminders', name: 'Patient Reminders', icon: '🔔' },
+];
+
+const LEGACY_MAP = {
+  manage_patients: ['patients:read', 'patients:add', 'patients:edit', 'patients:delete'],
+  manage_appointments: ['appointments:read', 'appointments:add', 'appointments:edit', 'appointments:delete'],
+  manage_consultations: ['consultations:read', 'consultations:add', 'consultations:edit', 'consultations:delete'],
+  manage_medicines: ['medicines:read', 'medicines:add', 'medicines:edit', 'medicines:delete'],
+  manage_tests: ['tests:read', 'tests:add', 'tests:edit', 'tests:delete'],
+  manage_billing: ['billing:read', 'billing:add', 'billing:edit', 'billing:delete'],
+  manage_roles: ['roles:read', 'roles:add', 'roles:edit', 'roles:delete'],
+};
+
 
 export default function OpdRolesScreen() {
   const [activeTab, setActiveTab] = useState('staff'); // 'staff' | 'roles'
@@ -182,7 +200,12 @@ export default function OpdRolesScreen() {
   const handleOpenCreateRole = () => {
     setEditingRoleId(null);
     setRoleName('');
-    setSelectedPermissions(['access_opd']);
+    setSelectedPermissions([
+      'access_opd',
+      'patients:read',
+      'appointments:read',
+      'consultations:read',
+    ]);
     setRoleError('');
     setRoleSuccess('');
     setIsRoleModalOpen(true);
@@ -192,17 +215,51 @@ export default function OpdRolesScreen() {
   const handleOpenEditRole = (role) => {
     setEditingRoleId(role._id || role.id);
     setRoleName(role.name);
-    setSelectedPermissions(Array.isArray(role.permissions) ? [...role.permissions] : []);
+
+    let perms = Array.isArray(role.permissions) ? [...role.permissions] : [];
+    let expanded = [];
+    for (const p of perms) {
+      if (LEGACY_MAP[p]) {
+        expanded.push(...LEGACY_MAP[p]);
+      } else {
+        expanded.push(p);
+      }
+    }
+    setSelectedPermissions(Array.from(new Set(expanded)));
     setRoleError('');
     setRoleSuccess('');
     setIsRoleModalOpen(true);
   };
 
-  // ── Toggle Permission Checkbox ────────────────────────────────────────────
-  const handlePermissionToggle = (permId) => {
+  // ── Toggle Granular Action ────────────────────────────────────────────────
+  const handleToggleAction = (moduleId, actionId) => {
+    const permKey = `${moduleId}:${actionId}`;
     setSelectedPermissions((prev) =>
-      prev.includes(permId) ? prev.filter((p) => p !== permId) : [...prev, permId]
+      prev.includes(permKey) ? prev.filter((p) => p !== permKey) : [...prev, permKey]
     );
+  };
+
+  // ── Toggle Entire Module (All 4 actions) ──────────────────────────────────
+  const handleToggleModuleAll = (moduleId) => {
+    const modulePerms = PERMISSION_ACTIONS.map((a) => `${moduleId}:${a.id}`);
+    const hasAll = modulePerms.every((p) => selectedPermissions.includes(p));
+    if (hasAll) {
+      setSelectedPermissions((prev) => prev.filter((p) => !modulePerms.includes(p)));
+    } else {
+      setSelectedPermissions((prev) => Array.from(new Set([...prev, ...modulePerms])));
+    }
+  };
+
+  const handleSelectAllPerms = () => {
+    const all = [
+      'access_opd',
+      ...PERMISSION_MODULES.flatMap((m) => PERMISSION_ACTIONS.map((a) => `${m.id}:${a.id}`)),
+    ];
+    setSelectedPermissions(all);
+  };
+
+  const handleClearAllPerms = () => {
+    setSelectedPermissions(['access_opd']);
   };
 
   // ── Submit Create / Update Role ───────────────────────────────────────────
@@ -477,14 +534,42 @@ export default function OpdRolesScreen() {
                     </View>
                   </View>
 
-                  <Text style={styles.permListTitle}>PERMISSIONS MATRIX:</Text>
+                  <Text style={styles.permListTitle}>PERMISSIONS MATRIX (READ / ADD / EDIT / DELETE):</Text>
                   <View style={styles.permChipsRow}>
-                    {permsList.length > 0 ? (
-                      permsList.map((p) => {
-                        const permObj = AVAILABLE_PERMISSIONS.find((ap) => ap.id === p);
+                    {permsList.includes('*') ? (
+                      <View style={[styles.permChip, { backgroundColor: '#f0fdf4', borderColor: '#86efac' }]}>
+                        <Text style={[styles.permChipText, { color: '#15803d', fontWeight: '800' }]}>
+                          ★ Full System Access (All Modules)
+                        </Text>
+                      </View>
+                    ) : permsList.length > 0 ? (
+                      PERMISSION_MODULES.map((mod) => {
+                        const legacyKey = `manage_${mod.id}`;
+                        const isLegacyAll = permsList.includes(legacyKey);
+                        const actions = PERMISSION_ACTIONS.filter((act) =>
+                          isLegacyAll || permsList.includes(`${mod.id}:${act.id}`)
+                        );
+
+                        if (actions.length === 0) return null;
+
                         return (
-                          <View key={p} style={styles.permChip}>
-                            <Text style={styles.permChipText}>✓ {permObj ? permObj.label : p}</Text>
+                          <View key={mod.id} style={styles.moduleSummaryCard}>
+                            <View style={styles.moduleSummaryHeader}>
+                              <Text style={styles.moduleSummaryIcon}>{mod.icon}</Text>
+                              <Text style={styles.moduleSummaryName}>{mod.name}</Text>
+                            </View>
+                            <View style={styles.moduleActionsRow}>
+                              {actions.map((act) => (
+                                <View
+                                  key={act.id}
+                                  style={[styles.actionTag, { backgroundColor: act.bg, borderColor: act.border }]}
+                                >
+                                  <Text style={[styles.actionTagText, { color: act.color }]}>
+                                    {act.label}
+                                  </Text>
+                                </View>
+                              ))}
+                            </View>
                           </View>
                         );
                       })
@@ -707,31 +792,83 @@ export default function OpdRolesScreen() {
                 </View>
 
                 <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>ASSIGN PERMISSIONS MATRIX *</Text>
-                  <Text style={styles.fieldSubLabel}>
-                    Choose access rights granted to staff members with this role:
-                  </Text>
-                  {AVAILABLE_PERMISSIONS.map((perm) => {
-                    const isChecked = selectedPermissions.includes(perm.id);
-                    return (
-                      <TouchableOpacity
-                        key={perm.id}
-                        style={[styles.permCheckRow, isChecked && styles.permCheckRowActive]}
-                        onPress={() => handlePermissionToggle(perm.id)}
-                        activeOpacity={0.7}
-                      >
-                        <View style={[styles.checkBox, isChecked && styles.checkBoxActive]}>
-                          {isChecked ? <Text style={styles.checkMark}>✓</Text> : null}
-                        </View>
-                        <Text
-                          style={[
-                            styles.permCheckText,
-                            isChecked && styles.permCheckTextActive,
-                          ]}
-                        >
-                          {perm.label}
-                        </Text>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={styles.fieldLabel}>ASSIGN PERMISSIONS MATRIX *</Text>
+                    <View style={styles.matrixBatchBtns}>
+                      <TouchableOpacity onPress={handleSelectAllPerms} style={styles.batchBtn}>
+                        <Text style={styles.batchBtnText}>Select All</Text>
                       </TouchableOpacity>
+                      <Text style={{ color: '#cbd5e1' }}>|</Text>
+                      <TouchableOpacity onPress={handleClearAllPerms} style={styles.batchBtn}>
+                        <Text style={[styles.batchBtnText, { color: '#64748b' }]}>Clear</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                  <Text style={styles.fieldSubLabel}>
+                    Configure exact Read, Add, Edit, Delete rights per module:
+                  </Text>
+
+                  {PERMISSION_MODULES.map((mod) => {
+                    const moduleActions = PERMISSION_ACTIONS.map((a) => `${mod.id}:${a.id}`);
+                    const activeCount = moduleActions.filter((p) => selectedPermissions.includes(p)).length;
+                    const isAll = activeCount === PERMISSION_ACTIONS.length;
+
+                    return (
+                      <View key={mod.id} style={styles.permModuleCard}>
+                        <View style={styles.permModuleHeader}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                            <Text style={styles.permModuleIcon}>{mod.icon}</Text>
+                            <Text style={styles.permModuleTitle}>{mod.name}</Text>
+                          </View>
+                          <TouchableOpacity
+                            style={[styles.permModuleAllBtn, isAll && styles.permModuleAllBtnActive]}
+                            onPress={() => handleToggleModuleAll(mod.id)}
+                            activeOpacity={0.7}
+                          >
+                            <Text
+                              style={[
+                                styles.permModuleAllBtnText,
+                                isAll && styles.permModuleAllBtnTextActive,
+                              ]}
+                            >
+                              {isAll ? '✓ All' : 'Select All'}
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+
+                        {/* 4 CRUD Action Pill Buttons */}
+                        <View style={styles.permActionsRow}>
+                          {PERMISSION_ACTIONS.map((act) => {
+                            const permKey = `${mod.id}:${act.id}`;
+                            const isChecked = selectedPermissions.includes(permKey);
+
+                            return (
+                              <TouchableOpacity
+                                key={act.id}
+                                style={[
+                                  styles.permActionChip,
+                                  isChecked && {
+                                    backgroundColor: act.bg,
+                                    borderColor: act.border,
+                                    borderWidth: 1.5,
+                                  },
+                                ]}
+                                onPress={() => handleToggleAction(mod.id, act.id)}
+                                activeOpacity={0.7}
+                              >
+                                <Text
+                                  style={[
+                                    styles.permActionChipText,
+                                    isChecked && { color: act.color, fontWeight: '800' },
+                                  ]}
+                                >
+                                  {isChecked ? '✓ ' : ''}{act.label}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      </View>
                     );
                   })}
                 </View>
@@ -1274,6 +1411,119 @@ const styles = StyleSheet.create({
     color: '#0f766e',
     fontWeight: '700',
   },
+  matrixBatchBtns: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  batchBtn: {
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+  },
+  batchBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0D9488',
+  },
+  permModuleCard: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 8,
+  },
+  permModuleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  permModuleIcon: {
+    fontSize: 16,
+  },
+  permModuleTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1e293b',
+  },
+  permModuleAllBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+  },
+  permModuleAllBtnActive: {
+    backgroundColor: '#0D9488',
+    borderColor: '#0D9488',
+  },
+  permModuleAllBtnText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  permModuleAllBtnTextActive: {
+    color: '#ffffff',
+  },
+  permActionsRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  permActionChip: {
+    flex: 1,
+    paddingVertical: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f8fafc',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  permActionChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  moduleSummaryCard: {
+    width: '100%',
+    backgroundColor: '#f8fafc',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    padding: 8,
+    marginBottom: 6,
+  },
+  moduleSummaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  moduleSummaryIcon: {
+    fontSize: 13,
+  },
+  moduleSummaryName: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  moduleActionsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+  },
+  actionTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  actionTagText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
   submitBtn: {
     backgroundColor: '#0D9488',
     paddingVertical: 14,
@@ -1295,3 +1545,4 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
 });
+

@@ -1,5 +1,36 @@
 import User from "../../models/User.js";
 import OpdUser from "../models/OpdUser.js";
+import { LEGACY_PERMISSION_MAP } from "../constants/opdPermissions.js";
+
+// Helper function to check if a user has a specific permission
+export const hasPermission = (userPermissions = [], requiredPermission) => {
+    if (!userPermissions || !Array.isArray(userPermissions)) return false;
+    if (userPermissions.includes("*")) return true; // Wildcard root access
+
+    // Expand userPermissions with legacy mappings
+    const effectivePermissions = new Set();
+    for (const p of userPermissions) {
+        effectivePermissions.add(p);
+        if (LEGACY_PERMISSION_MAP[p]) {
+            LEGACY_PERMISSION_MAP[p].forEach((mapped) => effectivePermissions.add(mapped));
+        }
+    }
+
+    if (effectivePermissions.has(requiredPermission)) return true;
+
+    // Check module wildcard: e.g. "patients:*" matches "patients:read"
+    if (requiredPermission.includes(":")) {
+        const [resource] = requiredPermission.split(":");
+        if (effectivePermissions.has(`${resource}:*`)) return true;
+    }
+
+    // Check if requiredPermission is a legacy key and user has any or all mapped permissions
+    if (LEGACY_PERMISSION_MAP[requiredPermission]) {
+        return LEGACY_PERMISSION_MAP[requiredPermission].some((p) => effectivePermissions.has(p));
+    }
+
+    return false;
+};
 
 // Shared identity resolution used by both the HTTP middleware below and the
 // Socket.IO handshake auth, so the two entry points never drift apart.
@@ -67,25 +98,18 @@ export const requirePermission = (permission) => {
             return res.status(401).json({ message: "User context not found. Auth required." });
         }
 
-        // Admin (wildcard) or user with specific permission is allowed
-        let hasPermission = req.user.permissions.includes("*");
+        const requiredList = Array.isArray(permission) ? permission : [permission];
+        const allowed = requiredList.some((p) => hasPermission(req.user.permissions, p));
 
-        if (!hasPermission) {
-            if (Array.isArray(permission)) {
-                hasPermission = permission.some(p => req.user.permissions.includes(p));
-            } else {
-                hasPermission = req.user.permissions.includes(permission);
-            }
-        }
-
-        if (!hasPermission) {
-            const required = Array.isArray(permission) ? permission.join(" or ") : permission;
+        if (!allowed) {
+            const requiredStr = requiredList.join(" or ");
             return res.status(403).json({ 
-                message: `Access denied. You do not have the required permission: '${required}'` 
+                message: `Access denied. You do not have the required permission: '${requiredStr}'` 
             });
         }
 
         next();
     };
 };
+
 

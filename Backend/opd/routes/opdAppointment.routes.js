@@ -6,8 +6,8 @@ const router = express.Router();
 
 router.use(verifyOpdUser);
 
-router.post("/", requirePermission("manage_appointments"), createAppointment);
-router.get("/", requirePermission(["manage_appointments", "manage_consultations"]), getAppointments);
-router.put("/:id/status", requirePermission(["manage_appointments", "manage_consultations"]), updateAppointmentStatus);
+router.post("/", requirePermission("appointments:add"), createAppointment);
+router.get("/", requirePermission(["appointments:read", "consultations:read"]), getAppointments);
+router.put("/:id/status", requirePermission(["appointments:edit", "consultations:edit"]), updateAppointmentStatus);
 
 export default router;

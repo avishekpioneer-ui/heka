@@ -105,9 +105,31 @@ export default function AppNavigator() {
     fetchNotifications();
   };
 
+  const LEGACY_APP_PERM_MAP = {
+    manage_patients: ['patients:read', 'patients:add', 'patients:edit', 'patients:delete'],
+    manage_appointments: ['appointments:read', 'appointments:add', 'appointments:edit', 'appointments:delete'],
+    manage_consultations: ['consultations:read', 'consultations:add', 'consultations:edit', 'consultations:delete'],
+    manage_medicines: ['medicines:read', 'medicines:add', 'medicines:edit', 'medicines:delete'],
+    manage_tests: ['tests:read', 'tests:add', 'tests:edit', 'tests:delete'],
+    manage_billing: ['billing:read', 'billing:add', 'billing:edit', 'billing:delete'],
+    manage_roles: ['roles:read', 'roles:add', 'roles:edit', 'roles:delete'],
+  };
+
   const hasPermission = (perm) => {
     if (!perm) return true;
-    return userPermissions.includes('*') || userPermissions.includes(perm);
+    if (userPermissions.includes('*')) return true;
+    if (userPermissions.includes(perm)) return true;
+
+    // Check legacy aliases if perm is legacy or granular
+    for (const [legacy, canonicals] of Object.entries(LEGACY_APP_PERM_MAP)) {
+      if (userPermissions.includes(legacy) && canonicals.includes(perm)) {
+        return true;
+      }
+      if (perm === legacy && canonicals.some((c) => userPermissions.includes(c))) {
+        return true;
+      }
+    }
+    return false;
   };
 
   // If no user is logged in, show Login Screen
@@ -154,14 +176,14 @@ export default function AppNavigator() {
 
   const opdTabs = [
     { id: 'dashboard', label: 'Dashboard Overview', icon: '🩺', permission: 'access_opd' },
-    { id: 'patients', label: 'Patients Registry', icon: '🧑‍🤝‍🧑', permission: 'manage_patients' },
-    { id: 'appointments', label: 'Appointments Queue', icon: '📅', permission: 'manage_appointments' },
-    { id: 'consultations', label: 'Clinical Consults', icon: '💬', permission: 'manage_consultations' },
-    { id: 'billing', label: 'Invoices & Billing', icon: '🧾', permission: 'manage_billing' },
-    { id: 'tests', label: 'Diagnostics Catalog', icon: '🧪', permission: 'manage_tests' },
-    { id: 'medicines', label: 'Pharmacy Inventory', icon: '💊', permission: 'manage_medicines' },
-    { id: 'roles', label: 'Staff Roles & Roster', icon: '🛡️', permission: 'manage_roles' },
-    { id: 'reminders', label: 'Patient Reminders', icon: '🔔', permission: 'access_opd' },
+    { id: 'patients', label: 'Patients Registry', icon: '🧑‍🤝‍🧑', permission: 'patients:read' },
+    { id: 'appointments', label: 'Appointments Queue', icon: '📅', permission: 'appointments:read' },
+    { id: 'consultations', label: 'Clinical Consults', icon: '💬', permission: 'consultations:read' },
+    { id: 'billing', label: 'Invoices & Billing', icon: '🧾', permission: 'billing:read' },
+    { id: 'tests', label: 'Diagnostics Catalog', icon: '🧪', permission: 'tests:read' },
+    { id: 'medicines', label: 'Pharmacy Inventory', icon: '💊', permission: 'medicines:read' },
+    { id: 'roles', label: 'Staff Roles & Roster', icon: '🛡️', permission: 'roles:read' },
+    { id: 'reminders', label: 'Patient Reminders', icon: '🔔', permission: 'reminders:read' },
   ];
 
   // Filter navigation items by role permissions

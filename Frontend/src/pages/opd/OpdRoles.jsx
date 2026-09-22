@@ -1,16 +1,34 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-const AVAILABLE_PERMISSIONS = [
-  { id: 'access_opd', label: 'Access OPD Portal / View Dashboard' },
-  { id: 'manage_patients', label: 'Register & View Patients' },
-  { id: 'manage_appointments', label: 'Book & View Appointments' },
-  { id: 'manage_consultations', label: 'Doctor Workspaces & Clinical Prescriptions' },
-  { id: 'manage_tests', label: 'Manage Diagnostics & Test Price catalogs' },
-  { id: 'manage_medicines', label: 'Manage Pharmacy stock & Medicine price catalogs' },
-  { id: 'manage_billing', label: 'Generate bills, invoices, checkouts, and record payments' },
-  { id: 'manage_roles', label: 'Configure Custom roles, permissions, and Staff logins' }
+const PERMISSION_ACTIONS = [
+  { id: 'read', label: 'Read' },
+  { id: 'add', label: 'Add' },
+  { id: 'edit', label: 'Edit' },
+  { id: 'delete', label: 'Delete' },
 ];
+
+const PERMISSION_MODULES = [
+  { id: 'patients', name: 'Patients', icon: '🧑‍🤝‍🧑' },
+  { id: 'appointments', name: 'Appointments', icon: '📅' },
+  { id: 'consultations', name: 'Consultations', icon: '💬' },
+  { id: 'medicines', name: 'Pharmacy Stock', icon: '💊' },
+  { id: 'tests', name: 'Diagnostics', icon: '🧪' },
+  { id: 'billing', name: 'Billing', icon: '🧾' },
+  { id: 'roles', name: 'Staff & Roles', icon: '🛡️' },
+  { id: 'reminders', name: 'Reminders', icon: '🔔' },
+];
+
+const LEGACY_MAP = {
+  manage_patients: ['patients:read', 'patients:add', 'patients:edit', 'patients:delete'],
+  manage_appointments: ['appointments:read', 'appointments:add', 'appointments:edit', 'appointments:delete'],
+  manage_consultations: ['consultations:read', 'consultations:add', 'consultations:edit', 'consultations:delete'],
+  manage_medicines: ['medicines:read', 'medicines:add', 'medicines:edit', 'medicines:delete'],
+  manage_tests: ['tests:read', 'tests:add', 'tests:edit', 'tests:delete'],
+  manage_billing: ['billing:read', 'billing:add', 'billing:edit', 'billing:delete'],
+  manage_roles: ['roles:read', 'roles:add', 'roles:edit', 'roles:delete'],
+};
+
 
 const OpdRoles = () => {
   const [roles, setRoles] = useState([]);
@@ -61,13 +79,6 @@ const OpdRoles = () => {
     fetchData();
   }, [userId]);
 
-  const handlePermissionToggle = (permId) => {
-    if (selectedPermissions.includes(permId)) {
-      setSelectedPermissions(selectedPermissions.filter(p => p !== permId));
-    } else {
-      setSelectedPermissions([...selectedPermissions, permId]);
-    }
-  };
 
   const handleCreateRole = async (e) => {
     e.preventDefault();
@@ -100,10 +111,49 @@ const OpdRoles = () => {
     }
   };
 
+  const handleToggleAction = (moduleId, actionId) => {
+    const permKey = `${moduleId}:${actionId}`;
+    setSelectedPermissions((prev) =>
+      prev.includes(permKey) ? prev.filter((p) => p !== permKey) : [...prev, permKey]
+    );
+  };
+
+  const handleToggleModuleAll = (moduleId) => {
+    const modulePerms = PERMISSION_ACTIONS.map((a) => `${moduleId}:${a.id}`);
+    const hasAll = modulePerms.every((p) => selectedPermissions.includes(p));
+    if (hasAll) {
+      setSelectedPermissions((prev) => prev.filter((p) => !modulePerms.includes(p)));
+    } else {
+      setSelectedPermissions((prev) => Array.from(new Set([...prev, ...modulePerms])));
+    }
+  };
+
+  const handleSelectAllPerms = () => {
+    const all = [
+      'access_opd',
+      ...PERMISSION_MODULES.flatMap((m) => PERMISSION_ACTIONS.map((a) => `${m.id}:${a.id}`)),
+    ];
+    setSelectedPermissions(all);
+  };
+
+  const handleClearAllPerms = () => {
+    setSelectedPermissions(['access_opd']);
+  };
+
   const handleEditRoleClick = (role) => {
     setEditingRoleId(role._id);
     setRoleName(role.name);
-    setSelectedPermissions(role.permissions || []);
+
+    let perms = Array.isArray(role.permissions) ? [...role.permissions] : [];
+    let expanded = [];
+    for (const p of perms) {
+      if (LEGACY_MAP[p]) {
+        expanded.push(...LEGACY_MAP[p]);
+      } else {
+        expanded.push(p);
+      }
+    }
+    setSelectedPermissions(Array.from(new Set(expanded)));
     setRoleError('');
     setRoleSuccess('');
   };
@@ -114,6 +164,7 @@ const OpdRoles = () => {
     setSelectedPermissions([]);
     setRoleError('');
   };
+
 
   const handleRegisterStaff = async (e) => {
     e.preventDefault();
@@ -206,21 +257,88 @@ const OpdRoles = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-gray-600 mb-2 uppercase">Assign Permissions *</label>
-              <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1">
-                {AVAILABLE_PERMISSIONS.map((perm) => (
-                  <label key={perm.id} className="flex items-start gap-2.5 text-xs text-gray-600 cursor-pointer hover:text-gray-900">
-                    <input
-                      type="checkbox"
-                      checked={selectedPermissions.includes(perm.id)}
-                      onChange={() => handlePermissionToggle(perm.id)}
-                      className="mt-0.5 rounded border-gray-300 text-teal-600 focus:ring-teal-500 cursor-pointer"
-                    />
-                    <span>{perm.label}</span>
-                  </label>
-                ))}
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-xs font-bold text-gray-600 uppercase">
+                  Assign Permissions Matrix *
+                </label>
+                <div className="flex items-center gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={handleSelectAllPerms}
+                    className="text-teal-600 font-bold hover:underline cursor-pointer"
+                  >
+                    Select All
+                  </button>
+                  <span className="text-gray-300">|</span>
+                  <button
+                    type="button"
+                    onClick={handleClearAllPerms}
+                    className="text-gray-500 font-semibold hover:underline cursor-pointer"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+
+              {/* Permission Matrix Table */}
+              <div className="border border-gray-100 rounded-xl overflow-hidden bg-slate-50/50">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-100/70 text-gray-600 font-semibold border-b border-gray-200/60">
+                      <th className="py-2 px-3">Module</th>
+                      <th className="py-2 px-2 text-center text-sky-700">Read</th>
+                      <th className="py-2 px-2 text-center text-emerald-700">Add</th>
+                      <th className="py-2 px-2 text-center text-amber-700">Edit</th>
+                      <th className="py-2 px-2 text-center text-rose-700">Delete</th>
+                      <th className="py-2 px-2 text-right">All</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 bg-white">
+                    {PERMISSION_MODULES.map((mod) => {
+                      const moduleActions = PERMISSION_ACTIONS.map((a) => `${mod.id}:${a.id}`);
+                      const isAll = moduleActions.every((p) => selectedPermissions.includes(p));
+
+                      return (
+                        <tr key={mod.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="py-2 px-3 font-medium text-gray-800 flex items-center gap-1.5 whitespace-nowrap">
+                            <span>{mod.icon}</span>
+                            <span>{mod.name}</span>
+                          </td>
+                          {PERMISSION_ACTIONS.map((act) => {
+                            const permKey = `${mod.id}:${act.id}`;
+                            const isChecked = selectedPermissions.includes(permKey);
+                            return (
+                              <td key={act.id} className="py-2 px-2 text-center">
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() => handleToggleAction(mod.id, act.id)}
+                                  className="rounded border-gray-300 text-teal-600 focus:ring-teal-500 cursor-pointer h-3.5 w-3.5"
+                                />
+                              </td>
+                            );
+                          })}
+                          <td className="py-2 px-2 text-right">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleModuleAll(mod.id)}
+                              className={`text-[10px] font-bold px-1.5 py-0.5 rounded cursor-pointer ${
+                                isAll
+                                  ? 'bg-teal-600 text-white'
+                                  : 'bg-slate-100 text-gray-600 hover:bg-slate-200'
+                              }`}
+                            >
+                              {isAll ? '✓ All' : 'All'}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             </div>
+
 
             <div className="flex gap-3">
               <button

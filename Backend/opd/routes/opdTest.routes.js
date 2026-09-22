@@ -6,9 +6,9 @@ const router = express.Router();
 
 router.use(verifyOpdUser);
 
-router.get("/", requirePermission(["manage_tests", "manage_billing"]), getTests);
-router.post("/", requirePermission("manage_tests"), createTest);
-router.put("/:id", requirePermission("manage_tests"), updateTest);
-router.delete("/:id", requirePermission("manage_tests"), deleteTest);
+router.get("/", requirePermission(["tests:read", "billing:read"]), getTests);
+router.post("/", requirePermission("tests:add"), createTest);
+router.put("/:id", requirePermission("tests:edit"), updateTest);
+router.delete("/:id", requirePermission("tests:delete"), deleteTest);
 
 export default router;

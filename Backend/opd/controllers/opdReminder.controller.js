@@ -110,3 +110,47 @@ export const updateReminderStatus = async (req, res) => {
         res.status(500).json({ message: "Server error updating status" });
     }
 };
+
+export const getRemindersByPatient = async (req, res) => {
+    try {
+        const { patientId } = req.params;
+        const reminders = await OpdReminder.find({ patientId })
+            .populate("patientId")
+            .sort({ followUpDate: -1, createdAt: -1 });
+        res.status(200).json(reminders);
+    } catch (error) {
+        console.error("Get Reminders By Patient Error:", error);
+        res.status(500).json({ message: "Server error fetching reminders for patient" });
+    }
+};
+
+export const updateReminder = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { followUpDate, message, status } = req.body;
+        const updateData = {};
+        if (followUpDate) updateData.followUpDate = new Date(followUpDate);
+        if (message) updateData.message = message;
+        if (status) updateData.status = status;
+
+        const reminder = await OpdReminder.findByIdAndUpdate(
+            id,
+            updateData,
+            { new: true }
+        ).populate("patientId");
+
+        if (!reminder) {
+            return res.status(404).json({ message: "Reminder not found" });
+        }
+
+        emitOpdEvent("opd:reminder", {
+            type: "updated",
+            reminder: reminder.toObject()
+        });
+
+        res.status(200).json({ message: "Reminder updated successfully", reminder });
+    } catch (error) {
+        console.error("Update Reminder Error:", error);
+        res.status(500).json({ message: "Server error updating reminder" });
+    }
+};

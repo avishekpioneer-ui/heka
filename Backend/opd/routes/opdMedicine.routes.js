@@ -6,10 +6,10 @@ const router = express.Router();
 
 router.use(verifyOpdUser);
 
-router.get("/", requirePermission(["manage_medicines", "manage_consultations", "manage_billing"]), getMedicines);
-router.post("/", requirePermission("manage_medicines"), createMedicine);
-router.put("/:id", requirePermission("manage_medicines"), updateMedicine);
-router.put("/:id/restock", requirePermission("manage_medicines"), restockMedicine);
-router.delete("/:id", requirePermission("manage_medicines"), deleteMedicine);
+router.get("/", requirePermission(["medicines:read", "consultations:read", "consultations:add", "billing:read"]), getMedicines);
+router.post("/", requirePermission("medicines:add"), createMedicine);
+router.put("/:id", requirePermission("medicines:edit"), updateMedicine);
+router.put("/:id/restock", requirePermission("medicines:edit"), restockMedicine);
+router.delete("/:id", requirePermission("medicines:delete"), deleteMedicine);
 
 export default router;

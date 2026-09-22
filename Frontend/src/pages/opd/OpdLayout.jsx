@@ -23,8 +23,25 @@ const OpdLayout = () => {
     }
   }, [permissionsStr]);
 
+  const LEGACY_LAYOUT_PERMS = {
+    manage_patients: ['patients:read', 'patients:add', 'patients:edit', 'patients:delete'],
+    manage_appointments: ['appointments:read', 'appointments:add', 'appointments:edit', 'appointments:delete'],
+    manage_consultations: ['consultations:read', 'consultations:add', 'consultations:edit', 'consultations:delete'],
+    manage_medicines: ['medicines:read', 'medicines:add', 'medicines:edit', 'medicines:delete'],
+    manage_tests: ['tests:read', 'tests:add', 'tests:edit', 'tests:delete'],
+    manage_billing: ['billing:read', 'billing:add', 'billing:edit', 'billing:delete'],
+    manage_roles: ['roles:read', 'roles:add', 'roles:edit', 'roles:delete'],
+  };
+
   const hasPermission = (perm) => {
-    return permissions.includes('*') || permissions.includes(perm);
+    if (!perm) return true;
+    if (permissions.includes('*')) return true;
+    if (permissions.includes(perm)) return true;
+    for (const [legacy, canonicals] of Object.entries(LEGACY_LAYOUT_PERMS)) {
+      if (permissions.includes(legacy) && canonicals.includes(perm)) return true;
+      if (perm === legacy && canonicals.some((c) => permissions.includes(c))) return true;
+    }
+    return false;
   };
 
   useEffect(() => {
@@ -72,7 +89,7 @@ const OpdLayout = () => {
     {
       name: 'Patients Registry',
       path: '/opd/patients',
-      permission: 'manage_patients',
+      permission: 'patients:read',
       icon: (
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -82,7 +99,7 @@ const OpdLayout = () => {
     {
       name: 'Appointments',
       path: '/opd/appointments',
-      permission: 'manage_appointments',
+      permission: 'appointments:read',
       icon: (
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -92,7 +109,7 @@ const OpdLayout = () => {
     {
       name: 'Consultations',
       path: '/opd/consultations',
-      permission: 'manage_consultations',
+      permission: 'consultations:read',
       icon: (
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -102,7 +119,7 @@ const OpdLayout = () => {
     {
       name: 'Billing & Invoices',
       path: '/opd/billing',
-      permission: 'manage_billing',
+      permission: 'billing:read',
       icon: (
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
@@ -112,7 +129,7 @@ const OpdLayout = () => {
     {
       name: 'Diagnostics Catalog',
       path: '/opd/tests',
-      permission: 'manage_tests',
+      permission: 'tests:read',
       icon: (
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
@@ -122,7 +139,7 @@ const OpdLayout = () => {
     {
       name: 'Pharmacy Catalogue',
       path: '/opd/medicines',
-      permission: 'manage_medicines',
+      permission: 'medicines:read',
       icon: (
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
@@ -132,7 +149,7 @@ const OpdLayout = () => {
     {
       name: 'Roles & Staff',
       path: '/opd/roles',
-      permission: 'manage_roles',
+      permission: 'roles:read',
       icon: (
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
@@ -142,7 +159,7 @@ const OpdLayout = () => {
     {
       name: 'Reminders Feed',
       path: '/opd/reminders',
-      permission: 'access_opd',
+      permission: 'reminders:read',
       icon: (
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />

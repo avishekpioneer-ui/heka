@@ -6,11 +6,11 @@ const router = express.Router();
 
 router.use(verifyOpdUser);
 
-router.post("/", requirePermission("manage_billing"), createBill);
-router.get("/", requirePermission("manage_billing"), getBills);
-router.get("/:id", requirePermission("manage_billing"), getBillById);
-router.put("/:id", requirePermission("manage_billing"), updateBill);
-router.delete("/:id", requirePermission("manage_billing"), deleteBill);
-router.put("/:id/pay", requirePermission("manage_billing"), payBill);
+router.post("/", requirePermission("billing:add"), createBill);
+router.get("/", requirePermission("billing:read"), getBills);
+router.get("/:id", requirePermission("billing:read"), getBillById);
+router.put("/:id", requirePermission("billing:edit"), updateBill);
+router.delete("/:id", requirePermission("billing:delete"), deleteBill);
+router.put("/:id/pay", requirePermission("billing:edit"), payBill);
 
 export default router;

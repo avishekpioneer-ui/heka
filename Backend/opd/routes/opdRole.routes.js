@@ -1,7 +1,8 @@
 import express from "express";
 import {
     createRole, getRoles, updateRole, deleteRole,
-    createStaff, getStaff, deleteStaff, getDoctors
+    createStaff, getStaff, deleteStaff, getDoctors,
+    getPermissions
 } from "../controllers/opdRole.controller.js";
 import { verifyOpdUser, requirePermission } from "../middleware/opdAuth.js";
 
@@ -9,16 +10,20 @@ const router = express.Router();
 
 router.use(verifyOpdUser);
 
+// Schema definitions for client UI
+router.get("/permissions", requirePermission(["roles:read", "access_opd"]), getPermissions);
+
 // Roles
-router.post("/roles", requirePermission("manage_roles"), createRole);
-router.get("/roles", requirePermission(["manage_roles", "access_opd"]), getRoles);
-router.put("/roles/:id", requirePermission("manage_roles"), updateRole);
-router.delete("/roles/:id", requirePermission("manage_roles"), deleteRole);
+router.post("/roles", requirePermission("roles:add"), createRole);
+router.get("/roles", requirePermission(["roles:read", "access_opd"]), getRoles);
+router.put("/roles/:id", requirePermission("roles:edit"), updateRole);
+router.delete("/roles/:id", requirePermission("roles:delete"), deleteRole);
 
 // Staff
-router.post("/staff", requirePermission("manage_roles"), createStaff);
-router.get("/staff", requirePermission("manage_roles"), getStaff);
-router.delete("/staff/:id", requirePermission("manage_roles"), deleteStaff);
-router.get("/doctors", requirePermission(["manage_appointments", "manage_consultations", "manage_roles", "access_opd"]), getDoctors);
+router.post("/staff", requirePermission("roles:add"), createStaff);
+router.get("/staff", requirePermission("roles:read"), getStaff);
+router.delete("/staff/:id", requirePermission("roles:delete"), deleteStaff);
+router.get("/doctors", requirePermission(["appointments:read", "appointments:add", "consultations:read", "roles:read", "access_opd"]), getDoctors);
 
 export default router;
+

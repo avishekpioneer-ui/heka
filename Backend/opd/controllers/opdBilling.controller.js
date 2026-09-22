@@ -3,6 +3,7 @@ import OpdBilling from "../models/OpdBilling.js";
 import OpdPatient from "../models/OpdPatient.js";
 import OpdMedicine from "../models/OpdMedicine.js";
 import OpdTestOrder from "../models/OpdTestOrder.js";
+import OpdReminder from "../models/OpdReminder.js";
 import { emitOpdEvent } from "../socket.js";
 
 const sanitizeMedicines = (meds) => {
@@ -42,7 +43,7 @@ const sanitizeTests = (tests) => {
 
 export const createBill = async (req, res) => {
     try {
-        let { patientId, appointmentId, consultationFee, tests, medicines, items, billingType, status, paymentStatus } = req.body;
+        let { patientId, appointmentId, consultationFee, tests, medicines, items, billingType, status, paymentStatus, followUpDate, followUpNote } = req.body;
 
         if (!patientId) {
             return res.status(400).json({ message: "Patient ID is required" });
@@ -146,9 +147,49 @@ export const createBill = async (req, res) => {
             }
         }
 
-        emitOpdEvent("opd:bill", { type: "created", bill });
+        // Handle Follow-up Date via OpdReminder model
+        let createdReminder = null;
+        if (followUpDate) {
+            const parsedFollowUp = new Date(followUpDate);
+            if (!isNaN(parsedFollowUp.getTime())) {
+                const now = new Date();
+                const diffDays = Math.ceil((parsedFollowUp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                const reminderStatus = (diffDays >= 0 && diffDays <= 3) ? "Sent" : (diffDays < 0 ? "Completed" : "Scheduled");
+                const patientDoc = await OpdPatient.findById(patientId);
+                const pName = patientDoc?.name || "Patient";
+                const msg = followUpNote?.trim() || `Follow-up consultation advised for ${pName} on ${parsedFollowUp.toLocaleDateString()}.`;
 
-        res.status(201).json({ message: "Bill generated and diagnostic tests scheduled successfully", bill });
+                createdReminder = await OpdReminder.create({
+                    patientId,
+                    followUpDate: parsedFollowUp,
+                    message: msg,
+                    status: reminderStatus,
+                    billId: bill._id,
+                    appointmentId: appointmentId || null
+                });
+
+                emitOpdEvent("opd:reminder", {
+                    type: "created",
+                    reminder: { ...createdReminder.toObject(), patientId: patientDoc || patientId }
+                });
+            }
+        }
+
+        const populatedBill = await OpdBilling.findById(bill._id)
+            .populate("patientId")
+            .populate("appointmentId")
+            .lean();
+
+        const enrichedBill = {
+            ...populatedBill,
+            followUpDate: createdReminder?.followUpDate || null,
+            reminderId: createdReminder?._id || null,
+            followUpReminder: createdReminder ? createdReminder.toObject() : null
+        };
+
+        emitOpdEvent("opd:bill", { type: "created", bill: enrichedBill });
+
+        res.status(201).json({ message: "Bill generated and diagnostic tests scheduled successfully", bill: enrichedBill });
     } catch (error) {
         console.error("Create Bill Error:", error);
         res.status(500).json({ message: "Server error" });
@@ -160,8 +201,27 @@ export const getBills = async (req, res) => {
         const bills = await OpdBilling.find({})
             .populate("patientId")
             .populate("appointmentId")
-            .sort({ createdAt: -1 });
-        res.status(200).json(bills);
+            .sort({ createdAt: -1 })
+            .lean();
+
+        const billIds = bills.map(b => b._id);
+        const reminders = await OpdReminder.find({ billId: { $in: billIds } }).lean();
+        const reminderMap = {};
+        for (const rem of reminders) {
+            reminderMap[rem.billId.toString()] = rem;
+        }
+
+        const enrichedBills = bills.map(b => {
+            const rem = reminderMap[b._id.toString()];
+            return {
+                ...b,
+                followUpDate: rem?.followUpDate || null,
+                reminderId: rem?._id || null,
+                followUpReminder: rem || null
+            };
+        });
+
+        res.status(200).json(enrichedBills);
     } catch (error) {
         console.error("Get Bills Error:", error);
         res.status(500).json({ message: "Server error" });
@@ -173,11 +233,18 @@ export const getBillById = async (req, res) => {
         const { id } = req.params;
         const bill = await OpdBilling.findById(id)
             .populate("patientId")
-            .populate("appointmentId");
+            .populate("appointmentId")
+            .lean();
         if (!bill) {
             return res.status(404).json({ message: "Bill not found" });
         }
-        res.status(200).json(bill);
+        const rem = await OpdReminder.findOne({ billId: id }).lean();
+        res.status(200).json({
+            ...bill,
+            followUpDate: rem?.followUpDate || null,
+            reminderId: rem?._id || null,
+            followUpReminder: rem || null
+        });
     } catch (error) {
         console.error("Get Bill By ID Error:", error);
         res.status(500).json({ message: "Server error" });
@@ -187,7 +254,7 @@ export const getBillById = async (req, res) => {
 export const updateBill = async (req, res) => {
     try {
         const { id } = req.params;
-        let { patientId, consultationFee, tests, medicines, items, status, paymentStatus, billingType } = req.body;
+        let { patientId, consultationFee, tests, medicines, items, status, paymentStatus, billingType, followUpDate, followUpNote } = req.body;
 
         const bill = await OpdBilling.findById(id);
         if (!bill) {
@@ -288,13 +355,74 @@ export const updateBill = async (req, res) => {
 
         await bill.save();
 
+        // Handle Follow-up Date via OpdReminder model
+        let currentReminder = null;
+        if (followUpDate !== undefined) {
+            if (followUpDate) {
+                const parsedFollowUp = new Date(followUpDate);
+                if (!isNaN(parsedFollowUp.getTime())) {
+                    const existingReminder = await OpdReminder.findOne({ billId: id });
+                    const patientDoc = await OpdPatient.findById(bill.patientId);
+                    const pName = patientDoc?.name || "Patient";
+                    const msg = followUpNote?.trim() || `Follow-up consultation advised for ${pName} on ${parsedFollowUp.toLocaleDateString()}.`;
+                    const now = new Date();
+                    const diffDays = Math.ceil((parsedFollowUp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                    const reminderStatus = (diffDays >= 0 && diffDays <= 3) ? "Sent" : (diffDays < 0 ? "Completed" : "Scheduled");
+
+                    if (existingReminder) {
+                        existingReminder.followUpDate = parsedFollowUp;
+                        existingReminder.message = msg;
+                        existingReminder.status = reminderStatus;
+                        await existingReminder.save();
+                        currentReminder = existingReminder.toObject();
+                        emitOpdEvent("opd:reminder", {
+                            type: "updated",
+                            reminder: { ...currentReminder, patientId: patientDoc }
+                        });
+                    } else {
+                        const newRem = await OpdReminder.create({
+                            patientId: bill.patientId,
+                            followUpDate: parsedFollowUp,
+                            message: msg,
+                            status: reminderStatus,
+                            billId: id,
+                            appointmentId: bill.appointmentId || null
+                        });
+                        currentReminder = newRem.toObject();
+                        emitOpdEvent("opd:reminder", {
+                            type: "created",
+                            reminder: { ...currentReminder, patientId: patientDoc }
+                        });
+                    }
+                }
+            } else if (followUpDate === null || followUpDate === "") {
+                const deletedRem = await OpdReminder.findOneAndDelete({ billId: id });
+                if (deletedRem) {
+                    emitOpdEvent("opd:reminder", {
+                        type: "deleted",
+                        reminderId: deletedRem._id
+                    });
+                }
+            }
+        } else {
+            currentReminder = await OpdReminder.findOne({ billId: id }).lean();
+        }
+
         const updatedBill = await OpdBilling.findById(id)
             .populate("patientId")
-            .populate("appointmentId");
+            .populate("appointmentId")
+            .lean();
 
-        emitOpdEvent("opd:bill", { type: "updated", bill: updatedBill });
+        const enrichedUpdatedBill = {
+            ...updatedBill,
+            followUpDate: currentReminder?.followUpDate || null,
+            reminderId: currentReminder?._id || null,
+            followUpReminder: currentReminder
+        };
 
-        res.status(200).json({ message: "Bill updated successfully", bill: updatedBill });
+        emitOpdEvent("opd:bill", { type: "updated", bill: enrichedUpdatedBill });
+
+        res.status(200).json({ message: "Bill updated successfully", bill: enrichedUpdatedBill });
     } catch (error) {
         console.error("Update Bill Error:", error);
         res.status(500).json({ message: "Server error" });
@@ -322,6 +450,12 @@ export const deleteBill = async (req, res) => {
 
         // Clean up any test orders linked to this bill
         await OpdTestOrder.deleteMany({ billId: id });
+
+        // Clean up any reminders linked to this bill
+        const deletedReminder = await OpdReminder.findOneAndDelete({ billId: id });
+        if (deletedReminder) {
+            emitOpdEvent("opd:reminder", { type: "deleted", reminderId: deletedReminder._id });
+        }
 
         await OpdBilling.findByIdAndDelete(id);
 

@@ -1,17 +1,29 @@
 import OpdRole from "../models/OpdRole.js";
 import OpdUser from "../models/OpdUser.js";
 import bcrypt from "bcryptjs";
+import {
+    ALL_VALID_PERMISSIONS,
+    OPD_MODULES,
+    OPD_ACTIONS,
+    CANONICAL_PERMISSIONS
+} from "../constants/opdPermissions.js";
 
-export const VALID_PERMISSIONS = [
-    "access_opd",
-    "manage_patients",
-    "manage_appointments",
-    "manage_consultations",
-    "manage_tests",
-    "manage_medicines",
-    "manage_billing",
-    "manage_roles"
-];
+export const VALID_PERMISSIONS = ALL_VALID_PERMISSIONS;
+
+export const getPermissions = async (req, res) => {
+    try {
+        res.status(200).json({
+            modules: OPD_MODULES,
+            actions: OPD_ACTIONS,
+            canonical: CANONICAL_PERMISSIONS,
+            validPermissions: ALL_VALID_PERMISSIONS
+        });
+    } catch (error) {
+        console.error("Get Permissions Error:", error);
+        res.status(500).json({ message: "Server error" });
+    }
+};
+
 
 // Roles Management
 export const createRole = async (req, res) => {

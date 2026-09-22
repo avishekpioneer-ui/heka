@@ -311,6 +311,7 @@ export default function OpdAppointmentsScreen({ onNavigate, routeParams }) {
         onNavigate('billing', {
           patientId: appt.patientId?._id || appt.patientId,
           consultationFee: appt.consultationFee || 0,
+          followUpDate: appt.followUpDate || undefined,
         });
       }
     } catch (err) {

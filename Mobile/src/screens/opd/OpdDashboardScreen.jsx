@@ -28,7 +28,26 @@ export default function OpdDashboardScreen({ onNavigate }) {
     }
   };
 
-  const hasPermission = (perm) => permissions.includes('*') || permissions.includes(perm);
+  const LEGACY_MAP = {
+    manage_patients: ['patients:read', 'patients:add', 'patients:edit', 'patients:delete'],
+    manage_appointments: ['appointments:read', 'appointments:add', 'appointments:edit', 'appointments:delete'],
+    manage_consultations: ['consultations:read', 'consultations:add', 'consultations:edit', 'consultations:delete'],
+    manage_medicines: ['medicines:read', 'medicines:add', 'medicines:edit', 'medicines:delete'],
+    manage_tests: ['tests:read', 'tests:add', 'tests:edit', 'tests:delete'],
+    manage_billing: ['billing:read', 'billing:add', 'billing:edit', 'billing:delete'],
+    manage_roles: ['roles:read', 'roles:add', 'roles:edit', 'roles:delete'],
+  };
+
+  const hasPermission = (perm) => {
+    if (!perm) return true;
+    if (permissions.includes('*')) return true;
+    if (permissions.includes(perm)) return true;
+    for (const [legacy, canonicals] of Object.entries(LEGACY_MAP)) {
+      if (permissions.includes(legacy) && canonicals.includes(perm)) return true;
+      if (perm === legacy && canonicals.some((c) => permissions.includes(c))) return true;
+    }
+    return false;
+  };
 
   const fetchDashboardData = useCallback(async () => {
     try {
@@ -162,7 +181,7 @@ export default function OpdDashboardScreen({ onNavigate }) {
         </View>
 
         <View style={styles.headerActions}>
-          {hasPermission('manage_patients') ? (
+          {hasPermission('patients:add') ? (
             <TouchableOpacity
               style={styles.primaryBtn}
               onPress={() => onNavigate && onNavigate('patients')}
@@ -172,7 +191,7 @@ export default function OpdDashboardScreen({ onNavigate }) {
             </TouchableOpacity>
           ) : null}
 
-          {hasPermission('manage_appointments') ? (
+          {hasPermission('appointments:add') ? (
             <TouchableOpacity
               style={styles.secondaryBtn}
               onPress={() => onNavigate && onNavigate('appointments')}
@@ -238,7 +257,7 @@ export default function OpdDashboardScreen({ onNavigate }) {
                   <Text style={styles.statusText}>{appt.status || 'Scheduled'}</Text>
                 </View>
 
-                {appt.status === 'Scheduled' && hasPermission('manage_consultations') ? (
+                {appt.status === 'Scheduled' && (hasPermission('consultations:add') || hasPermission('consultations:edit')) ? (
                   <TouchableOpacity
                     style={styles.consultBtn}
                     onPress={() => onNavigate && onNavigate('consultations')}

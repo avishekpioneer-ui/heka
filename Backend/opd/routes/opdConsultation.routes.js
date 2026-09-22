@@ -6,8 +6,8 @@ const router = express.Router();
 
 router.use(verifyOpdUser);
 
-router.post("/", requirePermission("manage_consultations"), createConsultation);
-router.get("/", requirePermission(["manage_consultations", "manage_billing"]), getConsultations);
-router.get("/patient/:patientId", requirePermission(["manage_consultations", "manage_billing"]), getConsultationsByPatient);
+router.post("/", requirePermission("consultations:add"), createConsultation);
+router.get("/", requirePermission(["consultations:read", "billing:read"]), getConsultations);
+router.get("/patient/:patientId", requirePermission(["consultations:read", "billing:read"]), getConsultationsByPatient);
 
 export default router;
