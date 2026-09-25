@@ -61,10 +61,12 @@ import OpdPatients from "./pages/opd/OpdPatients";
 import OpdAppointments from "./pages/opd/OpdAppointments";
 import OpdConsultations from "./pages/opd/OpdConsultations";
 import OpdBilling from "./pages/opd/OpdBilling";
+import OpdBillingSummary from "./pages/opd/OpdBillingSummary";
 import OpdDiagnosticTests from "./pages/opd/OpdDiagnosticTests";
 import OpdMedicines from "./pages/opd/OpdMedicines";
 import OpdRoles from "./pages/opd/OpdRoles";
 import OpdReminders from "./pages/opd/OpdReminders";
+import OpdAccounts from "./pages/opd/OpdAccounts";
 
 // Public landing-site routes — these render their own Navbar/Footer and must not
 // get the HekaOS app's fixed bottom navigation bar.
@@ -146,10 +148,12 @@ function App() {
                     <Route path="appointments" element={<OpdAppointments />} />
                     <Route path="consultations" element={<OpdConsultations />} />
                     <Route path="billing" element={<OpdBilling />} />
+                    <Route path="billing-summary" element={<OpdBillingSummary />} />
                     <Route path="tests" element={<OpdDiagnosticTests />} />
                     <Route path="medicines" element={<OpdMedicines />} />
                     <Route path="roles" element={<OpdRoles />} />
                     <Route path="reminders" element={<OpdReminders />} />
+                    <Route path="accounts" element={<OpdAccounts />} />
                 </Route>
             </Routes>
             {!isExcludedRoute && <Footer />}

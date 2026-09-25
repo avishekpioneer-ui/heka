@@ -3,6 +3,7 @@ import {
   StyleSheet,
   Text,
   View,
+  FlatList,
   ScrollView,
   TextInput,
   TouchableOpacity,
@@ -12,6 +13,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  RefreshControl,
 } from 'react-native';
 import apiClient from '../../config/api';
 import storage from '../../utils/storage';
@@ -74,12 +76,17 @@ const formatTimeDisplay = (timeVal) => {
   return `${parsed.hour}:${parsed.minute} ${parsed.ampm}`;
 };
 
-export default function OpdAppointmentsScreen({ onNavigate, routeParams }) {
+export default function OpdAppointmentsScreen({ onNavigate, routeParams, refreshKey }) {
   const [patients, setPatients] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [doctors, setDoctors] = useState([]);
 
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+
   const [userRoleName, setUserRoleName] = useState('');
   const [currentUserName, setCurrentUserName] = useState('');
   const [currentUserId, setCurrentUserId] = useState('');
@@ -121,9 +128,9 @@ export default function OpdAppointmentsScreen({ onNavigate, routeParams }) {
     userPermissions.includes('*') || userPermissions.includes(perm);
 
   useEffect(() => {
-    fetchData();
     fetchUserRoleInfo();
-  }, []);
+    fetchData(1, false);
+  }, [refreshKey]);
 
   const fetchUserRoleInfo = async () => {
     try {
@@ -149,29 +156,74 @@ export default function OpdAppointmentsScreen({ onNavigate, routeParams }) {
     }
   }, [routeParams]);
 
-  const fetchData = async () => {
+  const fetchData = async (pageNum = 1, isAppend = false) => {
     try {
-      setLoading(true);
+      if (pageNum === 1) {
+        setLoading(true);
+      } else {
+        setLoadingMore(true);
+      }
 
-      const [apptRes, patRes, docRes] = await Promise.all([
-        apiClient.get('/api/opd/appointments').catch(() => ({ data: [] })),
-        apiClient.get('/api/opd/patients').catch(() => ({ data: [] })),
-        apiClient.get('/api/opd/staff/doctors').catch(() => ({ data: [] })),
-      ]);
+      const promises = [
+        apiClient.get(`/api/opd/appointments?page=${pageNum}&limit=50`).catch(() => ({ data: [] })),
+      ];
 
-      const apptData = apptRes.data?.appointments || apptRes.data || [];
-      setAppointments(Array.isArray(apptData) ? apptData : []);
+      if (pageNum === 1) {
+        promises.push(apiClient.get('/api/opd/patients?all=true').catch(() => ({ data: [] })));
+        promises.push(apiClient.get('/api/opd/staff/doctors').catch(() => ({ data: [] })));
+      }
 
-      const patData = patRes.data?.patients || patRes.data || [];
-      setPatients(Array.isArray(patData) ? patData : []);
+      const [apptRes, patRes, docRes] = await Promise.all(promises);
 
-      const docData = docRes.data?.doctors || docRes.data || [];
-      setDoctors(Array.isArray(docData) ? docData : []);
+      const apptData = apptRes.data?.appointments || apptRes.data?.data || (Array.isArray(apptRes.data) ? apptRes.data : []);
+      const newHasMore = typeof apptRes.data?.hasMore === 'boolean' ? apptRes.data.hasMore : apptData.length === 50;
+
+      if (isAppend) {
+        setAppointments((prev) => [...prev, ...apptData]);
+      } else {
+        setAppointments(apptData);
+      }
+
+      setHasMore(newHasMore);
+      setPage(pageNum);
+
+      if (patRes) {
+        const patData = patRes.data?.patients || patRes.data?.data || (Array.isArray(patRes.data) ? patRes.data : []);
+        setPatients(Array.isArray(patData) ? patData : []);
+      }
+
+      if (docRes) {
+        const docData = docRes.data?.doctors || docRes.data?.data || (Array.isArray(docRes.data) ? docRes.data : []);
+        setDoctors(Array.isArray(docData) ? docData : []);
+      }
     } catch (err) {
       console.error('Error fetching appointments data:', err);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
+      setRefreshing(false);
     }
+  };
+
+  const handleLoadMore = () => {
+    if (!loading && !loadingMore && hasMore) {
+      fetchData(page + 1, true);
+    }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchData(1, false);
+  };
+
+  const renderFooter = () => {
+    if (!loadingMore) return <View style={{ height: 24 }} />;
+    return (
+      <View style={{ paddingVertical: 18, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="small" color="#0f766e" />
+        <Text style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Loading more appointments (50 per page)...</Text>
+      </View>
+    );
   };
 
   // ── Doctor chip selection — auto-fill consultation fee ──────────────────────
@@ -337,132 +389,140 @@ export default function OpdAppointmentsScreen({ onNavigate, routeParams }) {
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-      <ScrollView
+      <FlatList
+        data={appointments}
+        keyExtractor={(appt, idx) => String(appt._id || appt.id || idx)}
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
-        automaticallyAdjustKeyboardInsets={true}
-      >
-        {/* Header */}
-        <View style={styles.headerRow}>
-          <View style={{ flex: 1, marginRight: 10 }}>
-            <Text style={styles.title}>
-              Appointments Queue {userRoleName ? `(${userRoleName})` : ''}
-            </Text>
-            <Text style={styles.subtitle}>
-              Manage consultations, queue statuses, and billing handoffs
-            </Text>
-          </View>
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#0f766e']} />}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.4}
+        ListFooterComponent={renderFooter}
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={7}
+        removeClippedSubviews={Platform.OS === 'android'}
+        ListHeaderComponent={(
+          <View style={styles.headerRow}>
+            <View style={{ flex: 1, marginRight: 10 }}>
+              <Text style={styles.title}>
+                Appointments Queue {userRoleName ? `(${userRoleName})` : ''}
+              </Text>
+              <Text style={styles.subtitle}>
+                Manage consultations, queue statuses, and billing handoffs
+              </Text>
+            </View>
 
-          <TouchableOpacity
-            style={styles.addBtn}
-            onPress={() => setIsBookingOpen(true)}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.addBtnText}>+ Book Visit</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Appointments List */}
-        {loading ? (
-          <View style={styles.centerBox}>
-            <ActivityIndicator size="large" color="#0f766e" />
-            <Text style={styles.loadingText}>Loading Queue...</Text>
+            <TouchableOpacity
+              style={styles.addBtn}
+              onPress={() => setIsBookingOpen(true)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.addBtnText}>+ Book Visit</Text>
+            </TouchableOpacity>
           </View>
-        ) : appointments.length === 0 ? (
-          <View style={styles.emptyBox}>
-            <Text style={styles.emptyTitle}>No Appointments Scheduled</Text>
-            <Text style={styles.emptyText}>
-              Tap "+ Book Visit" to register a patient for doctor consultation.
-            </Text>
-          </View>
-        ) : (
-          appointments.map((appt) => (
-            <View key={appt._id || appt.id} style={styles.card}>
-              <View style={styles.cardHeader}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.patientName}>
-                    {appt.patientName || appt.patientId?.name || 'Patient'}
-                  </Text>
-                  <Text style={styles.doctorName}>
-                    👨‍⚕️ Dr. {appt.doctorName || 'Assigned Consultant'}
-                  </Text>
-                </View>
+        )}
+        ListEmptyComponent={(
+          loading && !refreshing ? (
+            <View style={styles.centerBox}>
+              <ActivityIndicator size="large" color="#0f766e" />
+              <Text style={styles.loadingText}>Loading Queue...</Text>
+            </View>
+          ) : appointments.length === 0 ? (
+            <View style={styles.emptyBox}>
+              <Text style={styles.emptyTitle}>No Appointments Scheduled</Text>
+              <Text style={styles.emptyText}>
+                Tap "+ Book Visit" to register a patient for doctor consultation.
+              </Text>
+            </View>
+          ) : null
+        )}
+        renderItem={({ item: appt }) => (
+          <View key={appt._id || appt.id} style={styles.card}>
+            <View style={styles.cardHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.patientName}>
+                  {appt.patientName || appt.patientId?.name || 'Patient'}
+                </Text>
+                <Text style={styles.doctorName}>
+                  👨‍⚕️ Dr. {appt.doctorName || 'Assigned Consultant'}
+                </Text>
+              </View>
 
-                <View
+              <View
+                style={[
+                  styles.statusBadge,
+                  appt.status === 'Completed' && styles.badgeSuccess,
+                  appt.status === 'Cancelled' && styles.badgeDanger,
+                  (appt.status === 'Scheduled' || appt.status === 'In-Progress') &&
+                    styles.badgeWarning,
+                ]}
+              >
+                <Text
                   style={[
-                    styles.statusBadge,
-                    appt.status === 'Completed' && styles.badgeSuccess,
-                    appt.status === 'Cancelled' && styles.badgeDanger,
-                    (appt.status === 'Scheduled' || appt.status === 'In-Progress') &&
-                      styles.badgeWarning,
+                    styles.statusBadgeText,
+                    appt.status === 'Completed' && styles.textSuccess,
+                    appt.status === 'Cancelled' && styles.textDanger,
+                    (appt.status === 'Scheduled' ||
+                      appt.status === 'In-Progress') &&
+                      styles.textWarning,
                   ]}
                 >
-                  <Text
-                    style={[
-                      styles.statusBadgeText,
-                      appt.status === 'Completed' && styles.textSuccess,
-                      appt.status === 'Cancelled' && styles.textDanger,
-                      (appt.status === 'Scheduled' ||
-                        appt.status === 'In-Progress') &&
-                        styles.textWarning,
-                    ]}
-                  >
-                    {appt.status?.toUpperCase() || 'SCHEDULED'}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.cardDetailsRow}>
-                <Text style={styles.detailText}>
-                  📅 {new Date(appt.appointmentDate).toLocaleString()}
-                </Text>
-                <Text style={styles.detailText}>
-                  💰 Fee: ₹{appt.consultationFee || 50}
+                  {appt.status?.toUpperCase() || 'SCHEDULED'}
                 </Text>
               </View>
-
-              {/* Action Buttons based on status */}
-              {appt.status !== 'Completed' && appt.status !== 'Cancelled' ? (
-                <View style={styles.actionsRow}>
-                  {appt.status === 'Scheduled' && (
-                    <TouchableOpacity
-                      style={styles.inProgressBtn}
-                      onPress={() => handleStartConsult(appt)}
-                    >
-                      <Text style={styles.inProgressBtnText}>▶ Start Consult</Text>
-                    </TouchableOpacity>
-                  )}
-
-                  {appt.status === 'In-Progress' && (
-                    <TouchableOpacity
-                      style={styles.consultBtn}
-                      onPress={() => handleStartConsult(appt)}
-                    >
-                      <Text style={styles.consultBtnText}>💬 Write Consult Notes</Text>
-                    </TouchableOpacity>
-                  )}
-
-                  <TouchableOpacity
-                    style={styles.completeBtn}
-                    onPress={() => handleCompleteAndBill(appt)}
-                  >
-                    <Text style={styles.completeBtnText}>✓ Finish & Bill</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.cancelBtn}
-                    onPress={() =>
-                      handleStatusChange(appt._id || appt.id, 'Cancelled')
-                    }
-                  >
-                    <Text style={styles.cancelBtnText}>Cancel</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : null}
             </View>
-          ))
+
+            <View style={styles.cardDetailsRow}>
+              <Text style={styles.detailText}>
+                📅 {new Date(appt.appointmentDate).toLocaleString()}
+              </Text>
+              <Text style={styles.detailText}>
+                💰 Fee: ₹{appt.consultationFee || 50}
+              </Text>
+            </View>
+
+            {/* Action Buttons based on status */}
+            {appt.status !== 'Completed' && appt.status !== 'Cancelled' ? (
+              <View style={styles.actionsRow}>
+                {appt.status === 'Scheduled' && (
+                  <TouchableOpacity
+                    style={styles.inProgressBtn}
+                    onPress={() => handleStartConsult(appt)}
+                  >
+                    <Text style={styles.inProgressBtnText}>▶ Start Consult</Text>
+                  </TouchableOpacity>
+                )}
+
+                {appt.status === 'In-Progress' && (
+                  <TouchableOpacity
+                    style={styles.consultBtn}
+                    onPress={() => handleStartConsult(appt)}
+                  >
+                    <Text style={styles.consultBtnText}>💬 Write Consult Notes</Text>
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity
+                  style={styles.completeBtn}
+                  onPress={() => handleCompleteAndBill(appt)}
+                >
+                  <Text style={styles.completeBtnText}>✓ Finish & Bill</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.cancelBtn}
+                  onPress={() =>
+                    handleStatusChange(appt._id || appt.id, 'Cancelled')
+                  }
+                >
+                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+          </View>
         )}
-      </ScrollView>
+      />
 
       {/* ── Book Appointment Modal ────────────────────────────────────────── */}
       <Modal visible={isBookingOpen} animationType="slide" transparent statusBarTranslucent onRequestClose={handleCloseBooking}>

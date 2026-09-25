@@ -14,6 +14,15 @@ const billedTestSchema = new mongoose.Schema({
         type: Number,
         required: true
     },
+    discount: {
+        type: Number,
+        default: 0
+    },
+    discountType: {
+        type: String,
+        enum: ["fixed", "percentage"],
+        default: "fixed"
+    },
     scheduledDate: {
         type: Date,
         required: false
@@ -42,6 +51,15 @@ const billedMedicineSchema = new mongoose.Schema({
         type: Number,
         required: true,
         default: 1
+    },
+    discount: {
+        type: Number,
+        default: 0
+    },
+    discountType: {
+        type: String,
+        enum: ["fixed", "percentage"],
+        default: "fixed"
     }
 }, { _id: false });
 
@@ -61,8 +79,34 @@ const opdBillingSchema = new mongoose.Schema(
             type: Number,
             default: 0
         },
+        consultationDiscount: {
+            type: Number,
+            default: 0
+        },
+        consultationDiscountType: {
+            type: String,
+            enum: ["fixed", "percentage"],
+            default: "fixed"
+        },
         tests: [billedTestSchema],
         medicines: [billedMedicineSchema],
+        subtotal: {
+            type: Number,
+            default: 0
+        },
+        discount: {
+            type: Number,
+            default: 0
+        },
+        discountType: {
+            type: String,
+            enum: ["fixed", "percentage"],
+            default: "fixed"
+        },
+        discountReason: {
+            type: String,
+            default: ""
+        },
         totalAmount: {
             type: Number,
             required: true,

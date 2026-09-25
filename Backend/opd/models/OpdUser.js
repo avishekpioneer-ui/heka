@@ -34,6 +34,14 @@ const opdUserSchema = new mongoose.Schema(
         fees: {
             type: Number,
             default: 0
+        },
+        baseSalary: {
+            type: Number,
+            default: 0
+        },
+        doj: {
+            type: Date,
+            default: Date.now
         }
     },
     { timestamps: true }

@@ -45,16 +45,16 @@ const OpdAppointments = () => {
       const headers = { 'x-user-id': userId };
       
       // Load patients for the selector
-      const patientsRes = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/patients', { headers });
-      setPatients(patientsRes.data);
+      const patientsRes = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/patients?all=true', { headers });
+      setPatients(patientsRes.data?.patients || (Array.isArray(patientsRes.data) ? patientsRes.data : []));
 
       // Load registered doctors for the selector
       const doctorsRes = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/staff/doctors', { headers });
-      setDoctors(doctorsRes.data);
+      setDoctors(Array.isArray(doctorsRes.data) ? doctorsRes.data : doctorsRes.data?.doctors || []);
 
       // Load appointments list
       const appointmentsRes = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/appointments', { headers });
-      setAppointments(appointmentsRes.data);
+      setAppointments(appointmentsRes.data?.appointments || (Array.isArray(appointmentsRes.data) ? appointmentsRes.data : []));
     } catch (err) {
       console.error('Error fetching appointment data:', err);
     } finally {

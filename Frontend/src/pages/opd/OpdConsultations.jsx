@@ -65,8 +65,9 @@ const OpdConsultations = () => {
       const headers = { 'x-user-id': userId };
 
       // Load scheduled appointments for doctor dropdown
-      const apptsRes = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/appointments', { headers });
-      const activeAppts = apptsRes.data.filter(a => a.status === 'Scheduled');
+      const apptsRes = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/appointments?all=true', { headers });
+      const rawAppts = apptsRes.data?.appointments || (Array.isArray(apptsRes.data) ? apptsRes.data : []);
+      const activeAppts = rawAppts.filter(a => a.status === 'Scheduled');
       setAppointments(activeAppts);
 
       // Load medicines database for prescription autocomplete/selector
@@ -74,12 +75,12 @@ const OpdConsultations = () => {
       setMedicinesList(Array.isArray(medsRes.data) ? medsRes.data : medsRes.data?.medicines || []);
 
       // Load registered diagnostic tests catalog
-      const testsRes = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/tests', { headers });
-      setTestsList(testsRes.data);
+      const testsRes = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/tests?all=true', { headers });
+      setTestsList(Array.isArray(testsRes.data) ? testsRes.data : testsRes.data?.tests || []);
 
       // Load clinical consultation history logs
       const consultsRes = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/consultations', { headers });
-      setConsultations(consultsRes.data);
+      setConsultations(consultsRes.data?.consultations || (Array.isArray(consultsRes.data) ? consultsRes.data : []));
     } catch (err) {
       console.error('Error loading consultation parameters:', err);
     } finally {

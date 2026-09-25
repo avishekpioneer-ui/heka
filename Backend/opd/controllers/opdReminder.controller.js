@@ -42,10 +42,40 @@ export const createReminder = async (req, res) => {
 
 export const getReminders = async (req, res) => {
     try {
-        const reminders = await OpdReminder.find({})
-            .populate("patientId")
-            .sort({ followUpDate: 1, createdAt: 1 });
-        res.status(200).json(reminders);
+        const { all, page, limit } = req.query;
+
+        if (all === "true") {
+            const reminders = await OpdReminder.find({})
+                .populate("patientId")
+                .sort({ followUpDate: 1, createdAt: 1 })
+                .lean();
+            return res.status(200).json({ reminders, data: reminders, total: reminders.length, all: true, hasMore: false });
+        }
+
+        const pageNum = Math.max(1, parseInt(page, 10) || 1);
+        const limitNum = Math.max(1, parseInt(limit, 10) || 50);
+        const skip = (pageNum - 1) * limitNum;
+
+        const [reminders, total] = await Promise.all([
+            OpdReminder.find({})
+                .populate("patientId")
+                .sort({ followUpDate: 1, createdAt: 1 })
+                .skip(skip)
+                .limit(limitNum)
+                .lean(),
+            OpdReminder.countDocuments({})
+        ]);
+
+        const hasMore = skip + reminders.length < total;
+
+        res.status(200).json({
+            reminders,
+            data: reminders,
+            total,
+            page: pageNum,
+            limit: limitNum,
+            hasMore
+        });
     } catch (error) {
         console.error("Get Reminders Error:", error);
         res.status(500).json({ message: "Server error fetching reminders" });

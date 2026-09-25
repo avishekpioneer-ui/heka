@@ -69,16 +69,16 @@ export default function OpdDashboardScreen({ onNavigate }) {
       const name = await storage.getItem('userName');
       const id = await storage.getItem('userId');
 
-      // Parallel fetch using Promise.all
+      // Parallel fetch using Promise.all (with limit 5)
       const [pRes, aRes, cRes, bRes] = await Promise.all([
-        apiClient.get('/api/opd/patients').catch(() => ({ data: [] })),
-        apiClient.get('/api/opd/appointments').catch(() => ({ data: [] })),
-        apiClient.get('/api/opd/consultations').catch(() => ({ data: [] })),
-        apiClient.get('/api/opd/billing').catch(() => ({ data: [] })),
+        apiClient.get('/api/opd/patients?limit=5').catch(() => ({ data: [] })),
+        apiClient.get('/api/opd/appointments?limit=5').catch(() => ({ data: [] })),
+        apiClient.get('/api/opd/consultations?limit=5').catch(() => ({ data: [] })),
+        apiClient.get('/api/opd/billing?limit=5').catch(() => ({ data: [] })),
       ]);
 
       const pData = pRes.data?.patients || pRes.data || [];
-      const patientsCount = Array.isArray(pData) ? pData.length : 0;
+      const patientsCount = typeof pRes.data?.total === 'number' ? pRes.data.total : (Array.isArray(pData) ? pData.length : 0);
 
       const aData = aRes.data?.appointments || aRes.data || [];
       let list = Array.isArray(aData) ? aData : [];
@@ -111,8 +111,8 @@ export default function OpdDashboardScreen({ onNavigate }) {
 
       setStats({
         patients: patientsCount,
-        appointments: list.length,
-        consultations: cList.length,
+        appointments: typeof aRes.data?.total === 'number' ? aRes.data.total : list.length,
+        consultations: typeof cRes.data?.total === 'number' ? cRes.data.total : cList.length,
         billingPending: pending,
         billingPaid: paid,
       });

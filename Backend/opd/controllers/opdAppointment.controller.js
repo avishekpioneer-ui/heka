@@ -35,6 +35,8 @@ export const createAppointment = async (req, res) => {
             patientId,
             appointmentId: appointment._id,
             consultationFee: consultationFee || 0,
+            subtotal: consultationFee || 0,
+            discount: 0,
             totalAmount: consultationFee || 0,
             status: "Pending",
             billingType: "Consultation"
@@ -51,6 +53,7 @@ export const createAppointment = async (req, res) => {
 
 export const getAppointments = async (req, res) => {
     try {
+        const { all, page, limit } = req.query;
         let query = {};
 
         // If logged-in user is a Doctor (and not an admin with wildcard permissions), restrict query to their own appointments
@@ -66,10 +69,38 @@ export const getAppointments = async (req, res) => {
             };
         }
 
-        const appointments = await OpdAppointment.find(query)
-            .populate("patientId")
-            .sort({ appointmentDate: -1 });
-        res.status(200).json(appointments);
+        if (all === "true") {
+            const appointments = await OpdAppointment.find(query)
+                .populate("patientId")
+                .sort({ appointmentDate: -1 })
+                .lean();
+            return res.status(200).json({ appointments, data: appointments, total: appointments.length, all: true, hasMore: false });
+        }
+
+        const pageNum = Math.max(1, parseInt(page, 10) || 1);
+        const limitNum = Math.max(1, parseInt(limit, 10) || 50);
+        const skip = (pageNum - 1) * limitNum;
+
+        const [appointments, total] = await Promise.all([
+            OpdAppointment.find(query)
+                .populate("patientId")
+                .sort({ appointmentDate: -1 })
+                .skip(skip)
+                .limit(limitNum)
+                .lean(),
+            OpdAppointment.countDocuments(query)
+        ]);
+
+        const hasMore = skip + appointments.length < total;
+
+        res.status(200).json({
+            appointments,
+            data: appointments,
+            total,
+            page: pageNum,
+            limit: limitNum,
+            hasMore
+        });
     } catch (error) {
         console.error("Get Appointments Error:", error);
         res.status(500).json({ message: "Server error" });

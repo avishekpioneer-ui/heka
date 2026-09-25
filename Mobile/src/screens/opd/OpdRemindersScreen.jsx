@@ -3,6 +3,7 @@ import {
   StyleSheet,
   Text,
   View,
+  FlatList,
   ScrollView,
   TextInput,
   TouchableOpacity,
@@ -10,14 +11,18 @@ import {
   RefreshControl,
   Alert,
   Linking,
+  Platform,
 } from 'react-native';
 import apiClient from '../../config/api';
 import { useOpdSocketEvent } from '../../context/useOpdSocket';
 
-export default function OpdRemindersScreen({ onNavigate }) {
+export default function OpdRemindersScreen({ onNavigate, refreshKey }) {
   const [reminders, setReminders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scanResult, setScanResult] = useState('');
 
@@ -27,36 +32,62 @@ export default function OpdRemindersScreen({ onNavigate }) {
   const [activeStatusFilter, setActiveStatusFilter] = useState('ALL'); // 'ALL' | 'Scheduled' | 'Sent' | 'Completed'
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    fetchData(1, false);
+  }, [refreshKey]);
 
   // Listen to realtime socket events
   useOpdSocketEvent('opd:reminder', () => {
-    fetchData(true);
+    fetchData(1, false, true);
   });
 
   useOpdSocketEvent('opd:consultation', () => {
-    fetchData(true);
+    fetchData(1, false, true);
   });
 
-  const fetchData = async (isSilent = false) => {
+  const fetchData = async (pageNum = 1, isAppend = false, isSilent = false) => {
     try {
-      if (!isSilent) setLoading(true);
+      if (pageNum === 1) {
+        if (!isSilent && !isAppend) setLoading(true);
+      } else {
+        setLoadingMore(true);
+      }
 
-      const rRes = await apiClient.get('/api/opd/reminders').catch(() => ({ data: [] }));
-      const rData = rRes.data?.reminders || rRes.data || [];
-      setReminders(Array.isArray(rData) ? rData : []);
+      const rRes = await apiClient.get(`/api/opd/reminders?page=${pageNum}&limit=50`).catch(() => ({ data: [] }));
+      const rData = rRes.data?.reminders || rRes.data?.data || (Array.isArray(rRes.data) ? rRes.data : []);
+      const newHasMore = typeof rRes.data?.hasMore === 'boolean' ? rRes.data.hasMore : rData.length === 50;
+
+      if (isAppend) {
+        setReminders((prev) => [...prev, ...rData]);
+      } else {
+        setReminders(rData);
+      }
+      setHasMore(newHasMore);
+      setPage(pageNum);
     } catch (err) {
       console.error('Error fetching reminders data:', err);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
       setRefreshing(false);
     }
   };
 
   const onRefresh = () => {
     setRefreshing(true);
-    fetchData(true);
+    fetchData(1, false, true);
+  };
+
+  const handleLoadMore = () => {
+    if (
+      !loading &&
+      !loadingMore &&
+      hasMore &&
+      !searchQuery.trim() &&
+      activeDateFilter === 'ALL' &&
+      activeStatusFilter === 'ALL'
+    ) {
+      fetchData(page + 1, true);
+    }
   };
 
   const handleSyncConsults = async () => {
@@ -259,270 +290,300 @@ export default function OpdRemindersScreen({ onNavigate }) {
     { id: 'LATER', label: 'Later' },
   ];
 
-  return (
-    <View style={{ flex: 1, backgroundColor: '#f8fafc' }}>
-      <ScrollView
-        contentContainerStyle={styles.container}
-        keyboardShouldPersistTaps="handled"
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#0f766e']} />}
-      >
-        {/* Header Card */}
-        <View style={styles.headerCard}>
-          <View style={styles.headerTopRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.title}>Patient Follow-up Advisories</Text>
-              <Text style={styles.subtitle}>Earliest due dates first • Instant Call & WhatsApp dispatch</Text>
-            </View>
-            <TouchableOpacity
-              style={[styles.syncBtn, scanning && styles.btnDisabled]}
-              onPress={handleSyncConsults}
-              disabled={scanning}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.syncBtnText}>{scanning ? '⏳ Syncing...' : '🔄 Sync Consults'}</Text>
-            </TouchableOpacity>
+  const renderHeader = () => (
+    <>
+      {/* Header Card */}
+      <View style={styles.headerCard}>
+        <View style={styles.headerTopRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.title}>Patient Follow-up Advisories</Text>
+            <Text style={styles.subtitle}>Earliest due dates first • Instant Call & WhatsApp dispatch</Text>
           </View>
-
-          {/* Quick Metrics Bar */}
-          <View style={styles.metricsRow}>
-            <TouchableOpacity
-              style={[styles.metricItem, activeDateFilter === 'ALL' && styles.metricItemActive]}
-              onPress={() => setActiveDateFilter('ALL')}
-            >
-              <Text style={styles.metricNumber}>{stats.total}</Text>
-              <Text style={styles.metricLabel}>Total</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.metricItem, styles.borderLeft, activeDateFilter === 'TODAY' && styles.metricItemActive]}
-              onPress={() => setActiveDateFilter('TODAY')}
-            >
-              <Text style={[styles.metricNumber, { color: '#b45309' }]}>{stats.today}</Text>
-              <Text style={styles.metricLabel}>Today</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.metricItem, styles.borderLeft, activeDateFilter === 'TOMORROW' && styles.metricItemActive]}
-              onPress={() => setActiveDateFilter('TOMORROW')}
-            >
-              <Text style={[styles.metricNumber, { color: '#0369a1' }]}>{stats.tomorrow}</Text>
-              <Text style={styles.metricLabel}>Tomorrow</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.metricItem, styles.borderLeft, activeDateFilter === 'WEEK' && styles.metricItemActive]}
-              onPress={() => setActiveDateFilter('WEEK')}
-            >
-              <Text style={[styles.metricNumber, { color: '#0D9488' }]}>{stats.thisWeek}</Text>
-              <Text style={styles.metricLabel}>7 Days</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.metricItem, styles.borderLeft, activeDateFilter === 'OVERDUE' && styles.metricItemActive]}
-              onPress={() => setActiveDateFilter('OVERDUE')}
-            >
-              <Text style={[styles.metricNumber, { color: '#b91c1c' }]}>{stats.overdue}</Text>
-              <Text style={styles.metricLabel}>Overdue</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={[styles.syncBtn, scanning && styles.btnDisabled]}
+            onPress={handleSyncConsults}
+            disabled={scanning}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.syncBtnText}>{scanning ? '⏳ Syncing...' : '🔄 Sync Consults'}</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Scan Result Notice Banner */}
-        {scanResult ? (
-          <View style={styles.scanResultBox}>
-            <Text style={styles.scanResultIcon}>🔔</Text>
-            <Text style={styles.scanResultText}>{scanResult}</Text>
-            <TouchableOpacity onPress={() => setScanResult('')}>
-              <Text style={styles.scanResultClose}>✕</Text>
+        {/* Quick Metrics Bar */}
+        <View style={styles.metricsRow}>
+          <TouchableOpacity
+            style={[styles.metricItem, activeDateFilter === 'ALL' && styles.metricItemActive]}
+            onPress={() => setActiveDateFilter('ALL')}
+          >
+            <Text style={styles.metricNumber}>{stats.total}</Text>
+            <Text style={styles.metricLabel}>Total</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.metricItem, styles.borderLeft, activeDateFilter === 'TODAY' && styles.metricItemActive]}
+            onPress={() => setActiveDateFilter('TODAY')}
+          >
+            <Text style={[styles.metricNumber, { color: '#b45309' }]}>{stats.today}</Text>
+            <Text style={styles.metricLabel}>Today</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.metricItem, styles.borderLeft, activeDateFilter === 'TOMORROW' && styles.metricItemActive]}
+            onPress={() => setActiveDateFilter('TOMORROW')}
+          >
+            <Text style={[styles.metricNumber, { color: '#0369a1' }]}>{stats.tomorrow}</Text>
+            <Text style={styles.metricLabel}>Tomorrow</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.metricItem, styles.borderLeft, activeDateFilter === 'WEEK' && styles.metricItemActive]}
+            onPress={() => setActiveDateFilter('WEEK')}
+          >
+            <Text style={[styles.metricNumber, { color: '#0D9488' }]}>{stats.thisWeek}</Text>
+            <Text style={styles.metricLabel}>7 Days</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.metricItem, styles.borderLeft, activeDateFilter === 'OVERDUE' && styles.metricItemActive]}
+            onPress={() => setActiveDateFilter('OVERDUE')}
+          >
+            <Text style={[styles.metricNumber, { color: '#b91c1c' }]}>{stats.overdue}</Text>
+            <Text style={styles.metricLabel}>Overdue</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Scan Result Notice Banner */}
+      {scanResult ? (
+        <View style={styles.scanResultBox}>
+          <Text style={styles.scanResultIcon}>🔔</Text>
+          <Text style={styles.scanResultText}>{scanResult}</Text>
+          <TouchableOpacity onPress={() => setScanResult('')}>
+            <Text style={styles.scanResultClose}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
+      {/* Search Bar & Date-wise Filter Tabs */}
+      <View style={styles.filterSection}>
+        <View style={styles.searchBar}>
+          <Text style={styles.searchIcon}>🔍</Text>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search by patient name, phone, or advisory notes..."
+            placeholderTextColor="#94a3b8"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            clearButtonMode="while-editing"
+          />
+          {searchQuery ? (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Text style={styles.clearSearchText}>✕</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+
+        {/* Date-wise Tabs (Earliest / fewer dates first) */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsContainer}>
+          {dateFilterTabs.map((tab) => {
+            const isActive = activeDateFilter === tab.id;
+            return (
+              <TouchableOpacity
+                key={tab.id}
+                style={[styles.tabChip, isActive && styles.tabChipActive]}
+                onPress={() => setActiveDateFilter(tab.id)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.tabChipText, isActive && styles.tabChipTextActive]}>
+                  {tab.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+    </>
+  );
+
+  const renderEmpty = () => {
+    if (loading) {
+      return (
+        <View style={styles.centerBox}>
+          <ActivityIndicator size="large" color="#0f766e" />
+          <Text style={styles.loadingText}>Loading earliest follow-up advisories...</Text>
+        </View>
+      );
+    }
+    return (
+      <View style={styles.emptyBox}>
+        <Text style={styles.emptyIcon}>🩺</Text>
+        <Text style={styles.emptyTitle}>
+          {searchQuery || activeDateFilter !== 'ALL' ? 'No Matching Follow-ups' : 'No Follow-up Advisories Found'}
+        </Text>
+        <Text style={styles.emptyText}>
+          {searchQuery || activeDateFilter !== 'ALL'
+            ? 'Try switching date filters (e.g. All Dates) or clearing your search.'
+            : 'Follow-up advisories are generated automatically when a doctor sets a "Follow-up Advisory Date" during a Clinical Consultation.'}
+        </Text>
+        {onNavigate ? (
+          <View style={styles.emptyActionRow}>
+            <TouchableOpacity
+              style={styles.emptyBtn}
+              onPress={() => onNavigate('consultations')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.emptyBtnText}>💬 Go to Clinical Consults</Text>
             </TouchableOpacity>
           </View>
         ) : null}
+      </View>
+    );
+  };
 
-        {/* Search Bar & Date-wise Filter Tabs */}
-        <View style={styles.filterSection}>
-          <View style={styles.searchBar}>
-            <Text style={styles.searchIcon}>🔍</Text>
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search by patient name, phone, or advisory notes..."
-              placeholderTextColor="#94a3b8"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              clearButtonMode="while-editing"
-            />
-            {searchQuery ? (
-              <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <Text style={styles.clearSearchText}>✕</Text>
-              </TouchableOpacity>
-            ) : null}
+  const renderFooter = () => {
+    if (!loadingMore) return <View style={{ height: 40 }} />;
+    return (
+      <View style={{ paddingVertical: 16, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="small" color="#0f766e" />
+        <Text style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Loading more advisories...</Text>
+      </View>
+    );
+  };
+
+  const renderReminderItem = ({ item: r, index: idx }) => {
+    const patientObj = r.patientId || {};
+    const patientName = patientObj.name || r.patientName || 'Unknown Patient';
+    const patientPhone = patientObj.phone || '';
+    const dueDate = r.followUpDate || r.scheduledDate || r.createdAt;
+    const dueBadge = getDueBadgeInfo(dueDate);
+    const status = r.status || 'Scheduled';
+
+    return (
+      <View key={r._id || r.id || `reminder-card-${idx}`} style={styles.card}>
+        {/* Top Row: Patient Info + Due Badge */}
+        <View style={styles.cardHeader}>
+          <View style={{ flex: 1 }}>
+            <View style={styles.patientNameRow}>
+              <Text style={styles.patientName}>👤 {patientName}</Text>
+              {patientPhone ? <Text style={styles.patientPhone}>{patientPhone}</Text> : null}
+            </View>
+            <Text style={styles.patientDetails}>
+              {patientObj.gender ? `${patientObj.gender}, ` : ''}
+              {patientObj.age ? `${patientObj.age} yrs` : ''}
+              {patientObj.uhid ? ` • UHID: ${patientObj.uhid}` : ''}
+            </Text>
           </View>
 
-          {/* Date-wise Tabs (Earliest / fewer dates first) */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsContainer}>
-            {dateFilterTabs.map((tab) => {
-              const isActive = activeDateFilter === tab.id;
-              return (
-                <TouchableOpacity
-                  key={tab.id}
-                  style={[styles.tabChip, isActive && styles.tabChipActive]}
-                  onPress={() => setActiveDateFilter(tab.id)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.tabChipText, isActive && styles.tabChipTextActive]}>
-                    {tab.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+          <View style={styles.badgeCol}>
+            <View style={[styles.dueBadge, { backgroundColor: dueBadge.bg }]}>
+              <Text style={[styles.dueBadgeText, { color: dueBadge.text }]}>{dueBadge.label}</Text>
+            </View>
+            <Text style={styles.dueDateSubText}>📅 {formatDateDisplay(dueDate)}</Text>
+          </View>
         </View>
 
-        {/* Main Reminders Content Feed */}
-        {loading ? (
-          <View style={styles.centerBox}>
-            <ActivityIndicator size="large" color="#0f766e" />
-            <Text style={styles.loadingText}>Loading earliest follow-up advisories...</Text>
-          </View>
-        ) : filteredReminders.length === 0 ? (
-          <View style={styles.emptyBox}>
-            <Text style={styles.emptyIcon}>🩺</Text>
-            <Text style={styles.emptyTitle}>
-              {searchQuery || activeDateFilter !== 'ALL' ? 'No Matching Follow-ups' : 'No Follow-up Advisories Found'}
-            </Text>
-            <Text style={styles.emptyText}>
-              {searchQuery || activeDateFilter !== 'ALL'
-                ? 'Try switching date filters (e.g. All Dates) or clearing your search.'
-                : 'Follow-up advisories are generated automatically when a doctor sets a "Follow-up Advisory Date" during a Clinical Consultation.'}
-            </Text>
-            {onNavigate ? (
-              <View style={styles.emptyActionRow}>
-                <TouchableOpacity
-                  style={styles.emptyBtn}
-                  onPress={() => onNavigate('consultations')}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.emptyBtnText}>💬 Go to Clinical Consults</Text>
-                </TouchableOpacity>
-              </View>
+        {/* Advisory Message Body */}
+        <View style={styles.msgBox}>
+          <Text style={styles.msgText}>📝 {r.message || r.note || 'No specific advisory notes'}</Text>
+        </View>
+
+        {/* Call & WhatsApp Action Buttons Bar */}
+        <View style={styles.contactBar}>
+          <TouchableOpacity
+            style={[styles.callBtn, !patientPhone && styles.btnDisabled]}
+            onPress={() => handleCallPatient(patientPhone, patientName)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.callBtnText}>📞 Call Patient</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.whatsappBtn, !patientPhone && styles.btnDisabled]}
+            onPress={() => handleWhatsAppPatient(patientPhone, patientName, r.message, dueDate)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.whatsappBtnText}>💬 WhatsApp Advisory</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Card Footer */}
+        <View style={styles.cardFooter}>
+          <View style={styles.footerStatusRow}>
+            <View
+              style={[
+                styles.statusBadge,
+                status === 'Completed'
+                  ? styles.statusCompleted
+                  : status === 'Sent'
+                  ? styles.statusSent
+                  : styles.statusScheduled,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.statusText,
+                  status === 'Completed'
+                    ? styles.statusTextCompleted
+                    : status === 'Sent'
+                    ? styles.statusTextSent
+                    : styles.statusTextScheduled,
+                ]}
+              >
+                {status}
+              </Text>
+            </View>
+            {r.sentAt ? (
+              <Text style={styles.sentAtText}>Logged: {new Date(r.sentAt).toLocaleDateString()}</Text>
             ) : null}
           </View>
-        ) : (
-          filteredReminders.map((r, idx) => {
-            const patientObj = r.patientId || {};
-            const patientName = patientObj.name || r.patientName || 'Unknown Patient';
-            const patientPhone = patientObj.phone || '';
-            const dueDate = r.followUpDate || r.scheduledDate || r.createdAt;
-            const dueBadge = getDueBadgeInfo(dueDate);
-            const status = r.status || 'Scheduled';
 
-            return (
-              <View key={r._id || r.id || `reminder-card-${idx}`} style={styles.card}>
-                {/* Top Row: Patient Info + Due Badge */}
-                <View style={styles.cardHeader}>
-                  <View style={{ flex: 1 }}>
-                    <View style={styles.patientNameRow}>
-                      <Text style={styles.patientName}>👤 {patientName}</Text>
-                      {patientPhone ? <Text style={styles.patientPhone}>{patientPhone}</Text> : null}
-                    </View>
-                    <Text style={styles.patientDetails}>
-                      {patientObj.gender ? `${patientObj.gender}, ` : ''}
-                      {patientObj.age ? `${patientObj.age} yrs` : ''}
-                      {patientObj.uhid ? ` • UHID: ${patientObj.uhid}` : ''}
-                    </Text>
-                  </View>
+          <View style={styles.cardActionBtns}>
+            {status !== 'Completed' ? (
+              <TouchableOpacity
+                style={styles.doneActionBtn}
+                onPress={() => handleUpdateStatus(r._id, 'Completed')}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.doneActionText}>✓ Mark Done</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.reopenActionBtn}
+                onPress={() => handleUpdateStatus(r._id, 'Scheduled')}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.reopenActionText}>↺ Reopen</Text>
+              </TouchableOpacity>
+            )}
 
-                  <View style={styles.badgeCol}>
-                    <View style={[styles.dueBadge, { backgroundColor: dueBadge.bg }]}>
-                      <Text style={[styles.dueBadgeText, { color: dueBadge.text }]}>{dueBadge.label}</Text>
-                    </View>
-                    <Text style={styles.dueDateSubText}>📅 {formatDateDisplay(dueDate)}</Text>
-                  </View>
-                </View>
+            <TouchableOpacity
+              style={styles.deleteActionBtn}
+              onPress={() => handleDeleteReminder(r._id)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.deleteActionText}>🗑️</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
+  };
 
-                {/* Advisory Message Body */}
-                <View style={styles.msgBox}>
-                  <Text style={styles.msgText}>📝 {r.message || r.note || 'No specific advisory notes'}</Text>
-                </View>
-
-                {/* Call & WhatsApp Action Buttons Bar */}
-                <View style={styles.contactBar}>
-                  <TouchableOpacity
-                    style={[styles.callBtn, !patientPhone && styles.btnDisabled]}
-                    onPress={() => handleCallPatient(patientPhone, patientName)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.callBtnText}>📞 Call Patient</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.whatsappBtn, !patientPhone && styles.btnDisabled]}
-                    onPress={() => handleWhatsAppPatient(patientPhone, patientName, r.message, dueDate)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.whatsappBtnText}>💬 WhatsApp Advisory</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* Card Footer */}
-                <View style={styles.cardFooter}>
-                  <View style={styles.footerStatusRow}>
-                    <View
-                      style={[
-                        styles.statusBadge,
-                        status === 'Completed'
-                          ? styles.statusCompleted
-                          : status === 'Sent'
-                          ? styles.statusSent
-                          : styles.statusScheduled,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.statusText,
-                          status === 'Completed'
-                            ? styles.statusTextCompleted
-                            : status === 'Sent'
-                            ? styles.statusTextSent
-                            : styles.statusTextScheduled,
-                        ]}
-                      >
-                        {status}
-                      </Text>
-                    </View>
-                    {r.sentAt ? (
-                      <Text style={styles.sentAtText}>Logged: {new Date(r.sentAt).toLocaleDateString()}</Text>
-                    ) : null}
-                  </View>
-
-                  <View style={styles.cardActionBtns}>
-                    {status !== 'Completed' ? (
-                      <TouchableOpacity
-                        style={styles.doneActionBtn}
-                        onPress={() => handleUpdateStatus(r._id, 'Completed')}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={styles.doneActionText}>✓ Mark Done</Text>
-                      </TouchableOpacity>
-                    ) : (
-                      <TouchableOpacity
-                        style={styles.reopenActionBtn}
-                        onPress={() => handleUpdateStatus(r._id, 'Scheduled')}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={styles.reopenActionText}>↺ Reopen</Text>
-                      </TouchableOpacity>
-                    )}
-
-                    <TouchableOpacity
-                      style={styles.deleteActionBtn}
-                      onPress={() => handleDeleteReminder(r._id)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.deleteActionText}>🗑️</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-            );
-          })
-        )}
-      </ScrollView>
+  return (
+    <View style={{ flex: 1, backgroundColor: '#f8fafc' }}>
+      <FlatList
+        data={filteredReminders}
+        keyExtractor={(r, idx) => r._id || r.id || `reminder-${idx}`}
+        renderItem={renderReminderItem}
+        ListHeaderComponent={renderHeader}
+        ListEmptyComponent={renderEmpty}
+        ListFooterComponent={renderFooter}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.4}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#0f766e']} />}
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={7}
+        removeClippedSubviews={Platform.OS === 'android'}
+      />
     </View>
   );
 }

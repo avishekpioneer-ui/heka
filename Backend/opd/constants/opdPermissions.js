@@ -48,6 +48,18 @@ export const OPD_MODULES = [
         name: "Follow-up Reminders",
         description: "Patient notifications, call reminders and auto-scheduling",
         icon: "🔔"
+    },
+    {
+        id: "accounts",
+        name: "Accounts & Payroll",
+        description: "Staff salaries, installments, clinic expenses and financial ledger",
+        icon: "💳"
+    },
+    {
+        id: "reports",
+        name: "Revenue & Reports",
+        description: "Financial summary, revenue analytics, outstanding dues and collection reports",
+        icon: "📊"
     }
 ];
 
@@ -68,7 +80,9 @@ export const LEGACY_PERMISSION_MAP = {
     manage_medicines: ["medicines:read", "medicines:add", "medicines:edit", "medicines:delete"],
     manage_tests: ["tests:read", "tests:add", "tests:edit", "tests:delete"],
     manage_billing: ["billing:read", "billing:add", "billing:edit", "billing:delete"],
-    manage_roles: ["roles:read", "roles:add", "roles:edit", "roles:delete"]
+    manage_roles: ["roles:read", "roles:add", "roles:edit", "roles:delete"],
+    manage_accounts: ["accounts:read", "accounts:add", "accounts:edit", "accounts:delete"],
+    manage_reports: ["reports:read", "reports:add", "reports:edit", "reports:delete"]
 };
 
 // All valid permissions accepted when creating/updating roles

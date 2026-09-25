@@ -10,6 +10,7 @@ import billingRoutes from "./opdBilling.routes.js";
 import roleRoutes from "./opdRole.routes.js";
 import reminderRoutes from "./opdReminder.routes.js";
 import dashboardRoutes from "./opdDashboard.routes.js";
+import accountRoutes from "./opdAccount.routes.js";
 
 const router = express.Router();
 
@@ -24,5 +25,6 @@ router.use("/medicines", medicineRoutes);
 router.use("/billing", billingRoutes);
 router.use("/staff", roleRoutes); // Registers both roles & staff routes
 router.use("/reminders", reminderRoutes);
+router.use("/accounts", accountRoutes);
 
 export default router;

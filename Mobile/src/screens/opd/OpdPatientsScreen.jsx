@@ -3,6 +3,7 @@ import {
   StyleSheet,
   Text,
   View,
+  FlatList,
   ScrollView,
   TextInput,
   TouchableOpacity,
@@ -17,7 +18,7 @@ import {
 } from 'react-native';
 import apiClient from '../../config/api';
 
-export default function OpdPatientsScreen({ onNavigate, routeParams }) {
+export default function OpdPatientsScreen({ onNavigate, routeParams, refreshKey }) {
   const { width } = useWindowDimensions();
   const isTablet = width >= 600;
 
@@ -28,6 +29,11 @@ export default function OpdPatientsScreen({ onNavigate, routeParams }) {
   const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL' | 'DUE' | 'PAID'
   const [bills, setBills] = useState([]);
   const [sortBy, setSortBy] = useState('newest'); // 'newest' | 'name'
+
+  // Pagination State (Limit 50 + Scroll Down)
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   // Modal State for New Patient Registration
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -67,32 +73,61 @@ export default function OpdPatientsScreen({ onNavigate, routeParams }) {
   const [loadingHistory, setLoadingHistory] = useState(false);
 
   useEffect(() => {
-    fetchPatients();
-  }, []);
+    fetchPatients(searchTerm, 1, false);
+  }, [refreshKey]);
 
-  const fetchPatients = async (query = '') => {
+  const fetchPatients = async (query = '', pageNum = 1, isAppend = false) => {
     try {
-      setLoading(true);
-      const url = query ? `/api/opd/patients?search=${encodeURIComponent(query)}` : '/api/opd/patients';
-      const [pRes, bRes] = await Promise.all([
-        apiClient.get(url),
-        apiClient.get('/api/opd/billing').catch(() => ({ data: [] })),
-      ]);
-      const data = pRes.data?.patients || pRes.data || [];
-      const bData = bRes.data?.billings || bRes.data || [];
-      setPatients(Array.isArray(data) ? data : []);
-      setBills(Array.isArray(bData) ? bData : []);
+      if (pageNum === 1) {
+        setLoading(true);
+      } else {
+        setLoadingMore(true);
+      }
+      const q = encodeURIComponent(query);
+      const url = query
+        ? `/api/opd/patients?search=${q}&page=${pageNum}&limit=50`
+        : `/api/opd/patients?page=${pageNum}&limit=50`;
+
+      const promises = [apiClient.get(url)];
+      if (pageNum === 1) {
+        promises.push(apiClient.get('/api/opd/billing?limit=100').catch(() => ({ data: [] })));
+      }
+
+      const [pRes, bRes] = await Promise.all(promises);
+      const data = pRes.data?.patients || pRes.data?.data || (Array.isArray(pRes.data) ? pRes.data : []);
+      const newHasMore = typeof pRes.data?.hasMore === 'boolean' ? pRes.data.hasMore : data.length === 50;
+
+      if (isAppend) {
+        setPatients((prev) => [...prev, ...data]);
+      } else {
+        setPatients(data);
+      }
+
+      setHasMore(newHasMore);
+      setPage(pageNum);
+
+      if (bRes) {
+        const bData = bRes.data?.bills || bRes.data?.data || (Array.isArray(bRes.data) ? bRes.data : []);
+        setBills(bData);
+      }
     } catch (err) {
       console.error('Error fetching patients:', err);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
+      setRefreshing(false);
+    }
+  };
+
+  const handleLoadMore = () => {
+    if (!loading && !loadingMore && hasMore) {
+      fetchPatients(searchTerm, page + 1, true);
     }
   };
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchPatients(searchTerm);
-    setRefreshing(false);
+    await fetchPatients(searchTerm, 1, false);
   };
 
   const handleRegisterSubmit = async () => {
@@ -351,14 +386,33 @@ export default function OpdPatientsScreen({ onNavigate, routeParams }) {
     return { total, dueCount, dueAmount, paidCount, paidAmount, thisMonth };
   }, [patients, bills, patientBillingMap]);
 
+  const renderFooter = () => {
+    if (!loadingMore) return <View style={{ height: 24 }} />;
+    return (
+      <View style={{ paddingVertical: 18, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="small" color="#0D9488" />
+        <Text style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Loading more patients (50 per page)...</Text>
+      </View>
+    );
+  };
+
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-      <ScrollView
+      <FlatList
+        data={filteredPatients}
+        keyExtractor={(p, idx) => String(p._id || p.id || idx)}
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
-        automaticallyAdjustKeyboardInsets={true}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#0D9488']} />}
-      >
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.4}
+        ListFooterComponent={renderFooter}
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={7}
+        removeClippedSubviews={Platform.OS === 'android'}
+        ListHeaderComponent={(
+          <View>
         {/* ═══ Header Banner ═══ */}
         <View style={styles.heroBanner}>
           <View style={styles.heroHeader}>
@@ -543,51 +597,54 @@ export default function OpdPatientsScreen({ onNavigate, routeParams }) {
             Patient Directory <Text style={styles.listCount}>({filteredPatients.length})</Text>
           </Text>
         </View>
-
-        {loading && !refreshing ? (
-          <View style={styles.centerBox}>
-            <ActivityIndicator size="large" color="#0D9488" />
-            <Text style={styles.loadingText}>Loading clinical records...</Text>
+      </View>
+    )}
+    ListEmptyComponent={(
+      loading && !refreshing ? (
+        <View style={styles.centerBox}>
+          <ActivityIndicator size="large" color="#0D9488" />
+          <Text style={styles.loadingText}>Loading clinical records...</Text>
+        </View>
+      ) : filteredPatients.length === 0 ? (
+        <View style={styles.emptyBox}>
+          <View style={styles.emptyIconCircle}>
+            <Text style={styles.emptyIconText}>🧑‍⚕️</Text>
           </View>
-        ) : filteredPatients.length === 0 ? (
-          <View style={styles.emptyBox}>
-            <View style={styles.emptyIconCircle}>
-              <Text style={styles.emptyIconText}>🧑‍⚕️</Text>
-            </View>
-            <Text style={styles.emptyTitle}>
-              {searchTerm || statusFilter !== 'ALL' ? 'No Matching Patients' : 'No Patients Registered'}
-            </Text>
-            <Text style={styles.emptyText}>
-              {searchTerm || statusFilter !== 'ALL'
-                ? 'Try adjusting your search query or reset your active filters.'
-                : 'Get started by creating a new patient record in the OPD system.'}
-            </Text>
-            {searchTerm || statusFilter !== 'ALL' ? (
-              <TouchableOpacity
-                style={styles.resetFilterBtn}
-                onPress={() => {
-                  setSearchTerm('');
-                  setStatusFilter('ALL');
-                  fetchPatients('');
-                }}
-              >
-                <Text style={styles.resetFilterBtnText}>Reset Filters</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={styles.primaryEmptyBtn}
-                onPress={() => {
-                  setFormError('');
-                  setFormSuccess('');
-                  setIsModalOpen(true);
-                }}
-              >
-                <Text style={styles.primaryEmptyBtnText}>＋ Register First Patient</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        ) : (
-          filteredPatients.map((p, idx) => {
+          <Text style={styles.emptyTitle}>
+            {searchTerm || statusFilter !== 'ALL' ? 'No Matching Patients' : 'No Patients Registered'}
+          </Text>
+          <Text style={styles.emptyText}>
+            {searchTerm || statusFilter !== 'ALL'
+              ? 'Try adjusting your search query or reset your active filters.'
+              : 'Get started by creating a new patient record in the OPD system.'}
+          </Text>
+          {searchTerm || statusFilter !== 'ALL' ? (
+            <TouchableOpacity
+              style={styles.resetFilterBtn}
+              onPress={() => {
+                setSearchTerm('');
+                setStatusFilter('ALL');
+                fetchPatients('');
+              }}
+            >
+              <Text style={styles.resetFilterBtnText}>Reset Filters</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.primaryEmptyBtn}
+              onPress={() => {
+                setFormError('');
+                setFormSuccess('');
+                setIsModalOpen(true);
+              }}
+            >
+              <Text style={styles.primaryEmptyBtnText}>＋ Register First Patient</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      ) : null
+    )}
+    renderItem={({ item: p, index: idx }) => {
             const initials = (p.name || 'P')
               .split(' ')
               .map((n) => n[0])
@@ -772,9 +829,8 @@ export default function OpdPatientsScreen({ onNavigate, routeParams }) {
                 </View>
               </View>
             );
-          })
-        )}
-      </ScrollView>
+          }}
+        />
 
       {/* ═══════════════════════════════════════════
           MODAL 1: NEW PATIENT REGISTRATION

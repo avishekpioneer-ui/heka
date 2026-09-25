@@ -94,6 +94,7 @@ export const createConsultation = async (req, res) => {
 
 export const getConsultations = async (req, res) => {
     try {
+        const { all, page, limit } = req.query;
         let query = {};
 
         // If logged-in user is a Doctor (and not an admin with wildcard permissions), restrict query to their own consultations
@@ -109,11 +110,40 @@ export const getConsultations = async (req, res) => {
             };
         }
 
-        const consultations = await OpdConsultation.find(query)
-            .populate("patientId")
-            .populate("appointmentId")
-            .sort({ createdAt: -1 });
-        res.status(200).json(consultations);
+        if (all === "true") {
+            const consultations = await OpdConsultation.find(query)
+                .populate("patientId")
+                .populate("appointmentId")
+                .sort({ createdAt: -1 })
+                .lean();
+            return res.status(200).json({ consultations, data: consultations, total: consultations.length, all: true, hasMore: false });
+        }
+
+        const pageNum = Math.max(1, parseInt(page, 10) || 1);
+        const limitNum = Math.max(1, parseInt(limit, 10) || 50);
+        const skip = (pageNum - 1) * limitNum;
+
+        const [consultations, total] = await Promise.all([
+            OpdConsultation.find(query)
+                .populate("patientId")
+                .populate("appointmentId")
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limitNum)
+                .lean(),
+            OpdConsultation.countDocuments(query)
+        ]);
+
+        const hasMore = skip + consultations.length < total;
+
+        res.status(200).json({
+            consultations,
+            data: consultations,
+            total,
+            page: pageNum,
+            limit: limitNum,
+            hasMore
+        });
     } catch (error) {
         console.error("Get Consultations Error:", error);
         res.status(500).json({ message: "Server error" });
@@ -126,7 +156,8 @@ export const getConsultationsByPatient = async (req, res) => {
         const consultations = await OpdConsultation.find({ patientId })
             .populate("patientId")
             .populate("appointmentId")
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .lean();
         res.status(200).json(consultations);
     } catch (error) {
         console.error("Get Patient Consultations Error:", error);

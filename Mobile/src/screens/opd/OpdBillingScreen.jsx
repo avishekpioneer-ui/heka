@@ -3,6 +3,7 @@ import {
   StyleSheet,
   Text,
   View,
+  FlatList,
   ScrollView,
   TextInput,
   TouchableOpacity,
@@ -12,17 +13,22 @@ import {
   Share,
   KeyboardAvoidingView,
   Platform,
+  RefreshControl,
 } from 'react-native';
 import apiClient from '../../config/api';
 import CalendarPickerModal from '../../components/CalendarPickerModal';
 
-export default function OpdBillingScreen({ routeParams }) {
+export default function OpdBillingScreen({ routeParams, onNavigate, refreshKey }) {
   const [bills, setBills] = useState([]);
   const [patients, setPatients] = useState([]);
   const [testsCatalog, setTestsCatalog] = useState([]);
   const [medicinesCatalog, setMedicinesCatalog] = useState([]);
 
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [payingBillId, setPayingBillId] = useState(null);
 
@@ -48,6 +54,8 @@ export default function OpdBillingScreen({ routeParams }) {
 
   const [selectedPatientId, setSelectedPatientId] = useState('');
   const [consultationFee, setConsultationFee] = useState('0');
+  const [consultationDiscount, setConsultationDiscount] = useState('0');
+  const [consultationDiscountType, setConsultationDiscountType] = useState('fixed'); // 'fixed' (₹) or 'percentage' (%)
   const [patientSearchQuery, setPatientSearchQuery] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [isPatientDropdownOpen, setIsPatientDropdownOpen] = useState(false);
@@ -63,6 +71,19 @@ export default function OpdBillingScreen({ routeParams }) {
   // Selected line items
   const [selectedTests, setSelectedTests] = useState([]);
   const [selectedMedicines, setSelectedMedicines] = useState([]);
+
+  // Overall Discount state
+  const [discount, setDiscount] = useState('0');
+  const [discountType, setDiscountType] = useState('fixed'); // 'fixed' (₹) or 'percentage' (%)
+  const [discountReason, setDiscountReason] = useState('');
+
+  const formatItemName = (name) => {
+    if (!name) return '';
+    return String(name)
+      .replace(/([a-zA-Z0-9])\(/g, '$1 (')
+      .replace(/\)([a-zA-Z0-9])/g, ') $1')
+      .replace(/([a-zA-Z0-9])\/([a-zA-Z0-9])/g, '$1 / $2');
+  };
 
   const filteredBills = bills.filter((b) => {
     const q = searchQuery.toLowerCase().trim();
@@ -92,8 +113,8 @@ export default function OpdBillingScreen({ routeParams }) {
   });
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    fetchData(1, false);
+  }, [refreshKey]);
 
   useEffect(() => {
     if (routeParams?.patientId) {
@@ -104,7 +125,7 @@ export default function OpdBillingScreen({ routeParams }) {
       if (routeParams.followUpDate) {
         try {
           setFollowUpDate(new Date(routeParams.followUpDate).toISOString().substring(0, 10));
-        } catch (e) {}
+        } catch (e) { }
       }
       setEditingBillId(null);
       setIsModalOpen(true);
@@ -114,8 +135,13 @@ export default function OpdBillingScreen({ routeParams }) {
   const resetFormState = () => {
     setSelectedPatientId('');
     setConsultationFee('0');
+    setConsultationDiscount('0');
+    setConsultationDiscountType('fixed');
     setSelectedTests([]);
     setSelectedMedicines([]);
+    setDiscount('0');
+    setDiscountType('fixed');
+    setDiscountReason('');
     setFollowUpDate('');
     setFollowUpNote('');
     setEditingBillId(null);
@@ -129,37 +155,76 @@ export default function OpdBillingScreen({ routeParams }) {
     setSuccess('');
   };
 
-  const fetchData = async () => {
+  const fetchData = async (pageNum = 1, isAppend = false) => {
     try {
-      setLoading(true);
+      if (pageNum === 1) {
+        if (!isAppend) setLoading(true);
+      } else {
+        setLoadingMore(true);
+      }
 
-      const [bRes, pRes, tRes, mRes] = await Promise.all([
-        apiClient.get('/api/opd/billing').catch(() => ({ data: [] })),
-        apiClient.get('/api/opd/patients').catch(() => ({ data: [] })),
-        apiClient.get('/api/opd/tests').catch(() => ({ data: [] })),
-        apiClient.get('/api/opd/medicines').catch(() => ({ data: [] })),
-      ]);
+      const promises = [
+        apiClient.get(`/api/opd/billing?page=${pageNum}&limit=50`).catch(() => ({ data: [] })),
+      ];
 
-      const bData = bRes.data?.bills || bRes.data || [];
-      setBills(Array.isArray(bData) ? bData : []);
+      if (pageNum === 1) {
+        promises.push(apiClient.get('/api/opd/patients?all=true').catch(() => ({ data: [] })));
+        promises.push(apiClient.get('/api/opd/tests?all=true').catch(() => ({ data: [] })));
+        promises.push(apiClient.get('/api/opd/medicines?all=true').catch(() => ({ data: [] })));
+      }
 
-      const pData = pRes.data?.patients || pRes.data || [];
-      setPatients(Array.isArray(pData) ? pData : []);
+      const [bRes, pRes, tRes, mRes] = await Promise.all(promises);
 
-      const tData = tRes.data?.tests || tRes.data || [];
-      setTestsCatalog(Array.isArray(tData) ? tData : []);
+      const bData = bRes.data?.bills || bRes.data?.data || (Array.isArray(bRes.data) ? bRes.data : []);
+      const newHasMore = typeof bRes.data?.hasMore === 'boolean' ? bRes.data.hasMore : bData.length === 50;
 
-      const mData = mRes.data?.medicines || mRes.data || [];
-      setMedicinesCatalog(Array.isArray(mData) ? mData : []);
+      if (isAppend) {
+        setBills((prev) => [...prev, ...bData]);
+      } else {
+        setBills(bData);
+      }
+      setHasMore(newHasMore);
+      setPage(pageNum);
+
+      if (pRes) {
+        const pData = pRes.data?.patients || pRes.data?.data || (Array.isArray(pRes.data) ? pRes.data : []);
+        setPatients(Array.isArray(pData) ? pData : []);
+      }
+      if (tRes) {
+        const tData = tRes.data?.tests || tRes.data?.data || (Array.isArray(tRes.data) ? tRes.data : []);
+        setTestsCatalog(Array.isArray(tData) ? tData : []);
+      }
+      if (mRes) {
+        const mData = mRes.data?.medicines || mRes.data?.data || (Array.isArray(mRes.data) ? mRes.data : []);
+        setMedicinesCatalog(Array.isArray(mData) ? mData : []);
+      }
     } catch (err) {
       console.error('Error fetching billing data:', err);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
+      setRefreshing(false);
+    }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchData(1, false);
+  };
+
+  const handleLoadMore = () => {
+    if (!loading && !loadingMore && hasMore && !searchQuery.trim()) {
+      fetchData(page + 1, true);
     }
   };
 
   const handlePatientSelect = async (patientId) => {
     setSelectedPatientId(patientId);
+    setDiscount('0');
+    setDiscountType('fixed');
+    setDiscountReason('');
+    setConsultationDiscount('0');
+    setConsultationDiscountType('fixed');
     setFollowUpDate('');
     setFollowUpNote('');
     try {
@@ -173,7 +238,7 @@ export default function OpdBillingScreen({ routeParams }) {
       if (match && match.consultationFee) {
         setConsultationFee(String(match.consultationFee));
       }
-    } catch (e) {}
+    } catch (e) { }
 
     // Check for active follow-up reminder from OpdReminder model
     try {
@@ -184,7 +249,7 @@ export default function OpdBillingScreen({ routeParams }) {
         setFollowUpDate(dStr);
         if (pReminders[0].message) setFollowUpNote(pReminders[0].message);
       }
-    } catch (e) {}
+    } catch (e) { }
   };
 
   const handleAddTest = (test) => {
@@ -200,11 +265,26 @@ export default function OpdBillingScreen({ routeParams }) {
           testId: targetId,
           name: test.name,
           price: test.price,
+          discount: 0,
+          discountType: 'fixed',
           scheduledDate: new Date().toISOString().substring(0, 10),
           notes: '',
         },
       ]);
     }
+  };
+
+  const handleTestDiscountChange = (idx, val) => {
+    const updated = [...selectedTests];
+    updated[idx] = { ...updated[idx], discount: val };
+    setSelectedTests(updated);
+  };
+
+  const handleTestDiscountTypeToggle = (idx) => {
+    const updated = [...selectedTests];
+    const curr = updated[idx]?.discountType || 'fixed';
+    updated[idx] = { ...updated[idx], discountType: curr === 'fixed' ? 'percentage' : 'fixed' };
+    setSelectedTests(updated);
   };
 
   const handleTestScheduleDateChange = (idx, val) => {
@@ -253,10 +333,25 @@ export default function OpdBillingScreen({ routeParams }) {
           name: med.name,
           quantity: 1,
           price: med.price,
+          discount: 0,
+          discountType: 'fixed',
           stock: availableStock,
         },
       ]);
     }
+  };
+
+  const handleMedicineDiscountChange = (idx, val) => {
+    const updated = [...selectedMedicines];
+    updated[idx] = { ...updated[idx], discount: val };
+    setSelectedMedicines(updated);
+  };
+
+  const handleMedicineDiscountTypeToggle = (idx) => {
+    const updated = [...selectedMedicines];
+    const curr = updated[idx]?.discountType || 'fixed';
+    updated[idx] = { ...updated[idx], discountType: curr === 'fixed' ? 'percentage' : 'fixed' };
+    setSelectedMedicines(updated);
   };
 
   const handleRemoveTest = (testId) => {
@@ -275,8 +370,8 @@ export default function OpdBillingScreen({ routeParams }) {
       med.stock !== undefined
         ? Number(med.stock)
         : catMed?.stock !== undefined
-        ? Number(catMed.stock)
-        : 999;
+          ? Number(catMed.stock)
+          : 999;
 
     let qty = parseInt(val, 10);
     if (isNaN(qty) || qty < 1) {
@@ -301,8 +396,8 @@ export default function OpdBillingScreen({ routeParams }) {
       med.stock !== undefined
         ? Number(med.stock)
         : catMed?.stock !== undefined
-        ? Number(catMed.stock)
-        : 999;
+          ? Number(catMed.stock)
+          : 999;
 
     const currentQty = parseInt(med.quantity, 10) || 1;
     let newQty = currentQty + delta;
@@ -320,28 +415,62 @@ export default function OpdBillingScreen({ routeParams }) {
     setSelectedMedicines(updated);
   };
 
-  const subtotalConsultation = parseFloat(consultationFee) || 0;
-  const subtotalTests = selectedTests.reduce(
-    (acc, item) => acc + (parseFloat(item.price) || 0),
-    0
-  );
-  const subtotalMedicines = selectedMedicines.reduce(
-    (acc, item) =>
-      acc + (parseFloat(item.price) || 0) * (parseInt(item.quantity) || 1),
-    0
-  );
+  // Calculations with Line-Item and Overall Discounts
+  const grossConsultation = parseFloat(consultationFee) || 0;
+  const rawConsultDisc = Math.max(0, parseFloat(consultationDiscount) || 0);
+  const consultDiscountAmt =
+    consultationDiscountType === 'percentage'
+      ? (grossConsultation * Math.min(100, rawConsultDisc)) / 100
+      : Math.min(grossConsultation, rawConsultDisc);
+  const netConsultation = Math.max(0, grossConsultation - consultDiscountAmt);
 
-  const grandTotal = subtotalConsultation + subtotalTests + subtotalMedicines;
+  const testsGross = selectedTests.reduce((acc, item) => acc + (parseFloat(item.price) || 0), 0);
+  const testsDiscountAmt = selectedTests.reduce((acc, item) => {
+    const p = parseFloat(item.price) || 0;
+    const d = Math.max(0, parseFloat(item.discount) || 0);
+    const amt = item.discountType === 'percentage' ? (p * Math.min(100, d)) / 100 : Math.min(p, d);
+    return acc + amt;
+  }, 0);
+  const netTests = Math.max(0, testsGross - testsDiscountAmt);
+
+  const medsGross = selectedMedicines.reduce(
+    (acc, item) => acc + (parseFloat(item.price) || 0) * (parseInt(item.quantity) || 1),
+    0
+  );
+  const medsDiscountAmt = selectedMedicines.reduce((acc, item) => {
+    const gross = (parseFloat(item.price) || 0) * (parseInt(item.quantity) || 1);
+    const d = Math.max(0, parseFloat(item.discount) || 0);
+    const amt = item.discountType === 'percentage' ? (gross * Math.min(100, d)) / 100 : Math.min(gross, d);
+    return acc + amt;
+  }, 0);
+  const netMeds = Math.max(0, medsGross - medsDiscountAmt);
+
+  const grossSubtotal = grossConsultation + testsGross + medsGross;
+  const itemDiscountsTotal = consultDiscountAmt + testsDiscountAmt + medsDiscountAmt;
+  const netSubtotal = Math.max(0, grossSubtotal - itemDiscountsTotal);
+
+  const rawInvoiceDiscount = Math.max(0, parseFloat(discount) || 0);
+  const calculatedInvoiceDiscount =
+    discountType === 'percentage'
+      ? (netSubtotal * Math.min(100, rawInvoiceDiscount)) / 100
+      : Math.min(netSubtotal, rawInvoiceDiscount);
+
+  const totalAllDiscounts = itemDiscountsTotal + calculatedInvoiceDiscount;
+  const grandTotal = Math.max(0, netSubtotal - calculatedInvoiceDiscount);
 
   const handleStartEdit = (bill) => {
     setEditingBillId(bill._id || bill.id);
     setSelectedPatientId(bill.patientId?._id || bill.patientId || '');
     setConsultationFee(String(bill.consultationFee || 0));
+    setConsultationDiscount(String(bill.consultationDiscount || 0));
+    setConsultationDiscountType(bill.consultationDiscountType || 'fixed');
     setSelectedTests(
       (bill.tests || []).map((t) => ({
         testId: t.testId?._id || t.testId || t._id || t.id,
         name: t.name,
         price: t.price,
+        discount: t.discount !== undefined ? t.discount : 0,
+        discountType: t.discountType || 'fixed',
         scheduledDate: t.scheduledDate
           ? new Date(t.scheduledDate).toISOString().substring(0, 10)
           : new Date().toISOString().substring(0, 10),
@@ -357,6 +486,8 @@ export default function OpdBillingScreen({ routeParams }) {
           name: m.name,
           price: m.price,
           quantity: m.quantity || 1,
+          discount: m.discount !== undefined ? m.discount : 0,
+          discountType: m.discountType || 'fixed',
           stock: catMed?.stock !== undefined ? Number(catMed.stock) : (m.medicineId?.stock ?? 999),
         };
       })
@@ -369,6 +500,9 @@ export default function OpdBillingScreen({ routeParams }) {
       setFollowUpDate('');
     }
     setFollowUpNote(bill.followUpReminder?.message || '');
+    setDiscount(String(bill.discount !== undefined ? bill.discount : '0'));
+    setDiscountType(bill.discountType || 'fixed');
+    setDiscountReason(bill.discountReason || '');
     setPatientSearchQuery('');
     setIsPatientDropdownOpen(false);
     setTestSearchQuery('');
@@ -423,8 +557,8 @@ export default function OpdBillingScreen({ routeParams }) {
         m.stock !== undefined
           ? Number(m.stock)
           : catMed?.stock !== undefined
-          ? Number(catMed.stock)
-          : 999;
+            ? Number(catMed.stock)
+            : 999;
       const requestedQty = parseInt(m.quantity, 10) || 1;
       if (requestedQty > availableStock) {
         setError(
@@ -441,11 +575,13 @@ export default function OpdBillingScreen({ routeParams }) {
     try {
       const items = [];
 
-      if (subtotalConsultation > 0) {
+      if (grossConsultation > 0) {
         items.push({
           itemType: 'Consultation',
           name: 'Doctor Consultation Fee',
-          price: subtotalConsultation,
+          price: grossConsultation,
+          discount: rawConsultDisc,
+          discountType: consultationDiscountType,
           quantity: 1,
         });
       }
@@ -456,6 +592,8 @@ export default function OpdBillingScreen({ routeParams }) {
           testId: t.testId || t._id || t.id,
           name: t.name,
           price: parseFloat(t.price) || 0,
+          discount: Math.max(0, parseFloat(t.discount) || 0),
+          discountType: t.discountType || 'fixed',
           quantity: 1,
           scheduledDate: t.scheduledDate || new Date().toISOString().substring(0, 10),
           notes: t.notes || '',
@@ -468,10 +606,12 @@ export default function OpdBillingScreen({ routeParams }) {
           name: m.name,
           price: parseFloat(m.price) || 0,
           quantity: parseInt(m.quantity) || 1,
+          discount: Math.max(0, parseFloat(m.discount) || 0),
+          discountType: m.discountType || 'fixed',
         });
       });
 
-      const hasConsult = subtotalConsultation > 0;
+      const hasConsult = grossConsultation > 0;
       const hasTests = selectedTests.length > 0;
       const hasMeds = selectedMedicines.length > 0;
       const componentCount = [hasConsult, hasTests, hasMeds].filter(Boolean).length;
@@ -487,6 +627,8 @@ export default function OpdBillingScreen({ routeParams }) {
         testId: t.testId || t._id || t.id,
         name: t.name,
         price: parseFloat(t.price) || 0,
+        discount: Math.max(0, parseFloat(t.discount) || 0),
+        discountType: t.discountType || 'fixed',
         scheduledDate: t.scheduledDate || new Date().toISOString().substring(0, 10),
         notes: t.notes || '',
       }));
@@ -496,14 +638,22 @@ export default function OpdBillingScreen({ routeParams }) {
         name: m.name,
         price: parseFloat(m.price) || 0,
         quantity: parseInt(m.quantity) || 1,
+        discount: Math.max(0, parseFloat(m.discount) || 0),
+        discountType: m.discountType || 'fixed',
       }));
 
       const payload = {
         patientId: selectedPatientId,
-        consultationFee: subtotalConsultation,
+        consultationFee: grossConsultation,
+        consultationDiscount: rawConsultDisc,
+        consultationDiscountType,
         tests: formattedTests,
         medicines: formattedMedicines,
         billingType,
+        subtotal: grossSubtotal,
+        discount: rawInvoiceDiscount,
+        discountType,
+        discountReason,
         totalAmount: grandTotal,
         status,
         items,
@@ -528,7 +678,8 @@ export default function OpdBillingScreen({ routeParams }) {
         setIsModalOpen(false);
       }, 1200);
     } catch (err) {
-      setError(err.response?.data?.message || 'Error saving invoice.');
+      console.error('Error saving bill:', err);
+      setError(err.response?.data?.message || err.message || 'Error saving invoice.');
     } finally {
       setSubmitting(false);
     }
@@ -536,21 +687,44 @@ export default function OpdBillingScreen({ routeParams }) {
 
   const handleShareInvoice = async (bill) => {
     const isPaid = bill.status === 'Paid';
+    const sub = bill.subtotal || ((bill.totalAmount || 0) + (bill.discount || 0));
+    const disc = bill.discount || 0;
+
+    let itemsBreakdown = '';
+    if (bill.consultationFee > 0) {
+      const cDisc = bill.consultationDiscount > 0
+        ? ` (Disc: ${bill.consultationDiscountType === 'percentage' ? `${bill.consultationDiscount}%` : `₹${bill.consultationDiscount}`})`
+        : '';
+      itemsBreakdown += `• Consultation: ₹${bill.consultationFee}${cDisc}\n`;
+    }
+    (bill.tests || []).forEach((t) => {
+      const tDisc = t.discount > 0 ? ` (Disc: ${t.discountType === 'percentage' ? `${t.discount}%` : `₹${t.discount}`})` : '';
+      itemsBreakdown += `• Diagnostic: ${t.name} ₹${t.price}${tDisc}\n`;
+    });
+    (bill.medicines || []).forEach((m) => {
+      const mDisc = m.discount > 0 ? ` (Disc: ${m.discountType === 'percentage' ? `${m.discount}%` : `₹${m.discount}`})` : '';
+      itemsBreakdown += `• Medicine: ${m.name} x${m.quantity || 1} ₹${((m.price || 0) * (m.quantity || 1)).toFixed(2)}${mDisc}\n`;
+    });
+
     const text =
-      `🧾 HEKA MEDICAL CENTER — Official Invoice\n` +
+      `🧾 Rudraksh Foundation Invoice\n` +
       `----------------------------------------\n` +
       `Bill ID       : ${bill._id || bill.id}\n` +
       `Patient       : ${bill.patientName || bill.patientId?.name || 'Patient'}\n` +
       `Date          : ${new Date(bill.createdAt || Date.now()).toLocaleDateString()}\n` +
       `Status        : ${isPaid ? 'PAID' : 'PENDING'}\n` +
-      (bill.followUpDate ? `Follow-up     : ${new Date(bill.followUpDate).toLocaleDateString()}\n` : '') +
-      `Total Amount  : ₹${bill.totalAmount}\n` +
+      (itemsBreakdown ? `----------------------------------------\n${itemsBreakdown}` : '') +
       `----------------------------------------\n` +
-      `Thank you for choosing Heka Healthcare! 🏥`;
+      (disc > 0 || (bill.subtotal && bill.subtotal > bill.totalAmount) ? `Subtotal      : ₹${sub}\n` : '') +
+      (disc > 0 ? `Bill Discount : -₹${bill.discountType === 'percentage' ? (((sub * disc) / 100).toFixed(2)) : disc} (${bill.discountType === 'percentage' ? `${disc}%` : 'Flat'}${bill.discountReason ? ` - ${bill.discountReason}` : ''})\n` : '') +
+      `Total Amount  : ₹${bill.totalAmount}\n` +
+      (bill.followUpDate ? `Follow-up     : ${new Date(bill.followUpDate).toLocaleDateString()}\n` : '') +
+      `----------------------------------------\n` +
+      `Powered by HEKA`;
 
     try {
       await Share.share({ message: text });
-    } catch (e) {}
+    } catch (e) { }
   };
 
   const handlePayBill = (billId) => {
@@ -580,165 +754,348 @@ export default function OpdBillingScreen({ routeParams }) {
     );
   };
 
-  return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-      <ScrollView
-        contentContainerStyle={styles.container}
-        keyboardShouldPersistTaps="handled"
-        automaticallyAdjustKeyboardInsets={true}
-      >
-        {/* Header */}
-        <View style={styles.headerRow}>
-          <View style={{ flex: 1, marginRight: 10 }}>
-            <Text style={styles.title}>OPD Billing & Invoices</Text>
-            <Text style={styles.subtitle}>Checkout patients, generate bills & accept payments</Text>
-          </View>
+  const renderHeader = () => (
+    <>
+      {/* Header */}
+      <View style={styles.headerRow}>
+        <View style={{ flex: 1, marginRight: 10 }}>
+          <Text style={styles.title}>OPD Billing & Invoices</Text>
+          <Text style={styles.subtitle}>Checkout patients, generate bills & accept payments</Text>
+        </View>
+
+        <View style={{ flexDirection: 'row', gap: 6 }}>
+          {onNavigate && (
+            <TouchableOpacity
+              style={[styles.addBtn, { backgroundColor: '#134e4a' }]}
+              onPress={() => onNavigate('billing-summary')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.addBtnText}>📊 Dues</Text>
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity
             style={styles.addBtn}
             onPress={() => setIsModalOpen(true)}
             activeOpacity={0.8}
           >
-            <Text style={styles.addBtnText}>+ New Bill</Text>
+            <Text style={styles.addBtnText}>+ New</Text>
           </TouchableOpacity>
         </View>
+      </View>
 
-        {/* Search Bar */}
-        <View style={styles.searchBox}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="🔍 Search invoices by patient, number, or test..."
-            placeholderTextColor="#94a3b8"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
+      {/* Search Bar */}
+      <View style={styles.searchBox}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="🔍 Search invoices by patient, number, or test..."
+          placeholderTextColor="#94a3b8"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+      </View>
+    </>
+  );
+
+  const renderEmpty = () => {
+    if (loading) {
+      return (
+        <View style={styles.centerBox}>
+          <ActivityIndicator size="large" color="#0f766e" />
+          <Text style={styles.loadingText}>Loading Billing Records...</Text>
+        </View>
+      );
+    }
+    return (
+      <View style={styles.emptyBox}>
+        <Text style={styles.emptyTitle}>No Invoices Found</Text>
+        <Text style={styles.emptyText}>Tap "+ New Bill" to generate a consultation or diagnostic invoice.</Text>
+      </View>
+    );
+  };
+
+  const renderFooter = () => {
+    if (!loadingMore) return <View style={{ height: 40 }} />;
+    return (
+      <View style={{ paddingVertical: 16, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="small" color="#0f766e" />
+        <Text style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Loading more bills...</Text>
+      </View>
+    );
+  };
+
+  const renderBillItem = ({ item: b, index: bIdx }) => {
+    const isPaid = b.status === 'Paid';
+    const bId = b._id || b.id;
+    const isPaying = payingBillId === bId;
+
+    const consultDiscAmt = (b.consultationFee > 0 && b.consultationDiscount > 0)
+      ? (b.consultationDiscountType === 'percentage'
+          ? (b.consultationFee * b.consultationDiscount) / 100
+          : Math.min(b.consultationFee, b.consultationDiscount))
+      : 0;
+
+    const testsDiscAmt = (b.tests || []).reduce((sum, t) => {
+      const p = parseFloat(t.price || 0);
+      const d = (t.discount > 0)
+        ? (t.discountType === 'percentage' ? (p * t.discount) / 100 : Math.min(p, t.discount))
+        : 0;
+      return sum + d;
+    }, 0);
+
+    const medsDiscAmt = (b.medicines || []).reduce((sum, m) => {
+      const gross = (parseFloat(m.price) || 0) * (parseInt(m.quantity) || 1);
+      const d = (m.discount > 0)
+        ? (m.discountType === 'percentage' ? (gross * m.discount) / 100 : Math.min(gross, m.discount))
+        : 0;
+      return sum + d;
+    }, 0);
+
+    const totalItemDiscounts = consultDiscAmt + testsDiscAmt + medsDiscAmt;
+    const billDiscountAmt = (b.discount > 0)
+      ? (b.discountType === 'percentage'
+          ? (((b.subtotal || ((b.totalAmount || 0) + (b.discount || 0))) * b.discount) / 100)
+          : b.discount)
+      : 0;
+    const grossSubtotal = parseFloat(b.subtotal || ((b.totalAmount || 0) + billDiscountAmt + totalItemDiscounts));
+
+    return (
+      <View key={bId || `bill-card-${bIdx}`} style={styles.card}>
+        <View style={styles.cardHeader}>
+          <View style={{ flex: 1, marginRight: 8 }}>
+            <Text style={styles.invoiceNo}>🧾 #{String(b.invoiceNumber || bId || '').slice(-8).toUpperCase()}</Text>
+            <Text style={styles.patientName}>{b.patientName || b.patientId?.name || 'Walk-in Patient'}</Text>
+          </View>
+
+          <View style={[styles.statusBadge, isPaid ? styles.statusPaid : styles.statusPending]}>
+            <Text style={[styles.statusBadgeText, isPaid ? styles.statusBadgeTextPaid : styles.statusBadgeTextPending]}>
+              {isPaid ? '✓ PAID' : '⏳ PENDING'}
+            </Text>
+          </View>
         </View>
 
-        {/* Invoices List */}
-        {loading ? (
-          <View style={styles.centerBox}>
-            <ActivityIndicator size="large" color="#0f766e" />
-            <Text style={styles.loadingText}>Loading Billing Records...</Text>
-          </View>
-        ) : filteredBills.length === 0 ? (
-          <View style={styles.emptyBox}>
-            <Text style={styles.emptyTitle}>No Invoices Found</Text>
-            <Text style={styles.emptyText}>Tap "+ New Bill" to generate a consultation or diagnostic invoice.</Text>
-          </View>
-        ) : (
-          filteredBills.map((b, bIdx) => {
-            const isPaid = b.status === 'Paid';
-            const bId = b._id || b.id;
-            const isPaying = payingBillId === bId;
-
-            return (
-            <View key={bId || `bill-card-${bIdx}`} style={styles.card}>
-              <View style={styles.cardHeader}>
-                <View>
-                  <Text style={styles.invoiceNo}>🧾 #{String(b.invoiceNumber || bId || '').slice(-8).toUpperCase()}</Text>
-                  <Text style={styles.patientName}>{b.patientName || b.patientId?.name || 'Walk-in Patient'}</Text>
-                </View>
-
-                <View style={[styles.statusBadge, isPaid ? styles.statusPaid : styles.statusPending]}>
-                  <Text style={[styles.statusBadgeText, isPaid ? styles.statusBadgeTextPaid : styles.statusBadgeTextPending]}>
-                    {isPaid ? '✓ PAID' : '⏳ PENDING'}
+        {/* Items breakdown */}
+        <View style={styles.itemizedBox}>
+          {b.consultationFee > 0 && (
+            <View style={styles.itemRow}>
+              <View style={styles.itemColLeft}>
+                <Text style={styles.itemLabel}>👨‍⚕️ Doctor Consultation</Text>
+                {consultDiscAmt > 0 && (
+                  <Text style={styles.itemDiscountSubtext}>
+                    🏷️ Discount: {b.consultationDiscountType === 'percentage' ? `${b.consultationDiscount}% ` : ''}(-₹{consultDiscAmt.toFixed(2)})
                   </Text>
-                </View>
-              </View>
-
-              {/* Items breakdown */}
-              <View style={styles.itemizedBox}>
-                {b.consultationFee > 0 && (
-                  <View style={styles.itemRow}>
-                    <Text style={styles.itemLabel}>👨‍⚕️ Doctor Consultation</Text>
-                    <Text style={styles.itemValue}>₹{b.consultationFee}</Text>
-                  </View>
                 )}
-
-                {b.tests?.map((t, idx) => (
-                  <View key={`b-test-${t.testId?._id || t.testId || t.name || idx}-${idx}`} style={styles.itemRow}>
-                    <Text style={styles.itemLabel}>🧪 {t.testId?.name || t.name || 'Diagnostic Test'}</Text>
-                    <Text style={styles.itemValue}>₹{t.price}</Text>
-                  </View>
-                ))}
-
-                {b.medicines?.map((m, idx) => (
-                  <View key={`b-med-${m.medicineId?._id || m.medicineId || m.name || idx}-${idx}`} style={styles.itemRow}>
-                    <Text style={styles.itemLabel}>💊 {m.medicineId?.name || m.name} (x{m.quantity || 1})</Text>
-                    <Text style={styles.itemValue}>₹{(m.price || 0) * (m.quantity || 1)}</Text>
-                  </View>
-                ))}
-
-                <View style={[styles.itemRow, styles.totalRow]}>
-                  <Text style={styles.totalLabel}>Total Amount</Text>
-                  <Text style={styles.totalValue}>₹{b.totalAmount}</Text>
-                </View>
-
-                {b.followUpDate ? (
-                  <View style={styles.followUpCardRow}>
-                    <Text style={styles.followUpCardLabel}>⏰ Follow-up Revisit:</Text>
-                    <View style={styles.followUpBadgeBox}>
-                      <Text style={styles.followUpBadgeDate}>
-                        {new Date(b.followUpDate).toLocaleDateString('en-IN', {
-                          day: '2-digit',
-                          month: 'short',
-                          year: 'numeric',
-                        })}
-                      </Text>
-                      {b.followUpReminder?.status ? (
-                        <View style={styles.followUpStatusPill}>
-                          <Text style={styles.followUpStatusPillText}>{b.followUpReminder.status}</Text>
-                        </View>
-                      ) : null}
-                    </View>
-                  </View>
-                ) : null}
-
-                {/* Actions */}
-                <View style={styles.billActions}>
-                  {!isPaid && (
-                    <TouchableOpacity
-                      style={[styles.payBtn, isPaying && styles.btnDisabled]}
-                      onPress={() => handlePayBill(bId)}
-                      disabled={isPaying}
-                    >
-                      {isPaying ? (
-                        <ActivityIndicator size="small" color="#0f766e" />
-                      ) : (
-                        <Text style={styles.payBtnText}>💳 Record Payment (Mark Paid)</Text>
-                      )}
-                    </TouchableOpacity>
-                  )}
-
-                  <View style={styles.cardBtnRow}>
-                    <TouchableOpacity
-                      style={styles.editCardBtn}
-                      onPress={() => handleStartEdit(b)}
-                    >
-                      <Text style={styles.editCardBtnText}>✏️ Edit</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={styles.deleteCardBtn}
-                      onPress={() => handleDeleteBill(b)}
-                    >
-                      <Text style={styles.deleteCardBtnText}>🗑️ Delete</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={styles.shareCardBtn}
-                      onPress={() => handleShareInvoice(b)}
-                    >
-                      <Text style={styles.shareCardBtnText}>📤 Share</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
+              </View>
+              <View style={styles.itemColRight}>
+                {consultDiscAmt > 0 && (
+                  <Text style={styles.itemCrossedPrice}>₹{parseFloat(b.consultationFee).toFixed(2)}</Text>
+                )}
+                <Text style={styles.itemValue}>
+                  ₹{(parseFloat(b.consultationFee) - consultDiscAmt).toFixed(2)}
+                </Text>
               </View>
             </View>
-          );
-        })
-        )}
-      </ScrollView>
+          )}
+
+          {b.tests?.map((t, idx) => {
+            const p = parseFloat(t.price || 0);
+            const d = (t.discount > 0)
+              ? (t.discountType === 'percentage' ? (p * t.discount) / 100 : Math.min(p, t.discount))
+              : 0;
+            const net = Math.max(0, p - d);
+            return (
+              <View key={`b-test-${t.testId?._id || t.testId || t.name || idx}-${idx}`} style={styles.itemRow}>
+                <View style={styles.itemColLeft}>
+                  <Text style={styles.itemLabel}>
+                    🧪 {formatItemName(t.testId?.name || t.name || 'Diagnostic Test')}
+                  </Text>
+                  {d > 0 && (
+                    <Text style={styles.itemDiscountSubtext}>
+                      🏷️ Discount: {t.discountType === 'percentage' ? `${t.discount}% ` : ''}(-₹{d.toFixed(2)})
+                    </Text>
+                  )}
+                </View>
+                <View style={styles.itemColRight}>
+                  {d > 0 && (
+                    <Text style={styles.itemCrossedPrice}>₹{p.toFixed(2)}</Text>
+                  )}
+                  <Text style={styles.itemValue}>₹{net.toFixed(2)}</Text>
+                </View>
+              </View>
+            );
+          })}
+
+          {b.medicines?.map((m, idx) => {
+            const qty = parseInt(m.quantity) || 1;
+            const gross = (parseFloat(m.price) || 0) * qty;
+            const d = (m.discount > 0)
+              ? (m.discountType === 'percentage' ? (gross * m.discount) / 100 : Math.min(gross, m.discount))
+              : 0;
+            const net = Math.max(0, gross - d);
+            return (
+              <View key={`b-med-${m.medicineId?._id || m.medicineId || m.name || idx}-${idx}`} style={styles.itemRow}>
+                <View style={styles.itemColLeft}>
+                  <Text style={styles.itemLabel}>
+                    💊 {formatItemName(m.medicineId?.name || m.name)} (x{qty})
+                  </Text>
+                  {d > 0 && (
+                    <Text style={styles.itemDiscountSubtext}>
+                      🏷️ Discount: {m.discountType === 'percentage' ? `${m.discount}% ` : ''}(-₹{d.toFixed(2)})
+                    </Text>
+                  )}
+                </View>
+                <View style={styles.itemColRight}>
+                  {d > 0 && (
+                    <Text style={styles.itemCrossedPrice}>₹{gross.toFixed(2)}</Text>
+                  )}
+                  <Text style={styles.itemValue}>₹{net.toFixed(2)}</Text>
+                </View>
+              </View>
+            );
+          })}
+
+          {(totalItemDiscounts > 0 || b.discount > 0 || (b.subtotal && b.subtotal > b.totalAmount)) && (
+            <View style={styles.itemRow}>
+              <View style={styles.itemColLeft}>
+                <Text style={styles.itemLabel}>Gross Subtotal</Text>
+              </View>
+              <View style={styles.itemColRight}>
+                <Text style={styles.itemValue}>₹{grossSubtotal.toFixed(2)}</Text>
+              </View>
+            </View>
+          )}
+
+          {totalItemDiscounts > 0 && (
+            <View style={styles.itemRow}>
+              <View style={styles.itemColLeft}>
+                <Text style={[styles.itemLabel, { color: '#047857', fontWeight: '700' }]}>
+                  🏷️ Total Item Discounts
+                </Text>
+              </View>
+              <View style={styles.itemColRight}>
+                <Text style={[styles.itemValue, { color: '#047857', fontWeight: '800' }]}>
+                  -₹{totalItemDiscounts.toFixed(2)}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {b.discount > 0 && (
+            <View style={styles.itemRow}>
+              <View style={styles.itemColLeft}>
+                <Text style={[styles.itemLabel, { color: '#047857', fontWeight: '700' }]}>
+                  🏷️ Bill Discount ({b.discountType === 'percentage' ? `${b.discount}%` : `₹${b.discount}`}{b.discountReason ? ` • ${b.discountReason}` : ''})
+                </Text>
+              </View>
+              <View style={styles.itemColRight}>
+                <Text style={[styles.itemValue, { color: '#047857', fontWeight: '800' }]}>
+                  -₹{billDiscountAmt.toFixed(2)}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          <View style={[styles.itemRow, styles.totalRow]}>
+            <View style={styles.itemColLeft}>
+              <Text style={styles.totalLabel}>Total Amount</Text>
+            </View>
+            <View style={styles.itemColRight}>
+              <Text style={styles.totalValue}>₹{parseFloat(b.totalAmount || 0).toFixed(2)}</Text>
+            </View>
+          </View>
+
+          {b.followUpDate ? (
+            <View style={styles.followUpCardRow}>
+              <Text style={styles.followUpCardLabel}>⏰ Follow-up Revisit:</Text>
+              <View style={styles.followUpBadgeBox}>
+                <Text style={styles.followUpBadgeDate}>
+                  {new Date(b.followUpDate).toLocaleDateString('en-IN', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                  })}
+                </Text>
+                {b.followUpReminder?.status ? (
+                  <View style={styles.followUpStatusPill}>
+                    <Text style={styles.followUpStatusPillText}>{b.followUpReminder.status}</Text>
+                  </View>
+                ) : null}
+              </View>
+            </View>
+          ) : null}
+
+          {/* Actions */}
+          <View style={styles.billActions}>
+            {!isPaid && (
+              <TouchableOpacity
+                style={[styles.payBtn, isPaying && styles.btnDisabled]}
+                onPress={() => handlePayBill(bId)}
+                disabled={isPaying}
+              >
+                {isPaying ? (
+                  <ActivityIndicator size="small" color="#0f766e" />
+                ) : (
+                  <Text style={styles.payBtnText}>💳 Record Payment (Mark Paid)</Text>
+                )}
+              </TouchableOpacity>
+            )}
+
+            <View style={styles.cardBtnRow}>
+              <TouchableOpacity
+                style={styles.editCardBtn}
+                onPress={() => handleStartEdit(b)}
+              >
+                <Text style={styles.editCardBtnText}>✏️ Edit</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.deleteCardBtn}
+                onPress={() => handleDeleteBill(b)}
+              >
+                <Text style={styles.deleteCardBtnText}>🗑️ Delete</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.shareCardBtn}
+                onPress={() => handleShareInvoice(b)}
+              >
+                <Text style={styles.shareCardBtnText}>📤 Share</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  return (
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+      <FlatList
+        style={{ flex: 1, width: '100%' }}
+        data={filteredBills}
+        keyExtractor={(item, index) => item._id || item.id || `bill-${index}`}
+        renderItem={renderBillItem}
+        ListHeaderComponent={renderHeader}
+        ListEmptyComponent={renderEmpty}
+        ListFooterComponent={renderFooter}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.4}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#0f766e']}
+            tintColor="#0f766e"
+          />
+        }
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets={true}
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={7}
+        removeClippedSubviews={Platform.OS === 'android'}
+      />
 
       {/* ── New / Edit Invoice Modal ─────────────────────────────────────────────── */}
       <Modal visible={isModalOpen} animationType="slide" transparent statusBarTranslucent onRequestClose={() => { setIsModalOpen(false); resetFormState(); }}>
@@ -781,7 +1138,7 @@ export default function OpdBillingScreen({ routeParams }) {
                 {/* Patient Selection Searchable Dropdown */}
                 <View style={[styles.fieldGroup, { zIndex: 10 }]}>
                   <Text style={styles.fieldLabel}>SELECT PATIENT *</Text>
-                  
+
                   {selectedPatientId ? (
                     <View style={styles.selectedPatientBox}>
                       <View style={{ flex: 1 }}>
@@ -1173,125 +1530,319 @@ export default function OpdBillingScreen({ routeParams }) {
                 {/* Selected Items Line-Items Preview */}
                 {(selectedTests.length > 0 ||
                   selectedMedicines.length > 0 ||
-                  parseFloat(consultationFee) > 0) && (
-                  <View style={styles.summaryBox}>
-                    <Text style={styles.summaryTitle}>INVOICE BREAKDOWN</Text>
+                  grossConsultation > 0) && (
+                    <View style={styles.summaryBox}>
+                      <Text style={styles.summaryTitle}>INVOICE BREAKDOWN</Text>
 
-                    {parseFloat(consultationFee) > 0 && (
-                      <View style={styles.summaryRow}>
-                        <Text style={styles.summaryItemLabel}>👨‍⚕️ Doctor Consultation Fee</Text>
-                        <Text style={styles.summaryItemValue}>₹{consultationFee}</Text>
-                      </View>
-                    )}
-
-                    {selectedTests.map((t, idx) => (
-                      <View key={`sel-t-${t.testId || t._id || t.id || idx}-${idx}`} style={styles.summaryTestCard}>
-                        <View style={styles.summaryRow}>
-                          <View style={{ flex: 1 }}>
-                            <Text style={styles.summaryItemLabel}>🧪 {t.name}</Text>
+                      {grossConsultation > 0 && (
+                        <View style={styles.summaryTestCard}>
+                          <View style={styles.summaryRow}>
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.summaryItemLabel}>👨‍⚕️ Doctor Consultation Fee</Text>
+                            </View>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                              {consultDiscountAmt > 0 && (
+                                <Text style={styles.itemOriginalPrice}>₹{grossConsultation.toFixed(2)}</Text>
+                              )}
+                              <Text style={styles.summaryItemValue}>₹{netConsultation.toFixed(2)}</Text>
+                            </View>
                           </View>
-                          <Text style={styles.summaryItemValue}>₹{t.price}</Text>
-                          <TouchableOpacity onPress={() => handleRemoveTest(t.testId)} style={{ marginLeft: 8 }}>
-                            <Text style={styles.removeBtn}>✕</Text>
-                          </TouchableOpacity>
-                        </View>
 
-                        {/* Test Scheduling Row */}
-                        <View style={styles.testScheduleRow}>
-                          <View style={styles.testScheduleCol}>
-                            <Text style={styles.testScheduleLabel}>📅 Schedule Date:</Text>
+                          <View style={styles.itemDiscountInlineRow}>
+                            <Text style={styles.itemDiscountLabel}>Item Discount:</Text>
                             <TouchableOpacity
-                              style={styles.testDateBtn}
-                              onPress={() => {
-                                setCalendarTargetTestIdx(idx);
-                                setIsCalendarOpen(true);
-                              }}
+                              style={styles.itemDiscountToggleBtn}
+                              onPress={() => setConsultationDiscountType(consultationDiscountType === 'fixed' ? 'percentage' : 'fixed')}
                               activeOpacity={0.7}
                             >
-                              <Text style={styles.testDateBtnText}>
-                                {t.scheduledDate || 'Pick Date'}
+                              <Text style={styles.itemDiscountToggleText}>
+                                {consultationDiscountType === 'percentage' ? '%' : '₹ Flat'}
                               </Text>
-                              <Text style={styles.testDateEditIcon}>📅</Text>
                             </TouchableOpacity>
-                          </View>
-                          <View style={styles.testScheduleCol}>
-                            <Text style={styles.testScheduleLabel}>📝 Lab Note:</Text>
                             <TextInput
-                              style={styles.testScheduleInput}
-                              value={t.notes || ''}
-                              placeholder="e.g. Fasting, Urgent"
+                              style={styles.itemDiscountInput}
+                              keyboardType="numeric"
+                              placeholder={consultationDiscountType === 'percentage' ? '0 %' : '₹ 0'}
                               placeholderTextColor="#94a3b8"
-                              onChangeText={(val) => handleTestNotesChange(idx, val)}
+                              value={consultationDiscount === '0' || consultationDiscount === 0 ? '' : String(consultationDiscount)}
+                              onChangeText={(val) => setConsultationDiscount(val)}
                             />
+                            {consultDiscountAmt > 0 && (
+                              <Text style={styles.itemDiscountDeductionText}>-₹{consultDiscountAmt.toFixed(2)}</Text>
+                            )}
                           </View>
                         </View>
-                      </View>
-                    ))}
+                      )}
 
-                    {selectedMedicines.map((m, idx) => {
-                      const catMed = medicinesCatalog.find((c) => (c._id || c.id) === m.medicineId);
-                      const availableStock =
-                        m.stock !== undefined
-                          ? Number(m.stock)
-                          : catMed?.stock !== undefined
-                          ? Number(catMed.stock)
-                          : 999;
-                      const currentQty = parseInt(m.quantity, 10) || 1;
-                      const isMaxStock = currentQty >= availableStock;
-                      const isMinQty = currentQty <= 1;
+                      {selectedTests.map((t, idx) => {
+                        const p = parseFloat(t.price) || 0;
+                        const d = Math.max(0, parseFloat(t.discount) || 0);
+                        const discAmt = t.discountType === 'percentage' ? (p * Math.min(100, d)) / 100 : Math.min(p, d);
+                        const netP = Math.max(0, p - discAmt);
+                        return (
+                          <View key={`sel-t-${t.testId || t._id || t.id || idx}-${idx}`} style={styles.summaryTestCard}>
+                            <View style={styles.summaryRow}>
+                              <View style={{ flex: 1 }}>
+                                <Text style={styles.summaryItemLabel}>🧪 {formatItemName(t.name)}</Text>
+                              </View>
+                              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                {discAmt > 0 && (
+                                  <Text style={styles.itemOriginalPrice}>₹{p.toFixed(2)}</Text>
+                                )}
+                                <Text style={styles.summaryItemValue}>₹{netP.toFixed(2)}</Text>
+                              </View>
+                              <TouchableOpacity onPress={() => handleRemoveTest(t.testId)} style={{ marginLeft: 8 }}>
+                                <Text style={styles.removeBtn}>✕</Text>
+                              </TouchableOpacity>
+                            </View>
 
-                      return (
-                        <View key={`sel-m-${m.medicineId || m._id || m.id || idx}-${idx}`} style={styles.summaryRow}>
-                          <View style={{ flex: 1 }}>
-                            <Text style={styles.summaryItemLabel}>💊 {m.name}</Text>
-                            <View style={styles.qtyPriceRow}>
-                              <Text style={styles.qtyLabel}>Qty:</Text>
-                              <View style={styles.stepperContainer}>
+                            {/* Test Discount Inline Row */}
+                            <View style={styles.itemDiscountInlineRow}>
+                              <Text style={styles.itemDiscountLabel}>Item Discount:</Text>
+                              <TouchableOpacity
+                                style={styles.itemDiscountToggleBtn}
+                                onPress={() => handleTestDiscountTypeToggle(idx)}
+                                activeOpacity={0.7}
+                              >
+                                <Text style={styles.itemDiscountToggleText}>
+                                  {t.discountType === 'percentage' ? '%' : '₹ Flat'}
+                                </Text>
+                              </TouchableOpacity>
+                              <TextInput
+                                style={styles.itemDiscountInput}
+                                keyboardType="numeric"
+                                placeholder={t.discountType === 'percentage' ? '0 %' : '₹ 0'}
+                                placeholderTextColor="#94a3b8"
+                                value={t.discount === 0 || t.discount === '0' ? '' : String(t.discount)}
+                                onChangeText={(val) => handleTestDiscountChange(idx, val)}
+                              />
+                              {discAmt > 0 && (
+                                <Text style={styles.itemDiscountDeductionText}>-₹{discAmt.toFixed(2)}</Text>
+                              )}
+                            </View>
+
+                            {/* Test Scheduling Row */}
+                            <View style={styles.testScheduleRow}>
+                              <View style={styles.testScheduleCol}>
+                                <Text style={styles.testScheduleLabel}>📅 Schedule Date:</Text>
                                 <TouchableOpacity
-                                  style={[styles.stepperBtn, isMinQty && styles.stepperBtnDisabled]}
-                                  onPress={() => handleMedicineQtyIncrement(idx, -1)}
-                                  disabled={isMinQty}
+                                  style={styles.testDateBtn}
+                                  onPress={() => {
+                                    setCalendarTargetTestIdx(idx);
+                                    setIsCalendarOpen(true);
+                                  }}
                                   activeOpacity={0.7}
                                 >
-                                  <Text style={[styles.stepperBtnText, isMinQty && styles.stepperBtnTextDisabled]}>−</Text>
-                                </TouchableOpacity>
-                                <TextInput
-                                  style={styles.qtyInput}
-                                  keyboardType="number-pad"
-                                  value={String(m.quantity || 1)}
-                                  onChangeText={(val) => handleMedicineQtyChange(idx, val)}
-                                />
-                                <TouchableOpacity
-                                  style={[styles.stepperBtn, isMaxStock && styles.stepperBtnDisabled]}
-                                  onPress={() => handleMedicineQtyIncrement(idx, 1)}
-                                  disabled={isMaxStock}
-                                  activeOpacity={0.7}
-                                >
-                                  <Text style={[styles.stepperBtnText, isMaxStock && styles.stepperBtnTextDisabled]}>+</Text>
+                                  <Text style={styles.testDateBtnText}>
+                                    {t.scheduledDate || 'Pick Date'}
+                                  </Text>
+                                  <Text style={styles.testDateEditIcon}>📅</Text>
                                 </TouchableOpacity>
                               </View>
-                              <Text style={styles.qtyLabel}>@ ₹{m.price}</Text>
-                              {availableStock < 999 && (
-                                <Text style={styles.stockCapHint}>Max: {availableStock}</Text>
+                              <View style={styles.testScheduleCol}>
+                                <Text style={styles.testScheduleLabel}>📝 Lab Note:</Text>
+                                <TextInput
+                                  style={styles.testScheduleInput}
+                                  value={t.notes || ''}
+                                  placeholder="e.g. Fasting, Urgent"
+                                  placeholderTextColor="#94a3b8"
+                                  onChangeText={(val) => handleTestNotesChange(idx, val)}
+                                />
+                              </View>
+                            </View>
+                          </View>
+                        );
+                      })}
+
+                      {selectedMedicines.map((m, idx) => {
+                        const catMed = medicinesCatalog.find((c) => (c._id || c.id) === m.medicineId);
+                        const availableStock =
+                          m.stock !== undefined
+                            ? Number(m.stock)
+                            : catMed?.stock !== undefined
+                              ? Number(catMed.stock)
+                              : 999;
+                        const currentQty = parseInt(m.quantity, 10) || 1;
+                        const isMaxStock = currentQty >= availableStock;
+                        const isMinQty = currentQty <= 1;
+
+                        const grossM = (parseFloat(m.price) || 0) * currentQty;
+                        const d = Math.max(0, parseFloat(m.discount) || 0);
+                        const discAmt = m.discountType === 'percentage' ? (grossM * Math.min(100, d)) / 100 : Math.min(grossM, d);
+                        const netM = Math.max(0, grossM - discAmt);
+
+                        return (
+                          <View key={`sel-m-${m.medicineId || m._id || m.id || idx}-${idx}`} style={styles.summaryTestCard}>
+                            <View style={styles.summaryRow}>
+                              <View style={{ flex: 1 }}>
+                                <Text style={styles.summaryItemLabel}>💊 {formatItemName(m.name)}</Text>
+                                <View style={styles.qtyPriceRow}>
+                                  <Text style={styles.qtyLabel}>Qty:</Text>
+                                  <View style={styles.stepperContainer}>
+                                    <TouchableOpacity
+                                      style={[styles.stepperBtn, isMinQty && styles.stepperBtnDisabled]}
+                                      onPress={() => handleMedicineQtyIncrement(idx, -1)}
+                                      disabled={isMinQty}
+                                      activeOpacity={0.7}
+                                    >
+                                      <Text style={[styles.stepperBtnText, isMinQty && styles.stepperBtnTextDisabled]}>−</Text>
+                                    </TouchableOpacity>
+                                    <TextInput
+                                      style={styles.qtyInput}
+                                      keyboardType="number-pad"
+                                      value={String(m.quantity || 1)}
+                                      onChangeText={(val) => handleMedicineQtyChange(idx, val)}
+                                    />
+                                    <TouchableOpacity
+                                      style={[styles.stepperBtn, isMaxStock && styles.stepperBtnDisabled]}
+                                      onPress={() => handleMedicineQtyIncrement(idx, 1)}
+                                      disabled={isMaxStock}
+                                      activeOpacity={0.7}
+                                    >
+                                      <Text style={[styles.stepperBtnText, isMaxStock && styles.stepperBtnTextDisabled]}>+</Text>
+                                    </TouchableOpacity>
+                                  </View>
+                                  <Text style={styles.qtyLabel}>@ ₹{m.price}</Text>
+                                  {availableStock < 999 && (
+                                    <Text style={styles.stockCapHint}>Max: {availableStock}</Text>
+                                  )}
+                                </View>
+                              </View>
+                              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                {discAmt > 0 && (
+                                  <Text style={styles.itemOriginalPrice}>₹{grossM.toFixed(2)}</Text>
+                                )}
+                                <Text style={styles.summaryItemValue}>₹{netM.toFixed(2)}</Text>
+                              </View>
+                              <TouchableOpacity onPress={() => handleRemoveMedicine(m.medicineId)} style={{ marginLeft: 8 }}>
+                                <Text style={styles.removeBtn}>✕</Text>
+                              </TouchableOpacity>
+                            </View>
+
+                            {/* Medicine Discount Inline Row */}
+                            <View style={styles.itemDiscountInlineRow}>
+                              <Text style={styles.itemDiscountLabel}>Item Discount:</Text>
+                              <TouchableOpacity
+                                style={styles.itemDiscountToggleBtn}
+                                onPress={() => handleMedicineDiscountTypeToggle(idx)}
+                                activeOpacity={0.7}
+                              >
+                                <Text style={styles.itemDiscountToggleText}>
+                                  {m.discountType === 'percentage' ? '%' : '₹ Flat'}
+                                </Text>
+                              </TouchableOpacity>
+                              <TextInput
+                                style={styles.itemDiscountInput}
+                                keyboardType="numeric"
+                                placeholder={m.discountType === 'percentage' ? '0 %' : '₹ 0'}
+                                placeholderTextColor="#94a3b8"
+                                value={m.discount === 0 || m.discount === '0' ? '' : String(m.discount)}
+                                onChangeText={(val) => handleMedicineDiscountChange(idx, val)}
+                              />
+                              {discAmt > 0 && (
+                                <Text style={styles.itemDiscountDeductionText}>-₹{discAmt.toFixed(2)}</Text>
                               )}
                             </View>
                           </View>
-                          <Text style={styles.summaryItemValue}>
-                            ₹{(parseFloat(m.price) || 0) * currentQty}
-                          </Text>
-                          <TouchableOpacity onPress={() => handleRemoveMedicine(m.medicineId)} style={{ marginLeft: 8 }}>
-                            <Text style={styles.removeBtn}>✕</Text>
-                          </TouchableOpacity>
-                        </View>
-                      );
-                    })}
+                        );
+                      })}
 
-                    <View style={styles.grandTotalRow}>
-                      <Text style={styles.grandTotalLabel}>TOTAL AMOUNT</Text>
-                      <Text style={styles.grandTotalValue}>₹{grandTotal}</Text>
+                      <View style={styles.subtotalRow}>
+                        <Text style={styles.subtotalLabel}>Gross Subtotal</Text>
+                        <Text style={styles.subtotalValue}>₹{grossSubtotal.toFixed(2)}</Text>
+                      </View>
+
+                      {itemDiscountsTotal > 0 && (
+                        <View style={styles.subtotalRow}>
+                          <Text style={[styles.subtotalLabel, { color: '#047857' }]}>Item Discounts</Text>
+                          <Text style={[styles.subtotalValue, { color: '#047857' }]}>-₹{itemDiscountsTotal.toFixed(2)}</Text>
+                        </View>
+                      )}
+
+                      {itemDiscountsTotal > 0 && (
+                        <View style={styles.subtotalRow}>
+                          <Text style={styles.subtotalLabel}>Net Subtotal</Text>
+                          <Text style={styles.subtotalValue}>₹{netSubtotal.toFixed(2)}</Text>
+                        </View>
+                      )}
+
+                      {/* Overall Invoice Discount Control Box */}
+                      <View style={styles.discountContainer}>
+                        <View style={styles.discountHeaderRow}>
+                          <Text style={styles.discountHeaderTitle}>🏷️ Overall Invoice Discount</Text>
+                          {calculatedInvoiceDiscount > 0 && (
+                            <Text style={styles.discountBadgeText}>-₹{calculatedInvoiceDiscount.toFixed(2)}</Text>
+                          )}
+                        </View>
+
+                        <View style={styles.discountInputRow}>
+                          <View style={styles.discountTypeToggle}>
+                            <TouchableOpacity
+                              style={[
+                                styles.discountTypeBtn,
+                                discountType === 'fixed' && styles.discountTypeBtnActive,
+                              ]}
+                              onPress={() => setDiscountType('fixed')}
+                            >
+                              <Text
+                                style={[
+                                  styles.discountTypeBtnText,
+                                  discountType === 'fixed' && styles.discountTypeBtnTextActive,
+                                ]}
+                              >
+                                ₹ Flat
+                              </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={[
+                                styles.discountTypeBtn,
+                                discountType === 'percentage' && styles.discountTypeBtnActive,
+                              ]}
+                              onPress={() => setDiscountType('percentage')}
+                            >
+                              <Text
+                                style={[
+                                  styles.discountTypeBtnText,
+                                  discountType === 'percentage' && styles.discountTypeBtnTextActive,
+                                ]}
+                              >
+                                %
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+
+                          <TextInput
+                            style={styles.discountInput}
+                            keyboardType="numeric"
+                            placeholder={discountType === 'percentage' ? '0 %' : '₹ 0.00'}
+                            placeholderTextColor="#9ca3af"
+                            value={discount === '0' || discount === 0 ? '' : String(discount)}
+                            onChangeText={(val) => setDiscount(val)}
+                          />
+                        </View>
+
+                        <TextInput
+                          style={styles.discountReasonInput}
+                          placeholder="Discount note / reason (optional)"
+                          placeholderTextColor="#9ca3af"
+                          value={discountReason}
+                          onChangeText={(val) => setDiscountReason(val)}
+                        />
+                      </View>
+
+                      <View style={styles.grandTotalRow}>
+                        <View>
+                          <Text style={styles.grandTotalLabel}>TOTAL AMOUNT</Text>
+                          {totalAllDiscounts > 0 && (
+                            <Text style={styles.grandTotalSubhint}>
+                              Includes -₹{totalAllDiscounts.toFixed(2)} total discounts
+                            </Text>
+                          )}
+                        </View>
+                        <Text style={styles.grandTotalValue}>₹{grandTotal.toFixed(2)}</Text>
+                      </View>
                     </View>
-                  </View>
-                )}
+                  )}
 
                 <TouchableOpacity
                   style={[styles.submitBtn, submitting && styles.btnDisabled]}
@@ -1372,7 +1923,7 @@ const styles = StyleSheet.create({
   emptyBox: { backgroundColor: '#ffffff', padding: 30, borderRadius: 16, borderWidth: 1, borderColor: '#e2e8f0', borderStyle: 'dashed', alignItems: 'center' },
   emptyTitle: { fontSize: 16, fontWeight: '700', color: '#334155' },
   emptyText: { fontSize: 13, color: '#64748b', marginTop: 4, textAlign: 'center' },
-  card: { backgroundColor: '#ffffff', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: '#ccfbf1', gap: 6 },
+  card: { backgroundColor: '#ffffff', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: '#ccfbf1', gap: 6, width: '100%', alignSelf: 'stretch', overflow: 'hidden' },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   invoiceNo: { fontSize: 13, fontWeight: '700', color: '#0f766e' },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
@@ -1383,13 +1934,17 @@ const styles = StyleSheet.create({
   statusBadgeTextPending: { color: '#d97706' },
   patientName: { fontSize: 16, fontWeight: '700', color: '#0f172a' },
   billType: { fontSize: 11, color: '#64748b', fontWeight: '600' },
-  itemizedBox: { backgroundColor: '#f8fafc', borderRadius: 10, padding: 10, gap: 6, borderWidth: 1, borderColor: '#e2e8f0' },
-  itemRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  itemLabel: { fontSize: 12, color: '#64748b' },
-  itemValue: { fontSize: 12, fontWeight: '700', color: '#0f172a' },
-  totalRow: { borderTopWidth: 1, borderTopColor: '#e2e8f0', paddingTop: 6, marginTop: 4 },
+  itemizedBox: { backgroundColor: '#f8fafc', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, gap: 6, borderWidth: 1, borderColor: '#e2e8f0', width: '100%', alignSelf: 'stretch' },
+  itemRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingVertical: 3, width: '100%' },
+  itemColLeft: { flex: 1, minWidth: 0, flexShrink: 1, marginRight: 8 },
+  itemColRight: { alignItems: 'flex-end', flexShrink: 0, paddingRight: 4 },
+  itemLabel: { fontSize: 12, color: '#334155', fontWeight: '500', flexWrap: 'wrap' },
+  itemDiscountSubtext: { fontSize: 10, color: '#047857', fontWeight: '700', marginTop: 1.5, flexWrap: 'wrap' },
+  itemCrossedPrice: { fontSize: 10, color: '#94a3b8', textDecorationLine: 'line-through', paddingRight: 2 },
+  itemValue: { fontSize: 12, fontWeight: '700', color: '#0f172a', paddingRight: 2 },
+  totalRow: { borderTopWidth: 1, borderTopColor: '#e2e8f0', paddingTop: 6, marginTop: 4, width: '100%' },
   totalLabel: { fontSize: 13, fontWeight: '700', color: '#0f172a' },
-  totalValue: { fontSize: 16, fontWeight: '800', color: '#0D9488' },
+  totalValue: { fontSize: 16, fontWeight: '800', color: '#0D9488', paddingRight: 2 },
   billActions: { gap: 8, marginTop: 4 },
   payBtn: { backgroundColor: '#ccfbf1', paddingVertical: 8, borderRadius: 8, alignItems: 'center' },
   payBtnText: { color: '#0f766e', fontWeight: '700', fontSize: 12 },
@@ -1477,6 +2032,58 @@ const styles = StyleSheet.create({
   summaryRow: { flexDirection: 'row', alignItems: 'center' },
   summaryItemLabel: { fontSize: 12, color: '#475569' },
   summaryItemValue: { fontSize: 12, fontWeight: '700', color: '#0f172a', marginLeft: 8 },
+  itemOriginalPrice: {
+    fontSize: 11,
+    color: '#94a3b8',
+    textDecorationLine: 'line-through',
+    marginRight: 6,
+  },
+  itemDiscountInlineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 6,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+  },
+  itemDiscountLabel: {
+    fontSize: 11,
+    color: '#64748b',
+    fontWeight: '600',
+  },
+  itemDiscountToggleBtn: {
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+  },
+  itemDiscountToggleText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#0f766e',
+  },
+  itemDiscountInput: {
+    width: 60,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#0f172a',
+    backgroundColor: '#f8fafc',
+    textAlign: 'center',
+  },
+  itemDiscountDeductionText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#047857',
+    marginLeft: 'auto',
+  },
   removeBtn: { fontSize: 14, color: '#ef4444', fontWeight: '700' },
   qtyPriceRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
   qtyLabel: { fontSize: 11, color: '#64748b', fontWeight: '500' },
@@ -1529,8 +2136,24 @@ const styles = StyleSheet.create({
     color: '#0f172a',
     backgroundColor: '#ffffff',
   },
+  subtotalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6, borderTopWidth: 1, borderTopColor: '#e2e8f0', marginTop: 4 },
+  subtotalLabel: { fontSize: 13, fontWeight: '600', color: '#64748b' },
+  subtotalValue: { fontSize: 14, fontWeight: '700', color: '#334155' },
+  discountContainer: { backgroundColor: '#ffffff', borderRadius: 10, padding: 10, marginVertical: 6, borderWidth: 1, borderColor: '#e2e8f0' },
+  discountHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  discountHeaderTitle: { fontSize: 12, fontWeight: '700', color: '#0f766e' },
+  discountBadgeText: { fontSize: 12, fontWeight: '800', color: '#047857', backgroundColor: '#ecfdf5', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+  discountInputRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  discountTypeToggle: { flexDirection: 'row', backgroundColor: '#f1f5f9', borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: '#e2e8f0' },
+  discountTypeBtn: { paddingHorizontal: 10, paddingVertical: 6 },
+  discountTypeBtnActive: { backgroundColor: '#0D9488' },
+  discountTypeBtnText: { fontSize: 11, fontWeight: '700', color: '#64748b' },
+  discountTypeBtnTextActive: { color: '#ffffff' },
+  discountInput: { flex: 1, borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, fontSize: 13, fontWeight: '700', color: '#0f172a', backgroundColor: '#f8fafc' },
+  discountReasonInput: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, fontSize: 12, color: '#334155', backgroundColor: '#f8fafc', marginTop: 8 },
   grandTotalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#ccfbf1', paddingTop: 10, marginTop: 4 },
   grandTotalLabel: { fontSize: 13, fontWeight: '800', color: '#0f766e' },
+  grandTotalSubhint: { fontSize: 10, color: '#047857', fontWeight: '600', marginTop: 2 },
   grandTotalValue: { fontSize: 24, fontWeight: '800', color: '#0f766e' },
   submitBtn: { backgroundColor: '#0D9488', paddingVertical: 14, borderRadius: 12, alignItems: 'center', marginTop: 4 },
   submitBtnText: { color: '#ffffff', fontWeight: '700', fontSize: 13 },

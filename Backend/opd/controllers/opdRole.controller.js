@@ -1,5 +1,7 @@
 import OpdRole from "../models/OpdRole.js";
 import OpdUser from "../models/OpdUser.js";
+import OpdSalary from "../models/OpdSalary.js";
+import { cascadeForwardCarryOver } from "./opdAccount.controller.js";
 import bcrypt from "bcryptjs";
 import {
     ALL_VALID_PERMISSIONS,
@@ -111,7 +113,7 @@ export const deleteRole = async (req, res) => {
 // Staff Management
 export const createStaff = async (req, res) => {
     try {
-        const { name, email, password, roleId, isDoctor, fees } = req.body;
+        const { name, email, password, roleId, isDoctor, fees, baseSalary, doj, updatePermanentBase = true } = req.body;
 
         if (!name || !email || !password || !roleId) {
             return res.status(400).json({ message: "All fields are required" });
@@ -130,14 +132,36 @@ export const createStaff = async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
+        const effectiveBase = updatePermanentBase ? (baseSalary ? parseFloat(baseSalary) : 0) : 0;
+
         const newStaff = await OpdUser.create({
             name,
             email: email.toLowerCase(),
             password: hashedPassword,
             role: roleId,
             isDoctor: !!isDoctor,
-            fees: fees ? parseFloat(fees) : 0
+            fees: fees ? parseFloat(fees) : 0,
+            baseSalary: effectiveBase,
+            doj: doj ? new Date(doj) : new Date()
         });
+
+        // If not updating permanent base salary but a salary was entered, generate the initial month with that custom salary
+        if (!updatePermanentBase && baseSalary && parseFloat(baseSalary) > 0) {
+            const initialMonth = (doj ? new Date(doj) : new Date()).toISOString().slice(0, 7);
+            const parsedAmount = parseFloat(baseSalary);
+            await OpdSalary.create({
+                staffId: newStaff._id,
+                month: initialMonth,
+                baseSalary: parsedAmount,
+                isCustomSalary: true,
+                carriedOverBalance: 0,
+                netPayable: parsedAmount,
+                payments: [],
+                totalPaid: 0,
+                remainingBalance: parsedAmount,
+                status: "Unpaid"
+            });
+        }
 
         res.status(201).json({
             message: "Staff member created successfully",
@@ -147,7 +171,9 @@ export const createStaff = async (req, res) => {
                 email: newStaff.email,
                 role: role.name,
                 isDoctor: newStaff.isDoctor,
-                fees: newStaff.fees
+                fees: newStaff.fees,
+                baseSalary: newStaff.baseSalary,
+                doj: newStaff.doj
             }
         });
     } catch (error) {
@@ -196,3 +222,96 @@ export const deleteStaff = async (req, res) => {
         res.status(500).json({ message: "Server error" });
     }
 };
+
+export const updateStaff = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, email, password, roleId, isDoctor, fees, baseSalary, doj, updatePermanentBase = true } = req.body;
+
+        const staff = await OpdUser.findById(id);
+        if (!staff) {
+            return res.status(404).json({ message: "Staff member not found" });
+        }
+
+        if (email && email.toLowerCase() !== staff.email.toLowerCase()) {
+            const existing = await OpdUser.findOne({ email: email.toLowerCase() });
+            if (existing && existing._id.toString() !== id) {
+                return res.status(409).json({ message: "Another staff user already uses this email" });
+            }
+            staff.email = email.toLowerCase();
+        }
+
+        if (name) staff.name = name;
+
+        if (roleId) {
+            const role = await OpdRole.findById(roleId);
+            if (!role) {
+                return res.status(404).json({ message: "Assigned role not found" });
+            }
+            staff.role = roleId;
+            if (isDoctor !== undefined) {
+                staff.isDoctor = !!isDoctor;
+            } else if (role.name?.toLowerCase().includes("doctor")) {
+                staff.isDoctor = true;
+            }
+        } else if (isDoctor !== undefined) {
+            staff.isDoctor = !!isDoctor;
+        }
+
+        if (password && password.trim().length > 0) {
+            const salt = await bcrypt.genSalt(10);
+            staff.password = await bcrypt.hash(password.trim(), salt);
+        }
+
+        if (fees !== undefined && fees !== null && fees !== "") {
+            staff.fees = parseFloat(fees);
+        }
+
+        if (doj) {
+            staff.doj = new Date(doj);
+        }
+
+        if (baseSalary !== undefined && baseSalary !== null && baseSalary !== "") {
+            const parsedSalary = parseFloat(baseSalary);
+            const currentMonth = new Date().toISOString().slice(0, 7);
+
+            if (updatePermanentBase) {
+                // Update staff profile base salary for future months
+                staff.baseSalary = parsedSalary;
+                // Also sync current month's record if not custom-edited
+                const currSalary = await OpdSalary.findOne({ staffId: id, month: currentMonth });
+                if (currSalary && !currSalary.isCustomSalary) {
+                    currSalary.baseSalary = parsedSalary;
+                    currSalary.netPayable = parsedSalary + (currSalary.carriedOverBalance || 0);
+                    currSalary.remainingBalance = currSalary.netPayable - (currSalary.totalPaid || 0);
+                    await currSalary.save();
+                    await cascadeForwardCarryOver(id, currentMonth);
+                }
+            } else {
+                // Only update the current active month as custom (one-time), do not change staff.baseSalary for future months!
+                let currSalary = await OpdSalary.findOne({ staffId: id, month: currentMonth });
+                if (currSalary) {
+                    currSalary.baseSalary = parsedSalary;
+                    currSalary.isCustomSalary = true;
+                    currSalary.netPayable = parsedSalary + (currSalary.carriedOverBalance || 0);
+                    currSalary.remainingBalance = currSalary.netPayable - (currSalary.totalPaid || 0);
+                    await currSalary.save();
+                    await cascadeForwardCarryOver(id, currentMonth);
+                }
+            }
+        }
+
+        await staff.save();
+
+        const updatedStaff = await OpdUser.findById(id).populate("role").select("-password");
+
+        res.status(200).json({
+            message: "Staff member updated successfully",
+            staff: updatedStaff
+        });
+    } catch (error) {
+        console.error("Update Staff Error:", error);
+        res.status(500).json({ message: error.message || "Server error" });
+    }
+};
+

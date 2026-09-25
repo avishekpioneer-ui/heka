@@ -31,7 +31,7 @@ const OpdPatients = () => {
       const headers = { 'x-user-id': userId };
       const url = query ? `${import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001'}/api/opd/patients?search=${query}` : (import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/patients';
       const res = await axios.get(url, { headers });
-      setPatients(res.data);
+      setPatients(res.data?.patients || (Array.isArray(res.data) ? res.data : []));
     } catch (err) {
       console.error('Error fetching patients:', err);
     } finally {

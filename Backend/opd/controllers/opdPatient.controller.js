@@ -37,7 +37,7 @@ export const registerPatient = async (req, res) => {
 
 export const getPatients = async (req, res) => {
     try {
-        const { search } = req.query;
+        const { search, all, page, limit } = req.query;
         let query = {};
 
         if (search) {
@@ -49,8 +49,30 @@ export const getPatients = async (req, res) => {
             };
         }
 
-        const patients = await OpdPatient.find(query).sort({ createdAt: -1 });
-        res.status(200).json(patients);
+        if (all === "true") {
+            const patients = await OpdPatient.find(query).sort({ createdAt: -1 }).lean();
+            return res.status(200).json({ patients, data: patients, total: patients.length, all: true, hasMore: false });
+        }
+
+        const pageNum = Math.max(1, parseInt(page, 10) || 1);
+        const limitNum = Math.max(1, parseInt(limit, 10) || 50);
+        const skip = (pageNum - 1) * limitNum;
+
+        const [patients, total] = await Promise.all([
+            OpdPatient.find(query).sort({ createdAt: -1 }).skip(skip).limit(limitNum).lean(),
+            OpdPatient.countDocuments(query)
+        ]);
+
+        const hasMore = skip + patients.length < total;
+
+        res.status(200).json({
+            patients,
+            data: patients,
+            total,
+            page: pageNum,
+            limit: limitNum,
+            hasMore
+        });
     } catch (error) {
         console.error("Get Patients Error:", error);
         res.status(500).json({ message: "Server error" });

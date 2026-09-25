@@ -30,8 +30,10 @@ export const PERMISSION_MODULES = [
   { id: 'medicines', name: 'Pharmacy Stock', icon: '💊' },
   { id: 'tests', name: 'Diagnostics & Lab', icon: '🧪' },
   { id: 'billing', name: 'Billing & Invoices', icon: '🧾' },
+  { id: 'reports', name: 'Revenue & Reports', icon: '📊' },
   { id: 'roles', name: 'Staff & Roles Access', icon: '🛡️' },
   { id: 'reminders', name: 'Patient Reminders', icon: '🔔' },
+  { id: 'accounts', name: 'Accounts & Payroll', icon: '💳' },
 ];
 
 const LEGACY_MAP = {
@@ -41,7 +43,9 @@ const LEGACY_MAP = {
   manage_medicines: ['medicines:read', 'medicines:add', 'medicines:edit', 'medicines:delete'],
   manage_tests: ['tests:read', 'tests:add', 'tests:edit', 'tests:delete'],
   manage_billing: ['billing:read', 'billing:add', 'billing:edit', 'billing:delete'],
+  manage_reports: ['reports:read', 'reports:add', 'reports:edit', 'reports:delete'],
   manage_roles: ['roles:read', 'roles:add', 'roles:edit', 'roles:delete'],
+  manage_accounts: ['accounts:read', 'accounts:add', 'accounts:edit', 'accounts:delete'],
 };
 
 
@@ -61,6 +65,25 @@ export default function OpdRolesScreen() {
   const [staffRoleId, setStaffRoleId] = useState('');
   const [staffIsDoctor, setStaffIsDoctor] = useState(false);
   const [staffFees, setStaffFees] = useState('50');
+  const [staffBaseSalary, setStaffBaseSalary] = useState('10000');
+  const [staffDoj, setStaffDoj] = useState(new Date().toISOString().slice(0, 10));
+  const [staffUpdatePermanentBase, setStaffUpdatePermanentBase] = useState(true);
+
+  // Modal 3: Edit Staff
+  const [isEditStaffModalOpen, setIsEditStaffModalOpen] = useState(false);
+  const [editingStaffId, setEditingStaffId] = useState(null);
+  const [editStaffName, setEditStaffName] = useState('');
+  const [editStaffEmail, setEditStaffEmail] = useState('');
+  const [editStaffPassword, setEditStaffPassword] = useState('');
+  const [editStaffRoleId, setEditStaffRoleId] = useState('');
+  const [editStaffIsDoctor, setEditStaffIsDoctor] = useState(false);
+  const [editStaffFees, setEditStaffFees] = useState('50');
+  const [editStaffBaseSalary, setEditStaffBaseSalary] = useState('10000');
+  const [editStaffDoj, setEditStaffDoj] = useState('');
+  const [editStaffUpdatePermanentBase, setEditStaffUpdatePermanentBase] = useState(true);
+  const [editStaffError, setEditStaffError] = useState('');
+  const [editStaffSuccess, setEditStaffSuccess] = useState('');
+  const [submittingEditStaff, setSubmittingEditStaff] = useState(false);
 
   // Modal 2: Custom Role Creation / Edit
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
@@ -122,6 +145,9 @@ export default function OpdRolesScreen() {
     setStaffEmail('');
     setStaffPassword('');
     setStaffFees('50');
+    setStaffBaseSalary('10000');
+    setStaffDoj(new Date().toISOString().slice(0, 10));
+    setStaffUpdatePermanentBase(true);
     setStaffError('');
     setStaffSuccess('');
 
@@ -154,6 +180,9 @@ export default function OpdRolesScreen() {
         roleId: staffRoleId,
         isDoctor: !!isDoctorSelected,
         fees: isDoctorSelected ? parseFloat(staffFees || 0) : 0,
+        baseSalary: parseFloat(staffBaseSalary || 0),
+        doj: staffDoj,
+        updatePermanentBase: staffUpdatePermanentBase
       });
 
       setStaffSuccess('Staff account created successfully!');
@@ -165,6 +194,8 @@ export default function OpdRolesScreen() {
         setStaffName('');
         setStaffEmail('');
         setStaffPassword('');
+        setStaffBaseSalary('10000');
+        setStaffDoj(new Date().toISOString().slice(0, 10));
       }, 1000);
     } catch (err) {
       setStaffError(err.response?.data?.message || 'Error creating staff login.');
@@ -194,6 +225,72 @@ export default function OpdRolesScreen() {
         },
       ]
     );
+  };
+
+  // ── Open Edit Staff Modal ────────────────────────────────────────────────
+  const handleOpenEditStaff = (s) => {
+    setEditingStaffId(s._id || s.id);
+    setEditStaffName(s.name || '');
+    setEditStaffEmail(s.email || '');
+    setEditStaffPassword('');
+    const roleIdVal = s.role?._id || (typeof s.role === 'string' ? s.role : '');
+    setEditStaffRoleId(roleIdVal || (roles[0]?._id || roles[0]?.id || ''));
+    setEditStaffIsDoctor(!!s.isDoctor);
+    setEditStaffFees(s.fees !== undefined ? String(s.fees) : '50');
+    setEditStaffBaseSalary(s.baseSalary !== undefined ? String(s.baseSalary) : '10000');
+    setEditStaffDoj(s.doj ? new Date(s.doj).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10));
+    setEditStaffUpdatePermanentBase(true);
+    setEditStaffError('');
+    setEditStaffSuccess('');
+    setIsEditStaffModalOpen(true);
+  };
+
+  // ── Submit Edit Staff ───────────────────────────────────────────────────
+  const handleUpdateStaff = async () => {
+    setEditStaffError('');
+    setEditStaffSuccess('');
+
+    if (!editStaffName.trim()) {
+      setEditStaffError('Full name is required');
+      return;
+    }
+    if (!editStaffEmail.trim()) {
+      setEditStaffError('Email address is required');
+      return;
+    }
+    if (!editStaffRoleId) {
+      setEditStaffError('Please select an access role profile');
+      return;
+    }
+
+    try {
+      setSubmittingEditStaff(true);
+      const payload = {
+        name: editStaffName.trim(),
+        email: editStaffEmail.trim().toLowerCase(),
+        roleId: editStaffRoleId,
+        isDoctor: editStaffIsDoctor,
+        fees: parseFloat(editStaffFees || 0),
+        baseSalary: parseFloat(editStaffBaseSalary || 0),
+        doj: editStaffDoj || undefined,
+        updatePermanentBase: editStaffUpdatePermanentBase
+      };
+      if (editStaffPassword.trim()) {
+        payload.password = editStaffPassword.trim();
+      }
+
+      await apiClient.put(`/api/opd/staff/staff/${editingStaffId}`, payload);
+      setEditStaffSuccess('Staff member updated successfully');
+
+      setTimeout(() => {
+        setIsEditStaffModalOpen(false);
+        fetchData();
+      }, 600);
+    } catch (err) {
+      setEditStaffError(err.response?.data?.message || 'Failed to update staff member');
+    } finally {
+      setSubmittingEditStaff(false);
+    }
   };
 
   // ── Open Create Role Modal ────────────────────────────────────────────────
@@ -445,13 +542,23 @@ export default function OpdRolesScreen() {
                       <Text style={styles.staffEmail}>{s.email}</Text>
                     </View>
 
-                    <TouchableOpacity
-                      style={styles.deleteStaffBtn}
-                      onPress={() => handleDeleteStaff(s._id || s.id, s.name)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.deleteStaffBtnText}>✕</Text>
-                    </TouchableOpacity>
+                    <View style={styles.cardHeaderActions}>
+                      <TouchableOpacity
+                        style={styles.editStaffBtn}
+                        onPress={() => handleOpenEditStaff(s)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.editStaffBtnText}>✏️ Edit</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.deleteStaffBtn}
+                        onPress={() => handleDeleteStaff(s._id || s.id, s.name)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.deleteStaffBtnText}>✕</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
 
                   <View style={styles.badgesRow}>
@@ -468,6 +575,16 @@ export default function OpdRolesScreen() {
                     {isDoc && (s.fees || s.fees === 0) && (
                       <View style={styles.feeBadge}>
                         <Text style={styles.feeBadgeText}>💰 Fee: ₹{s.fees}</Text>
+                      </View>
+                    )}
+
+                    <View style={styles.salaryBadge}>
+                      <Text style={styles.salaryBadgeText}>💵 ₹{s.baseSalary || 0}/mo</Text>
+                    </View>
+
+                    {s.doj && (
+                      <View style={styles.dojBadge}>
+                        <Text style={styles.dojBadgeText}>📅 Joined {new Date(s.doj).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}</Text>
                       </View>
                     )}
                   </View>
@@ -708,6 +825,43 @@ export default function OpdRolesScreen() {
                   />
                 </View>
 
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>BASE MONTHLY SALARY (₹)</Text>
+                  <TextInput
+                    style={styles.fieldInput}
+                    placeholder="10000"
+                    placeholderTextColor="#94a3b8"
+                    keyboardType="number-pad"
+                    value={staffBaseSalary}
+                    onChangeText={setStaffBaseSalary}
+                  />
+                </View>
+
+                <View style={styles.switchRow}>
+                  <Switch
+                    value={staffUpdatePermanentBase}
+                    onValueChange={setStaffUpdatePermanentBase}
+                    trackColor={{ false: '#cbd5e1', true: '#0d9488' }}
+                  />
+                  <Text style={styles.switchText}>
+                    Also update permanent default base salary for future months
+                  </Text>
+                </View>
+
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>DATE OF JOINING (DOJ) (YYYY-MM-DD)</Text>
+                  <TextInput
+                    style={styles.fieldInput}
+                    placeholder="2026-09-01"
+                    placeholderTextColor="#94a3b8"
+                    value={staffDoj}
+                    onChangeText={setStaffDoj}
+                  />
+                  <Text style={{ fontSize: 10, color: '#64748b', marginTop: 4 }}>
+                    Salary begins from this joining month onwards.
+                  </Text>
+                </View>
+
                 {isDoctorSelected && (
                   <View style={styles.fieldGroup}>
                     <Text style={styles.fieldLabel}>DEFAULT CONSULTATION FEE (₹) *</Text>
@@ -734,6 +888,211 @@ export default function OpdRolesScreen() {
                     <Text style={styles.submitBtnText}>Create Staff Account</Text>
                   )}
                 </TouchableOpacity>
+              </ScrollView>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* ── Modal 3: Edit Staff Member ───────────────────────────────────────── */}
+      <Modal
+        visible={isEditStaffModalOpen}
+        animationType="slide"
+        transparent
+        statusBarTranslucent
+        onRequestClose={() => setIsEditStaffModalOpen(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+          style={{ flex: 1 }}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContainer}>
+              <ScrollView
+                contentContainerStyle={styles.modalContent}
+                keyboardShouldPersistTaps="handled"
+                automaticallyAdjustKeyboardInsets={true}
+              >
+                <View style={styles.modalHeader}>
+                  <View>
+                    <Text style={styles.modalTitle}>Edit Staff Member</Text>
+                    <Text style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>Update role, credentials, DOJ & base salary</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => setIsEditStaffModalOpen(false)}>
+                    <Text style={styles.modalClose}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {editStaffSuccess ? (
+                  <View style={styles.successBox}>
+                    <Text style={styles.successText}>{editStaffSuccess}</Text>
+                  </View>
+                ) : null}
+
+                {editStaffError ? (
+                  <View style={styles.errorBox}>
+                    <Text style={styles.errorText}>{editStaffError}</Text>
+                  </View>
+                ) : null}
+
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>STAFF FULL NAME *</Text>
+                  <TextInput
+                    style={styles.fieldInput}
+                    placeholder="e.g. Dr. Jane Smith"
+                    placeholderTextColor="#94a3b8"
+                    value={editStaffName}
+                    onChangeText={setEditStaffName}
+                  />
+                </View>
+
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>LOGIN EMAIL ADDRESS *</Text>
+                  <TextInput
+                    style={styles.fieldInput}
+                    placeholder="staff@hospital.com"
+                    placeholderTextColor="#94a3b8"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    value={editStaffEmail}
+                    onChangeText={setEditStaffEmail}
+                  />
+                </View>
+
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>NEW PASSWORD (OPTIONAL)</Text>
+                  <TextInput
+                    style={styles.fieldInput}
+                    placeholder="Leave empty to keep current password"
+                    placeholderTextColor="#94a3b8"
+                    secureTextEntry
+                    value={editStaffPassword}
+                    onChangeText={setEditStaffPassword}
+                  />
+                </View>
+
+                {/* Role Profile Selection */}
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>ASSIGN ROLE PROFILE *</Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.roleScrollRow}
+                    keyboardShouldPersistTaps="handled"
+                  >
+                    {roles.map((r) => {
+                      const isSelected = editStaffRoleId === (r._id || r.id);
+                      return (
+                        <TouchableOpacity
+                          key={r._id || r.id}
+                          style={[styles.roleSelectChip, isSelected && styles.roleSelectChipActive]}
+                          onPress={() => {
+                            setEditStaffRoleId(r._id || r.id);
+                            if (r.name?.toLowerCase().includes('doctor')) {
+                              setEditStaffIsDoctor(true);
+                            }
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <Text
+                            style={[
+                              styles.roleSelectChipText,
+                              isSelected && styles.roleSelectChipTextActive,
+                            ]}
+                          >
+                            {r.name}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, paddingVertical: 4 }}>
+                  <Text style={{ fontSize: 13, color: '#475569', fontWeight: '500', flex: 1, paddingRight: 8 }}>
+                    Designate as Doctor
+                  </Text>
+                  <Switch
+                    value={editStaffIsDoctor}
+                    onValueChange={setEditStaffIsDoctor}
+                    trackColor={{ false: '#cbd5e1', true: '#99f6e4' }}
+                    thumbColor={editStaffIsDoctor ? '#0f766e' : '#f8fafc'}
+                  />
+                </View>
+
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>BASE MONTHLY SALARY (₹)</Text>
+                  <TextInput
+                    style={styles.fieldInput}
+                    placeholder="10000"
+                    placeholderTextColor="#94a3b8"
+                    keyboardType="number-pad"
+                    value={editStaffBaseSalary}
+                    onChangeText={setEditStaffBaseSalary}
+                  />
+                </View>
+
+                <View style={styles.switchRow}>
+                  <Switch
+                    value={editStaffUpdatePermanentBase}
+                    onValueChange={setEditStaffUpdatePermanentBase}
+                    trackColor={{ false: '#cbd5e1', true: '#0d9488' }}
+                  />
+                  <Text style={styles.switchText}>
+                    Also update permanent default base salary for future months
+                  </Text>
+                </View>
+
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>DATE OF JOINING (DOJ) (YYYY-MM-DD)</Text>
+                  <TextInput
+                    style={styles.fieldInput}
+                    placeholder="2026-09-01"
+                    placeholderTextColor="#94a3b8"
+                    value={editStaffDoj}
+                    onChangeText={setEditStaffDoj}
+                  />
+                  <Text style={{ fontSize: 10, color: '#64748b', marginTop: 4 }}>
+                    Salary begins strictly from this joining month onwards.
+                  </Text>
+                </View>
+
+                {editStaffIsDoctor && (
+                  <View style={styles.fieldGroup}>
+                    <Text style={styles.fieldLabel}>DEFAULT CONSULTATION FEE (₹)</Text>
+                    <TextInput
+                      style={styles.fieldInput}
+                      placeholder="50"
+                      placeholderTextColor="#94a3b8"
+                      keyboardType="number-pad"
+                      value={editStaffFees}
+                      onChangeText={setEditStaffFees}
+                    />
+                  </View>
+                )}
+
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
+                  <TouchableOpacity
+                    style={[styles.submitBtn, { flex: 1, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0' }]}
+                    onPress={() => setIsEditStaffModalOpen(false)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={{ color: '#475569', fontWeight: '700', fontSize: 14 }}>Cancel</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.submitBtn, { flex: 1.5 }, submittingEditStaff && styles.btnDisabled]}
+                    onPress={handleUpdateStaff}
+                    disabled={submittingEditStaff}
+                    activeOpacity={0.8}
+                  >
+                    {submittingEditStaff ? (
+                      <ActivityIndicator color="#ffffff" />
+                    ) : (
+                      <Text style={styles.submitBtnText}>Save Changes</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
               </ScrollView>
             </View>
           </View>
@@ -1087,6 +1446,24 @@ const styles = StyleSheet.create({
     marginTop: 1,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
+  cardHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  editStaffBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+    backgroundColor: '#f0fdfa',
+    borderWidth: 1,
+    borderColor: '#99f6e4',
+  },
+  editStaffBtnText: {
+    color: '#0f766e',
+    fontSize: 11,
+    fontWeight: '700',
+  },
   deleteStaffBtn: {
     width: 28,
     height: 28,
@@ -1145,6 +1522,45 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#b45309',
+  },
+  salaryBadge: {
+    backgroundColor: '#ecfdf5',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderColor: '#a7f3d0',
+    borderWidth: 1,
+  },
+  salaryBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#047857',
+  },
+  dojBadge: {
+    backgroundColor: '#eff6ff',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderColor: '#bfdbfe',
+    borderWidth: 1,
+  },
+  dojBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#1d4ed8',
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginVertical: 10,
+    paddingHorizontal: 2,
+  },
+  switchText: {
+    fontSize: 12,
+    color: '#475569',
+    flex: 1,
+    lineHeight: 16,
   },
   roleCardHeader: {
     flexDirection: 'row',

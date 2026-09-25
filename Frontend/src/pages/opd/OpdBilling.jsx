@@ -19,6 +19,8 @@ const OpdBilling = () => {
   // Selected patient for new bill
   const [selectedPatientId, setSelectedPatientId] = useState('');
   const [consultationFee, setConsultationFee] = useState(0);
+  const [consultationDiscount, setConsultationDiscount] = useState(0);
+  const [consultationDiscountType, setConsultationDiscountType] = useState('fixed'); // 'fixed' or 'percentage'
   
   // Follow-up Date and Note (OpdReminder)
   const [followUpDate, setFollowUpDate] = useState('');
@@ -27,6 +29,11 @@ const OpdBilling = () => {
   // Custom items to add to the invoice
   const [selectedTests, setSelectedTests] = useState([]);
   const [selectedMedicines, setSelectedMedicines] = useState([]);
+
+  // Discount concession state
+  const [discount, setDiscount] = useState(0);
+  const [discountType, setDiscountType] = useState('fixed'); // 'fixed' (₹) or 'percentage' (%)
+  const [discountReason, setDiscountReason] = useState('');
 
   // Dropdown temporary choices
   const [tempTestId, setTempTestId] = useState('');
@@ -51,11 +58,11 @@ const OpdBilling = () => {
 
       // Load bills
       const billsRes = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/billing', { headers });
-      setBills(billsRes.data);
+      setBills(billsRes.data?.bills || (Array.isArray(billsRes.data) ? billsRes.data : []));
 
       // Load patients
-      const patientsRes = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/patients', { headers });
-      setPatients(patientsRes.data);
+      const patientsRes = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/patients?all=true', { headers });
+      setPatients(patientsRes.data?.patients || (Array.isArray(patientsRes.data) ? patientsRes.data : []));
 
       // Load tests catalog
       const testsRes = await axios.get((import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001') + '/api/opd/tests?all=true', { headers });
@@ -99,8 +106,13 @@ const OpdBilling = () => {
     const patientId = e.target.value;
     setSelectedPatientId(patientId);
     setConsultationFee(0);
+    setConsultationDiscount(0);
+    setConsultationDiscountType('fixed');
     setSelectedTests([]);
     setSelectedMedicines([]);
+    setDiscount(0);
+    setDiscountType('fixed');
+    setDiscountReason('');
     setFollowUpDate('');
     setFollowUpNote('');
 
@@ -146,6 +158,8 @@ const OpdBilling = () => {
       testId: testItem._id,
       name: testItem.name,
       price: testItem.price,
+      discount: 0,
+      discountType: 'fixed',
       scheduledDate: new Date().toISOString().substring(0, 10),
       notes: ''
     }]);
@@ -171,7 +185,9 @@ const OpdBilling = () => {
         medicineId: medItem._id,
         name: medItem.name,
         price: parsedPrice,
-        quantity: parseInt(tempMedicineQty)
+        quantity: parseInt(tempMedicineQty),
+        discount: 0,
+        discountType: 'fixed'
       }]);
     }
 
@@ -196,16 +212,24 @@ const OpdBilling = () => {
     setEditingBillId(bill._id);
     setSelectedPatientId(bill.patientId?._id || bill.patientId || '');
     setConsultationFee(bill.consultationFee || 0);
+    setConsultationDiscount(bill.consultationDiscount || 0);
+    setConsultationDiscountType(bill.consultationDiscountType || 'fixed');
     setSelectedTests((bill.tests || []).map(t => ({
       testId: t.testId?._id || t.testId || t._id || t.id,
       name: t.name,
-      price: t.price
+      price: t.price,
+      discount: t.discount || 0,
+      discountType: t.discountType || 'fixed',
+      scheduledDate: t.scheduledDate,
+      notes: t.notes || ''
     })));
     setSelectedMedicines((bill.medicines || []).map(m => ({
       medicineId: m.medicineId?._id || m.medicineId || m._id || m.id,
       name: m.name,
       price: m.price,
-      quantity: m.quantity || 1
+      quantity: m.quantity || 1,
+      discount: m.discount || 0,
+      discountType: m.discountType || 'fixed'
     })));
     if (bill.followUpDate) {
       setFollowUpDate(new Date(bill.followUpDate).toISOString().substring(0, 10));
@@ -215,6 +239,9 @@ const OpdBilling = () => {
       setFollowUpDate('');
     }
     setFollowUpNote(bill.followUpReminder?.message || '');
+    setDiscount(bill.discount !== undefined ? bill.discount : 0);
+    setDiscountType(bill.discountType || 'fixed');
+    setDiscountReason(bill.discountReason || '');
     setError('');
     setSuccess('');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -224,18 +251,52 @@ const OpdBilling = () => {
     setEditingBillId(null);
     setSelectedPatientId('');
     setConsultationFee(0);
+    setConsultationDiscount(0);
+    setConsultationDiscountType('fixed');
     setSelectedTests([]);
     setSelectedMedicines([]);
+    setDiscount(0);
+    setDiscountType('fixed');
+    setDiscountReason('');
     setFollowUpDate('');
     setFollowUpNote('');
     setError('');
   };
 
-  // Calculate live summary
-  const subtotalConsultation = parseFloat(consultationFee || 0);
-  const subtotalTests = selectedTests.reduce((sum, t) => sum + parseFloat(t.price || 0), 0);
-  const subtotalMedicines = selectedMedicines.reduce((sum, m) => sum + ((parseFloat(m.price) || 0) * (parseInt(m.quantity) || 1)), 0);
-  const grandTotal = subtotalConsultation + subtotalTests + subtotalMedicines;
+  // Calculate live item-level and overall summaries
+  const grossConsultation = parseFloat(consultationFee || 0);
+  const numConsultDiscount = Math.max(0, parseFloat(consultationDiscount || 0));
+  const consultDiscountAmt = consultationDiscountType === 'percentage'
+    ? (grossConsultation * Math.min(100, numConsultDiscount)) / 100
+    : Math.min(grossConsultation, numConsultDiscount);
+  const netConsultation = Math.max(0, grossConsultation - consultDiscountAmt);
+
+  const testsGross = selectedTests.reduce((sum, t) => sum + parseFloat(t.price || 0), 0);
+  const testsDiscountAmt = selectedTests.reduce((sum, t) => {
+    const p = parseFloat(t.price || 0);
+    const d = Math.max(0, parseFloat(t.discount || 0));
+    return sum + (t.discountType === 'percentage' ? (p * Math.min(100, d)) / 100 : Math.min(p, d));
+  }, 0);
+  const netTests = Math.max(0, testsGross - testsDiscountAmt);
+
+  const medicinesGross = selectedMedicines.reduce((sum, m) => sum + ((parseFloat(m.price) || 0) * (parseInt(m.quantity) || 1)), 0);
+  const medicinesDiscountAmt = selectedMedicines.reduce((sum, m) => {
+    const gross = (parseFloat(m.price) || 0) * (parseInt(m.quantity) || 1);
+    const d = Math.max(0, parseFloat(m.discount || 0));
+    return sum + (m.discountType === 'percentage' ? (gross * Math.min(100, d)) / 100 : Math.min(gross, d));
+  }, 0);
+  const netMedicines = Math.max(0, medicinesGross - medicinesDiscountAmt);
+
+  const subtotal = grossConsultation + testsGross + medicinesGross;
+  const itemDiscountsTotal = consultDiscountAmt + testsDiscountAmt + medicinesDiscountAmt;
+  const subtotalAfterItemDiscounts = Math.max(0, subtotal - itemDiscountsTotal);
+
+  const numOverallDiscount = Math.max(0, parseFloat(discount) || 0);
+  const calculatedOverallDiscount = discountType === 'percentage'
+    ? (subtotalAfterItemDiscounts * Math.min(100, numOverallDiscount)) / 100
+    : Math.min(subtotalAfterItemDiscounts, numOverallDiscount);
+  const totalAllDiscounts = itemDiscountsTotal + calculatedOverallDiscount;
+  const grandTotal = Math.max(0, subtotal - totalAllDiscounts);
 
   const handleSaveBill = async (status = 'Pending') => {
     if (!selectedPatientId) {
@@ -250,7 +311,7 @@ const OpdBilling = () => {
     try {
       const headers = { 'x-user-id': userId };
 
-      const hasConsult = subtotalConsultation > 0;
+      const hasConsult = grossConsultation > 0;
       const hasTests = selectedTests.length > 0;
       const hasMedicines = selectedMedicines.length > 0;
       const componentCount = [hasConsult, hasTests, hasMedicines].filter(Boolean).length;
@@ -264,9 +325,16 @@ const OpdBilling = () => {
 
       const payload = {
         patientId: selectedPatientId,
-        consultationFee: subtotalConsultation,
+        consultationFee: grossConsultation,
+        consultationDiscount: numConsultDiscount,
+        consultationDiscountType,
         tests: selectedTests,
         medicines: selectedMedicines,
+        subtotal,
+        discount: numOverallDiscount,
+        discountType,
+        discountReason,
+        totalAmount: grandTotal,
         billingType,
         status,
         followUpDate: followUpDate || null,
@@ -286,8 +354,13 @@ const OpdBilling = () => {
         setSuccess(`Invoice generated successfully in '${status}' state!`);
         setSelectedPatientId('');
         setConsultationFee(0);
+        setConsultationDiscount(0);
+        setConsultationDiscountType('fixed');
         setSelectedTests([]);
         setSelectedMedicines([]);
+        setDiscount(0);
+        setDiscountType('fixed');
+        setDiscountReason('');
         setFollowUpDate('');
         setFollowUpNote('');
         fetchData();
@@ -539,103 +612,356 @@ const OpdBilling = () => {
             </div>
 
             {/* Current Invoice Summary Layout */}
-            {(selectedTests.length > 0 || selectedMedicines.length > 0 || subtotalConsultation > 0) && (
+            {(selectedTests.length > 0 || selectedMedicines.length > 0 || grossConsultation > 0) && (
               <div className="border-t border-teal-100 pt-6 mt-6 bg-teal-50/20 rounded-2xl p-5 border border-dashed border-teal-100">
-                <h4 className="text-sm font-bold text-teal-950 mb-3 uppercase tracking-wide">Live Checkout Sheet</h4>
+                <div className="flex justify-between items-center mb-3">
+                  <h4 className="text-sm font-bold text-teal-950 uppercase tracking-wide">Live Checkout Sheet</h4>
+                  <span className="text-[11px] text-gray-500 font-medium">Individual item discounts supported</span>
+                </div>
                 
-                <div className="space-y-2 text-xs text-gray-700">
-                  {subtotalConsultation > 0 && (
-                    <div className="flex justify-between py-1 border-b border-teal-100/10">
-                      <span>Doctor Consultation Fee</span>
-                      <span className="font-mono font-semibold">₹{subtotalConsultation.toFixed(2)}</span>
+                <div className="space-y-3 text-xs text-gray-700">
+                  {/* Doctor Consultation Line Item */}
+                  {grossConsultation > 0 && (
+                    <div className="py-2.5 px-3 bg-white/70 border border-teal-100/60 rounded-xl space-y-1.5">
+                      <div className="flex justify-between items-center">
+                        <span className="font-semibold text-gray-800 flex items-center gap-1.5">
+                          👨‍⚕️ Doctor Consultation Fee
+                        </span>
+                        <div className="flex items-center gap-2">
+                          {consultDiscountAmt > 0 && (
+                            <span className="text-gray-400 line-through text-[11px] font-mono">₹{grossConsultation.toFixed(2)}</span>
+                          )}
+                          <span className="font-mono font-bold text-teal-950">₹{netConsultation.toFixed(2)}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 text-[11px] text-gray-500 pt-1 border-t border-gray-100">
+                        <span>Discount:</span>
+                        <div className="inline-flex rounded border border-gray-200 overflow-hidden bg-white text-[10px]">
+                          <button
+                            type="button"
+                            onClick={() => setConsultationDiscountType('fixed')}
+                            className={`px-1.5 py-0.5 font-bold cursor-pointer ${consultationDiscountType === 'fixed' ? 'bg-[#0D9488] text-white' : 'text-gray-600'}`}
+                          >
+                            ₹
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setConsultationDiscountType('percentage')}
+                            className={`px-1.5 py-0.5 font-bold cursor-pointer ${consultationDiscountType === 'percentage' ? 'bg-[#0D9488] text-white' : 'text-gray-600'}`}
+                          >
+                            %
+                          </button>
+                        </div>
+                        <input
+                          type="number"
+                          min="0"
+                          max={consultationDiscountType === 'percentage' ? 100 : grossConsultation}
+                          value={consultationDiscount === 0 ? '' : consultationDiscount}
+                          onChange={(e) => {
+                            const val = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                            setConsultationDiscount(isNaN(val) ? 0 : val);
+                          }}
+                          placeholder={consultationDiscountType === 'percentage' ? '0 %' : '₹ 0'}
+                          className="w-16 px-1.5 py-0.5 border border-gray-200 rounded text-center text-xs font-mono bg-white"
+                        />
+                        {consultDiscountAmt > 0 && (
+                          <span className="text-emerald-700 font-bold text-[10px] font-mono bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/50">
+                            -₹{consultDiscountAmt.toFixed(2)}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   )}
 
-                  {selectedTests.map((t, idx) => (
-                    <div key={`sel-t-${t.testId || t._id || t.id || idx}-${idx}`} className="py-2 border-b border-teal-100/10 space-y-1">
-                      <div className="flex justify-between items-center">
-                        <span className="flex items-center gap-1.5 font-semibold text-gray-700">
-                          <button onClick={() => removeTest(t.testId)} className="text-red-500 font-bold hover:text-red-700 cursor-pointer">×</button>
-                          🧪 {t.name}
-                        </span>
-                        <span className="font-mono font-semibold">₹{t.price.toFixed(2)}</span>
-                      </div>
-                      <div className="flex items-center gap-2 pl-4 text-[11px] text-gray-500">
-                        <label className="flex items-center gap-1">
-                          <span>📅 Schedule:</span>
+                  {/* Diagnostic Tests Line Items */}
+                  {selectedTests.map((t, idx) => {
+                    const gross = parseFloat(t.price || 0);
+                    const disc = Math.max(0, parseFloat(t.discount || 0));
+                    const discAmt = t.discountType === 'percentage' ? (gross * Math.min(100, disc)) / 100 : Math.min(gross, disc);
+                    const net = Math.max(0, gross - discAmt);
+
+                    return (
+                      <div key={`sel-t-${t.testId || t._id || t.id || idx}-${idx}`} className="py-2.5 px-3 bg-white/70 border border-teal-100/60 rounded-xl space-y-1.5">
+                        <div className="flex justify-between items-center">
+                          <span className="flex items-center gap-1.5 font-semibold text-gray-800">
+                            <button onClick={() => removeTest(t.testId)} className="text-red-500 font-bold hover:text-red-700 cursor-pointer">×</button>
+                            🧪 {t.name}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            {discAmt > 0 && (
+                              <span className="text-gray-400 line-through text-[11px] font-mono">₹{gross.toFixed(2)}</span>
+                            )}
+                            <span className="font-mono font-bold text-teal-950">₹{net.toFixed(2)}</span>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-500 pt-1 border-t border-gray-100">
+                          <label className="flex items-center gap-1">
+                            <span>📅 Schedule:</span>
+                            <input
+                              type="date"
+                              value={t.scheduledDate ? t.scheduledDate.substring(0, 10) : ''}
+                              onChange={(e) => {
+                                const updated = [...selectedTests];
+                                updated[idx] = { ...updated[idx], scheduledDate: e.target.value };
+                                setSelectedTests(updated);
+                              }}
+                              className="border border-gray-200 rounded px-1.5 py-0.5 text-xs text-gray-700 bg-white"
+                            />
+                          </label>
                           <input
-                            type="date"
-                            value={t.scheduledDate ? t.scheduledDate.substring(0, 10) : ''}
+                            type="text"
+                            placeholder="Note (e.g. Fasting, Urgent)"
+                            value={t.notes || ''}
                             onChange={(e) => {
                               const updated = [...selectedTests];
-                              updated[idx] = { ...updated[idx], scheduledDate: e.target.value };
+                              updated[idx] = { ...updated[idx], notes: e.target.value };
                               setSelectedTests(updated);
                             }}
-                            className="border border-gray-200 rounded px-1.5 py-0.5 text-xs text-gray-700 bg-white"
+                            className="flex-1 min-w-[120px] border border-gray-200 rounded px-1.5 py-0.5 text-xs text-gray-700 bg-white"
                           />
-                        </label>
+                          <div className="flex items-center gap-1">
+                            <span>Disc:</span>
+                            <div className="inline-flex rounded border border-gray-200 overflow-hidden bg-white text-[10px]">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = [...selectedTests];
+                                  updated[idx] = { ...updated[idx], discountType: 'fixed' };
+                                  setSelectedTests(updated);
+                                }}
+                                className={`px-1.5 py-0.5 font-bold cursor-pointer ${t.discountType === 'percentage' ? 'text-gray-600' : 'bg-[#0D9488] text-white'}`}
+                              >
+                                ₹
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = [...selectedTests];
+                                  updated[idx] = { ...updated[idx], discountType: 'percentage' };
+                                  setSelectedTests(updated);
+                                }}
+                                className={`px-1.5 py-0.5 font-bold cursor-pointer ${t.discountType === 'percentage' ? 'bg-[#0D9488] text-white' : 'text-gray-600'}`}
+                              >
+                                %
+                              </button>
+                            </div>
+                            <input
+                              type="number"
+                              min="0"
+                              max={t.discountType === 'percentage' ? 100 : gross}
+                              value={t.discount === 0 || !t.discount ? '' : t.discount}
+                              onChange={(e) => {
+                                const val = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                                const updated = [...selectedTests];
+                                updated[idx] = { ...updated[idx], discount: isNaN(val) ? 0 : val };
+                                setSelectedTests(updated);
+                              }}
+                              placeholder={t.discountType === 'percentage' ? '0 %' : '₹ 0'}
+                              className="w-16 px-1.5 py-0.5 border border-gray-200 rounded text-center text-xs font-mono bg-white"
+                            />
+                            {discAmt > 0 && (
+                              <span className="text-emerald-700 font-bold text-[10px] font-mono bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/50">
+                                -₹{discAmt.toFixed(2)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Pharmacy Medicines Line Items */}
+                  {selectedMedicines.map((m, idx) => {
+                    const gross = (parseFloat(m.price) || 0) * (parseInt(m.quantity) || 1);
+                    const disc = Math.max(0, parseFloat(m.discount || 0));
+                    const discAmt = m.discountType === 'percentage' ? (gross * Math.min(100, disc)) / 100 : Math.min(gross, disc);
+                    const net = Math.max(0, gross - discAmt);
+
+                    return (
+                      <div key={`sel-m-${m.medicineId || m._id || m.id || idx}-${idx}`} className="py-2.5 px-3 bg-white/70 border border-teal-100/60 rounded-xl space-y-1.5">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <span className="flex items-center gap-1.5 font-semibold text-gray-800">
+                            <button onClick={() => removeMedicine(m.medicineId)} className="text-red-500 font-bold hover:text-red-700 cursor-pointer">×</button>
+                            💊 {m.name}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            {discAmt > 0 && (
+                              <span className="text-gray-400 line-through text-[11px] font-mono">₹{gross.toFixed(2)}</span>
+                            )}
+                            <span className="font-mono font-bold text-teal-950 w-24 text-right">
+                              ₹{net.toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3 text-[11px] text-gray-500 pt-1 border-t border-gray-100">
+                          <div className="flex items-center gap-1">
+                            <span>Qty:</span>
+                            <input
+                              type="number"
+                              min="1"
+                              value={m.quantity}
+                              onChange={(e) => {
+                                const qty = parseInt(e.target.value) || 1;
+                                setSelectedMedicines(selectedMedicines.map(item =>
+                                  item.medicineId === m.medicineId ? { ...item, quantity: qty } : item
+                                ));
+                              }}
+                              className="w-12 px-1.5 py-0.5 bg-white border border-gray-200 rounded text-center text-xs font-semibold text-gray-700 outline-none focus:ring-1 focus:ring-teal-500"
+                            />
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span>Price (₹):</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={m.price}
+                              onChange={(e) => {
+                                const pr = parseFloat(e.target.value) || 0;
+                                setSelectedMedicines(selectedMedicines.map(item =>
+                                  item.medicineId === m.medicineId ? { ...item, price: pr } : item
+                                ));
+                              }}
+                              className="w-16 px-1.5 py-0.5 bg-white border border-gray-200 rounded text-center text-xs font-semibold text-gray-700 outline-none focus:ring-1 focus:ring-teal-500"
+                            />
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span>Disc:</span>
+                            <div className="inline-flex rounded border border-gray-200 overflow-hidden bg-white text-[10px]">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = [...selectedMedicines];
+                                  updated[idx] = { ...updated[idx], discountType: 'fixed' };
+                                  setSelectedMedicines(updated);
+                                }}
+                                className={`px-1.5 py-0.5 font-bold cursor-pointer ${m.discountType === 'percentage' ? 'text-gray-600' : 'bg-[#0D9488] text-white'}`}
+                              >
+                                ₹
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = [...selectedMedicines];
+                                  updated[idx] = { ...updated[idx], discountType: 'percentage' };
+                                  setSelectedMedicines(updated);
+                                }}
+                                className={`px-1.5 py-0.5 font-bold cursor-pointer ${m.discountType === 'percentage' ? 'bg-[#0D9488] text-white' : 'text-gray-600'}`}
+                              >
+                                %
+                              </button>
+                            </div>
+                            <input
+                              type="number"
+                              min="0"
+                              max={m.discountType === 'percentage' ? 100 : gross}
+                              value={m.discount === 0 || !m.discount ? '' : m.discount}
+                              onChange={(e) => {
+                                const val = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                                const updated = [...selectedMedicines];
+                                updated[idx] = { ...updated[idx], discount: isNaN(val) ? 0 : val };
+                                setSelectedMedicines(updated);
+                              }}
+                              placeholder={m.discountType === 'percentage' ? '0 %' : '₹ 0'}
+                              className="w-16 px-1.5 py-0.5 border border-gray-200 rounded text-center text-xs font-mono bg-white"
+                            />
+                            {discAmt > 0 && (
+                              <span className="text-emerald-700 font-bold text-[10px] font-mono bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/50">
+                                -₹{discAmt.toFixed(2)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Summary Totals */}
+                  <div className="flex justify-between items-center py-1.5 border-t border-teal-100/40 text-xs font-semibold text-gray-700">
+                    <span>Gross Subtotal</span>
+                    <span className="font-mono">₹{subtotal.toFixed(2)}</span>
+                  </div>
+
+                  {itemDiscountsTotal > 0 && (
+                    <div className="flex justify-between items-center py-1 text-xs font-semibold text-emerald-700">
+                      <span>Item Discounts Total</span>
+                      <span className="font-mono">-₹{itemDiscountsTotal.toFixed(2)}</span>
+                    </div>
+                  )}
+
+                  {/* Overall Invoice Concession Section */}
+                  <div className="bg-white/90 border border-teal-100 rounded-xl p-3 my-2 space-y-2.5 shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-teal-950 flex items-center gap-1.5">
+                        🏷️ Additional / Overall Concession
+                      </span>
+                      {calculatedOverallDiscount > 0 && (
+                        <span className="text-xs font-bold text-emerald-700 font-mono bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200/60">
+                          - ₹{calculatedOverallDiscount.toFixed(2)}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <div className="flex items-center rounded-lg border border-gray-200 overflow-hidden bg-white">
+                        <div className="flex bg-gray-50 border-r border-gray-200">
+                          <button
+                            type="button"
+                            onClick={() => setDiscountType('fixed')}
+                            className={`px-2.5 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+                              discountType === 'fixed'
+                                ? 'bg-[#0D9488] text-white shadow-xs'
+                                : 'text-gray-500 hover:text-gray-800'
+                            }`}
+                          >
+                            ₹ Flat
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDiscountType('percentage')}
+                            className={`px-2.5 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+                              discountType === 'percentage'
+                                ? 'bg-[#0D9488] text-white shadow-xs'
+                                : 'text-gray-500 hover:text-gray-800'
+                            }`}
+                          >
+                            %
+                          </button>
+                        </div>
                         <input
-                          type="text"
-                          placeholder="Note (e.g. Fasting, Urgent)"
-                          value={t.notes || ''}
+                          type="number"
+                          min="0"
+                          max={discountType === 'percentage' ? 100 : subtotalAfterItemDiscounts}
+                          step={discountType === 'percentage' ? '1' : '0.01'}
+                          value={discount === 0 ? '' : discount}
                           onChange={(e) => {
-                            const updated = [...selectedTests];
-                            updated[idx] = { ...updated[idx], notes: e.target.value };
-                            setSelectedTests(updated);
+                            const val = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                            setDiscount(isNaN(val) ? 0 : val);
                           }}
-                          className="flex-1 border border-gray-200 rounded px-1.5 py-0.5 text-xs text-gray-700 bg-white"
+                          placeholder={discountType === 'percentage' ? '0 %' : '0.00'}
+                          className="w-24 sm:w-28 px-2.5 py-1.5 text-xs text-gray-800 font-mono font-semibold outline-none"
                         />
                       </div>
-                    </div>
-                  ))}
 
-                  {selectedMedicines.map((m, idx) => (
-                    <div key={`sel-m-${m.medicineId || m._id || m.id || idx}-${idx}`} className="flex flex-col sm:flex-row sm:items-center justify-between py-2 border-b border-teal-100/10 gap-2">
-                      <span className="flex items-center gap-1.5 font-semibold text-gray-700">
-                        <button onClick={() => removeMedicine(m.medicineId)} className="text-red-500 font-bold hover:text-red-700 cursor-pointer">×</button>
-                        Pharmacy: {m.name}
-                      </span>
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-1 text-[10px] text-gray-400">
-                          <span>Qty:</span>
-                          <input
-                            type="number"
-                            min="1"
-                            value={m.quantity}
-                            onChange={(e) => {
-                              const qty = parseInt(e.target.value) || 1;
-                              setSelectedMedicines(selectedMedicines.map(item =>
-                                item.medicineId === m.medicineId ? { ...item, quantity: qty } : item
-                              ));
-                            }}
-                            className="w-12 px-1.5 py-0.5 bg-white border border-gray-200 rounded text-center text-xs font-semibold text-gray-700 outline-none focus:ring-1 focus:ring-teal-500"
-                          />
-                        </div>
-                        <div className="flex items-center gap-1 text-[10px] text-gray-400">
-                          <span>Price (₹):</span>
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={m.price}
-                            onChange={(e) => {
-                              const pr = parseFloat(e.target.value) || 0;
-                              setSelectedMedicines(selectedMedicines.map(item =>
-                                item.medicineId === m.medicineId ? { ...item, price: pr } : item
-                              ));
-                            }}
-                            className="w-20 px-1.5 py-0.5 bg-white border border-gray-200 rounded text-center text-xs font-semibold text-gray-700 outline-none focus:ring-1 focus:ring-teal-500"
-                          />
-                        </div>
-                        <span className="font-mono font-semibold text-teal-950 w-28 text-right">
-                          ₹{((parseFloat(m.price) || 0) * (parseInt(m.quantity) || 1)).toFixed(2)}
+                      <input
+                        type="text"
+                        placeholder="Reason (e.g. Senior Citizen, Staff, Special)"
+                        value={discountReason}
+                        onChange={(e) => setDiscountReason(e.target.value)}
+                        className="flex-1 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs text-gray-700 outline-none focus:border-teal-400"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-center text-sm font-bold text-teal-950 pt-2 border-t border-teal-200/50">
+                    <div>
+                      <span>Payable Grand Total</span>
+                      {totalAllDiscounts > 0 && (
+                        <span className="block text-[10px] font-normal text-emerald-600">
+                          Total Concessions: -₹{totalAllDiscounts.toFixed(2)}
                         </span>
-                      </div>
+                      )}
                     </div>
-                  ))}
-
-                  <div className="flex justify-between items-center text-sm font-bold text-teal-950 pt-3 mt-3 border-t border-teal-200/50">
-                    <span>Invoice Grand Total</span>
                     <span className="font-mono text-lg text-teal-800">₹{grandTotal.toFixed(2)}</span>
                   </div>
                 </div>
@@ -684,7 +1010,38 @@ const OpdBilling = () => {
             </div>
           ) : (
             <div className="space-y-4 overflow-y-auto max-h-[600px] pr-1">
-              {bills.map((bill) => (
+              {bills.map((bill) => {
+                const consultDiscAmt = (bill.consultationFee > 0 && bill.consultationDiscount > 0)
+                  ? (bill.consultationDiscountType === 'percentage'
+                      ? (bill.consultationFee * bill.consultationDiscount) / 100
+                      : Math.min(bill.consultationFee, bill.consultationDiscount))
+                  : 0;
+
+                const testsDiscAmt = (bill.tests || []).reduce((sum, t) => {
+                  const p = parseFloat(t.price || 0);
+                  const d = (t.discount > 0)
+                    ? (t.discountType === 'percentage' ? (p * t.discount) / 100 : Math.min(p, t.discount))
+                    : 0;
+                  return sum + d;
+                }, 0);
+
+                const medsDiscAmt = (bill.medicines || []).reduce((sum, m) => {
+                  const gross = (parseFloat(m.price) || 0) * (parseInt(m.quantity) || 1);
+                  const d = (m.discount > 0)
+                    ? (m.discountType === 'percentage' ? (gross * m.discount) / 100 : Math.min(gross, m.discount))
+                    : 0;
+                  return sum + d;
+                }, 0);
+
+                const totalItemDiscounts = consultDiscAmt + testsDiscAmt + medsDiscAmt;
+                const billDiscountAmt = (bill.discount > 0)
+                  ? (bill.discountType === 'percentage'
+                      ? (((bill.subtotal || ((bill.totalAmount || 0) + (bill.discount || 0))) * bill.discount) / 100)
+                      : bill.discount)
+                  : 0;
+                const grossSubtotal = parseFloat(bill.subtotal || ((bill.totalAmount || 0) + billDiscountAmt + totalItemDiscounts));
+
+                return (
                 <div key={bill._id} className="bg-slate-50 p-4 border border-slate-100 rounded-xl space-y-2">
                   <div className="flex justify-between items-start">
                     <div>
@@ -701,20 +1058,69 @@ const OpdBilling = () => {
                   <div className="text-[11px] text-gray-600 space-y-1">
                     {bill.consultationFee > 0 && (
                       <div className="flex justify-between">
-                        <span>Consult Fee:</span>
-                        <span>₹{parseFloat(bill.consultationFee).toFixed(2)}</span>
+                        <span>
+                          Consult Fee:
+                          {consultDiscAmt > 0 && (
+                            <span className="text-emerald-700 ml-1 text-[10px] font-semibold">
+                              ({bill.consultationDiscountType === 'percentage' ? `${bill.consultationDiscount}% • ` : ''}-₹{consultDiscAmt.toFixed(2)})
+                            </span>
+                          )}
+                        </span>
+                        <span>
+                          ₹{(parseFloat(bill.consultationFee) - consultDiscAmt).toFixed(2)}
+                        </span>
                       </div>
                     )}
                     {bill.tests && bill.tests.length > 0 && (
                       <div className="flex justify-between">
                         <span>Diagnostics ({bill.tests.length}):</span>
-                        <span>₹{bill.tests.reduce((sum, t) => sum + parseFloat(t.price || 0), 0).toFixed(2)}</span>
+                        <span>
+                          ₹{bill.tests.reduce((sum, t) => {
+                            const p = parseFloat(t.price || 0);
+                            const d = (t.discount > 0)
+                              ? (t.discountType === 'percentage' ? (p * t.discount) / 100 : Math.min(p, t.discount))
+                              : 0;
+                            return sum + Math.max(0, p - d);
+                          }, 0).toFixed(2)}
+                        </span>
                       </div>
                     )}
                     {bill.medicines && bill.medicines.length > 0 && (
                       <div className="flex justify-between">
                         <span>Medicines ({bill.medicines.reduce((sum, m) => sum + (parseInt(m.quantity) || 1), 0)}):</span>
-                        <span>₹{bill.medicines.reduce((sum, m) => sum + ((parseFloat(m.price) || 0) * (parseInt(m.quantity) || 1)), 0).toFixed(2)}</span>
+                        <span>
+                          ₹{bill.medicines.reduce((sum, m) => {
+                            const gross = (parseFloat(m.price) || 0) * (parseInt(m.quantity) || 1);
+                            const d = (m.discount > 0)
+                              ? (m.discountType === 'percentage' ? (gross * m.discount) / 100 : Math.min(gross, m.discount))
+                              : 0;
+                            return sum + Math.max(0, gross - d);
+                          }, 0).toFixed(2)}
+                        </span>
+                      </div>
+                    )}
+                    {(totalItemDiscounts > 0 || bill.discount > 0 || (bill.subtotal && bill.subtotal > bill.totalAmount)) && (
+                      <div className="flex justify-between text-gray-500">
+                        <span>Gross Subtotal:</span>
+                        <span>₹{grossSubtotal.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {totalItemDiscounts > 0 && (
+                      <div className="flex justify-between text-emerald-700 font-semibold">
+                        <span className="flex items-center gap-1">
+                          🏷️ Total Item Discounts:
+                        </span>
+                        <span>-₹{totalItemDiscounts.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {bill.discount > 0 && (
+                      <div className="flex justify-between text-emerald-700 font-semibold">
+                        <span className="flex items-center gap-1">
+                          🏷️ Bill Discount ({bill.discountType === 'percentage' ? `${bill.discount}%` : `₹${bill.discount}`}):
+                        </span>
+                        <span>
+                          -₹{billDiscountAmt.toFixed(2)}
+                        </span>
                       </div>
                     )}
                     <div className="flex justify-between font-bold text-teal-950 pt-1.5 border-t border-slate-200/50">
@@ -773,7 +1179,8 @@ const OpdBilling = () => {
                     </button>
                   </div>
                 </div>
-              ))}
+              );
+              })}
             </div>
           )}
         </div>
@@ -826,29 +1233,110 @@ const OpdBilling = () => {
                 <p className="font-bold text-gray-500 uppercase tracking-wide text-[10px] mb-2">Itemized Breakdown</p>
                 <div className="space-y-1.5">
                   {printBill.consultationFee > 0 && (
-                    <div className="flex justify-between">
-                      <span>Doctor Consultation Fee</span>
-                      <span className="font-mono font-semibold">₹{parseFloat(printBill.consultationFee).toFixed(2)}</span>
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <span>Doctor Consultation Fee</span>
+                        {printBill.consultationDiscount > 0 && (
+                          <span className="text-[10px] text-emerald-600 ml-1.5 font-medium">
+                            (Disc: {printBill.consultationDiscountType === 'percentage' ? `${printBill.consultationDiscount}%` : `₹${printBill.consultationDiscount}`})
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        {printBill.consultationDiscount > 0 && (
+                          <span className="text-[10px] text-gray-400 line-through mr-1 font-mono">₹{parseFloat(printBill.consultationFee).toFixed(2)}</span>
+                        )}
+                        <span className="font-mono font-semibold">
+                          ₹{(printBill.consultationDiscount > 0
+                            ? Math.max(0, printBill.consultationDiscountType === 'percentage'
+                                ? printBill.consultationFee - (printBill.consultationFee * printBill.consultationDiscount) / 100
+                                : printBill.consultationFee - printBill.consultationDiscount)
+                            : parseFloat(printBill.consultationFee)
+                          ).toFixed(2)}
+                        </span>
+                      </div>
                     </div>
                   )}
-                  {printBill.tests && printBill.tests.map(t => (
-                    <div key={t.testId || t._id} className="flex justify-between">
-                      <span>Diagnostic: {t.name}</span>
-                      <span className="font-mono font-semibold">₹{parseFloat(t.price || 0).toFixed(2)}</span>
-                    </div>
-                  ))}
-                  {printBill.medicines && printBill.medicines.map(m => (
-                    <div key={m.medicineId || m._id} className="flex justify-between">
-                      <span>Pharmacy: {m.name} × {m.quantity || 1}</span>
-                      <span className="font-mono font-semibold">₹{((parseFloat(m.price) || 0) * (parseInt(m.quantity) || 1)).toFixed(2)}</span>
-                    </div>
-                  ))}
+                  {printBill.tests && printBill.tests.map(t => {
+                    const tPrice = parseFloat(t.price || 0);
+                    const tDiscAmt = (t.discount > 0)
+                      ? (t.discountType === 'percentage' ? (tPrice * t.discount) / 100 : Math.min(tPrice, t.discount))
+                      : 0;
+                    const tNet = Math.max(0, tPrice - tDiscAmt);
+                    return (
+                      <div key={t.testId || t._id} className="flex justify-between items-center">
+                        <div>
+                          <span>Diagnostic: {t.name}</span>
+                          {t.discount > 0 && (
+                            <span className="text-[10px] text-emerald-600 ml-1.5 font-medium">
+                              (Disc: {t.discountType === 'percentage' ? `${t.discount}%` : `₹${t.discount}`})
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          {t.discount > 0 && (
+                            <span className="text-[10px] text-gray-400 line-through mr-1 font-mono">₹{tPrice.toFixed(2)}</span>
+                          )}
+                          <span className="font-mono font-semibold">₹{tNet.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {printBill.medicines && printBill.medicines.map(m => {
+                    const mGross = (parseFloat(m.price) || 0) * (parseInt(m.quantity) || 1);
+                    const mDiscAmt = (m.discount > 0)
+                      ? (m.discountType === 'percentage' ? (mGross * m.discount) / 100 : Math.min(mGross, m.discount))
+                      : 0;
+                    const mNet = Math.max(0, mGross - mDiscAmt);
+                    return (
+                      <div key={m.medicineId || m._id} className="flex justify-between items-center">
+                        <div>
+                          <span>Pharmacy: {m.name} × {m.quantity || 1}</span>
+                          {m.discount > 0 && (
+                            <span className="text-[10px] text-emerald-600 ml-1.5 font-medium">
+                              (Disc: {m.discountType === 'percentage' ? `${m.discount}%` : `₹${m.discount}`})
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          {m.discount > 0 && (
+                            <span className="text-[10px] text-gray-400 line-through mr-1 font-mono">₹{mGross.toFixed(2)}</span>
+                          )}
+                          <span className="font-mono font-semibold">₹{mNet.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
-              <div className="flex justify-between items-center border-t border-dashed border-gray-200 pt-3 mt-3 text-sm font-bold text-teal-950">
-                <span>Grand Total Amount:</span>
-                <span className="text-base text-teal-800">₹{parseFloat(printBill.totalAmount || 0).toFixed(2)}</span>
+              <div className="border-t border-dashed border-gray-200 pt-3 mt-3 space-y-1.5">
+                {(printBill.discount > 0 || (printBill.subtotal && printBill.subtotal > printBill.totalAmount)) && (
+                  <div className="flex justify-between text-gray-600 font-medium">
+                    <span>Subtotal:</span>
+                    <span className="font-mono">
+                      ₹{parseFloat(printBill.subtotal || ((printBill.totalAmount || 0) + (printBill.discount || 0))).toFixed(2)}
+                    </span>
+                  </div>
+                )}
+                {printBill.discount > 0 && (
+                  <div className="flex justify-between text-emerald-700 font-medium">
+                    <span>
+                      Discount ({printBill.discountType === 'percentage' ? `${printBill.discount}%` : `₹${printBill.discount}`}
+                      {printBill.discountReason ? ` • ${printBill.discountReason}` : ''}):
+                    </span>
+                    <span className="font-mono">
+                      -₹{(printBill.discountType === 'percentage'
+                        ? (((printBill.subtotal || ((printBill.totalAmount || 0) + (printBill.discount || 0))) * printBill.discount) / 100)
+                        : printBill.discount
+                      ).toFixed(2)}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center text-sm font-bold text-teal-950 pt-1.5 border-t border-gray-100">
+                  <span>Payable Grand Total:</span>
+                  <span className="text-base text-teal-800">₹{parseFloat(printBill.totalAmount || 0).toFixed(2)}</span>
+                </div>
               </div>
             </div>
 

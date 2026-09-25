@@ -15,8 +15,10 @@ const PERMISSION_MODULES = [
   { id: 'medicines', name: 'Pharmacy Stock', icon: '💊' },
   { id: 'tests', name: 'Diagnostics', icon: '🧪' },
   { id: 'billing', name: 'Billing', icon: '🧾' },
+  { id: 'reports', name: 'Revenue & Reports', icon: '📊' },
   { id: 'roles', name: 'Staff & Roles', icon: '🛡️' },
   { id: 'reminders', name: 'Reminders', icon: '🔔' },
+  { id: 'accounts', name: 'Accounts & Payroll', icon: '💳' },
 ];
 
 const LEGACY_MAP = {
@@ -26,7 +28,9 @@ const LEGACY_MAP = {
   manage_medicines: ['medicines:read', 'medicines:add', 'medicines:edit', 'medicines:delete'],
   manage_tests: ['tests:read', 'tests:add', 'tests:edit', 'tests:delete'],
   manage_billing: ['billing:read', 'billing:add', 'billing:edit', 'billing:delete'],
+  manage_reports: ['reports:read', 'reports:add', 'reports:edit', 'reports:delete'],
   manage_roles: ['roles:read', 'roles:add', 'roles:edit', 'roles:delete'],
+  manage_accounts: ['accounts:read', 'accounts:add', 'accounts:edit', 'accounts:delete'],
 };
 
 
@@ -49,9 +53,27 @@ const OpdRoles = () => {
   const [staffRoleId, setStaffRoleId] = useState('');
   const [staffIsDoctor, setStaffIsDoctor] = useState(false);
   const [staffFees, setStaffFees] = useState('50');
+  const [staffBaseSalary, setStaffBaseSalary] = useState('10000');
+  const [staffDoj, setStaffDoj] = useState(new Date().toISOString().slice(0, 10));
+  const [staffUpdatePermanentBase, setStaffUpdatePermanentBase] = useState(true);
 
   const [staffSuccess, setStaffSuccess] = useState('');
   const [staffError, setStaffError] = useState('');
+
+  // Edit Staff Modal State
+  const [editingStaff, setEditingStaff] = useState(null);
+  const [editStaffName, setEditStaffName] = useState('');
+  const [editStaffEmail, setEditStaffEmail] = useState('');
+  const [editStaffPassword, setEditStaffPassword] = useState('');
+  const [editStaffRoleId, setEditStaffRoleId] = useState('');
+  const [editStaffIsDoctor, setEditStaffIsDoctor] = useState(false);
+  const [editStaffFees, setEditStaffFees] = useState('50');
+  const [editStaffBaseSalary, setEditStaffBaseSalary] = useState('10000');
+  const [editStaffDoj, setEditStaffDoj] = useState('');
+  const [editStaffUpdatePermanentBase, setEditStaffUpdatePermanentBase] = useState(true);
+  const [editStaffError, setEditStaffError] = useState('');
+  const [editStaffSuccess, setEditStaffSuccess] = useState('');
+  const [editStaffLoading, setEditStaffLoading] = useState(false);
 
   const userId = localStorage.getItem('userId');
 
@@ -179,7 +201,10 @@ const OpdRoles = () => {
         password: staffPassword,
         roleId: staffRoleId,
         isDoctor: staffIsDoctor,
-        fees: isDoctorSelected ? parseFloat(staffFees || 0) : 0
+        fees: isDoctorSelected ? parseFloat(staffFees || 0) : 0,
+        baseSalary: parseFloat(staffBaseSalary || 0),
+        doj: staffDoj,
+        updatePermanentBase: staffUpdatePermanentBase
       }, { headers });
 
       setStaffSuccess('Staff account created successfully!');
@@ -189,6 +214,9 @@ const OpdRoles = () => {
       setStaffRoleId('');
       setStaffIsDoctor(false);
       setStaffFees('50');
+      setStaffBaseSalary('10000');
+      setStaffDoj(new Date().toISOString().slice(0, 10));
+      setStaffUpdatePermanentBase(true);
       fetchData();
     } catch (err) {
       setStaffError(err.response?.data?.message || 'Error creating staff login.');
@@ -203,6 +231,63 @@ const OpdRoles = () => {
       fetchData();
     } catch (err) {
       alert('Error deleting staff member');
+    }
+  };
+
+  const handleOpenEditStaff = (st) => {
+    setEditingStaff(st);
+    setEditStaffName(st.name || '');
+    setEditStaffEmail(st.email || '');
+    setEditStaffPassword('');
+    const rId = st.role?._id || (typeof st.role === 'string' ? st.role : '');
+    setEditStaffRoleId(rId || (roles[0]?._id || ''));
+    setEditStaffIsDoctor(!!st.isDoctor);
+    setEditStaffFees(st.fees !== undefined ? String(st.fees) : '50');
+    setEditStaffBaseSalary(st.baseSalary !== undefined ? String(st.baseSalary) : '10000');
+    setEditStaffDoj(st.doj ? new Date(st.doj).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10));
+    setEditStaffUpdatePermanentBase(true);
+    setEditStaffError('');
+    setEditStaffSuccess('');
+  };
+
+  const handleUpdateStaff = async (e) => {
+    e.preventDefault();
+    if (!editingStaff) return;
+    setEditStaffError('');
+    setEditStaffSuccess('');
+
+    try {
+      setEditStaffLoading(true);
+      const headers = { 'x-user-id': userId };
+      const payload = {
+        name: editStaffName,
+        email: editStaffEmail,
+        roleId: editStaffRoleId,
+        isDoctor: editStaffIsDoctor,
+        fees: parseFloat(editStaffFees || 0),
+        baseSalary: parseFloat(editStaffBaseSalary || 0),
+        doj: editStaffDoj,
+        updatePermanentBase: editStaffUpdatePermanentBase
+      };
+      if (editStaffPassword && editStaffPassword.trim()) {
+        payload.password = editStaffPassword.trim();
+      }
+
+      await axios.put(
+        `${import.meta.env.VITE_BACKEND_URI || 'http://localhost:5001'}/api/opd/staff/staff/${editingStaff._id}`,
+        payload,
+        { headers }
+      );
+
+      setEditStaffSuccess('Staff details updated successfully!');
+      setTimeout(() => {
+        setEditingStaff(null);
+        fetchData();
+      }, 500);
+    } catch (err) {
+      setEditStaffError(err.response?.data?.message || 'Error updating staff details.');
+    } finally {
+      setEditStaffLoading(false);
     }
   };
 
@@ -459,6 +544,39 @@ const OpdRoles = () => {
               </select>
             </div>
 
+            <div>
+              <label className="block text-xs font-bold text-gray-600 mb-1.5 uppercase">Base Monthly Salary (₹)</label>
+              <input
+                type="number"
+                min="0"
+                value={staffBaseSalary}
+                onChange={(e) => setStaffBaseSalary(e.target.value)}
+                className="w-full px-4 py-2.5 bg-slate-50 border border-gray-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none text-sm text-gray-800"
+                placeholder="e.g. 10000"
+              />
+              <label className="flex items-center gap-2.5 cursor-pointer mt-2.5 text-xs font-medium text-slate-600 select-none bg-slate-50 border border-gray-100 rounded-xl px-3 py-2">
+                <input
+                  type="checkbox"
+                  checked={staffUpdatePermanentBase}
+                  onChange={(e) => setStaffUpdatePermanentBase(e.target.checked)}
+                  className="w-4 h-4 rounded accent-teal-600 cursor-pointer"
+                />
+                <span>Also update permanent default base salary for future months</span>
+              </label>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-600 mb-1.5 uppercase">Date of Joining (DOJ) *</label>
+              <input
+                type="date"
+                required
+                value={staffDoj}
+                onChange={(e) => setStaffDoj(e.target.value)}
+                className="w-full px-4 py-2.5 bg-slate-50 border border-gray-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none text-sm text-gray-800"
+              />
+              <span className="text-[10px] text-gray-400 mt-1 block">Staff salary begins from their Date of Joining month onwards.</span>
+            </div>
+
             {isDoctorSelected && (
               <div className="animate-fade-in">
                 <label className="block text-xs font-bold text-gray-600 mb-1.5 uppercase">Consultation Fees (₹) *</label>
@@ -508,12 +626,14 @@ const OpdRoles = () => {
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px] text-left border-collapse text-sm whitespace-nowrap">
+            <table className="w-full min-w-[640px] text-left border-collapse text-sm whitespace-nowrap">
               <thead>
                 <tr className="border-b border-gray-100 text-gray-400 font-bold uppercase text-[10px]">
                   <th className="pb-3">Staff Name</th>
                   <th className="pb-3">Email Address</th>
                   <th className="pb-3">Role Profile</th>
+                  <th className="pb-3">Base Salary</th>
+                  <th className="pb-3">Date of Joining</th>
                   <th className="pb-3 text-right">Actions</th>
                 </tr>
               </thead>
@@ -537,12 +657,24 @@ const OpdRoles = () => {
                         </span>
                       )}
                     </td>
-                    <td className="py-3.5 text-right">
+                    <td className="py-3.5 pr-2 font-semibold text-slate-800 text-xs">
+                      ₹{st.baseSalary ? Number(st.baseSalary).toLocaleString('en-IN') : 0}
+                    </td>
+                    <td className="py-3.5 pr-2 text-xs text-slate-500 font-mono">
+                      {st.doj ? new Date(st.doj).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }) : '—'}
+                    </td>
+                    <td className="py-3.5 text-right space-x-3">
+                      <button
+                        onClick={() => handleOpenEditStaff(st)}
+                        className="text-teal-600 hover:text-teal-800 text-xs font-bold cursor-pointer transition-colors"
+                      >
+                        ✏️ Edit
+                      </button>
                       <button
                         onClick={() => handleDeleteStaff(st._id)}
-                        className="text-red-500 hover:text-red-700 text-xs font-bold cursor-pointer"
+                        className="text-red-500 hover:text-red-700 text-xs font-bold cursor-pointer transition-colors"
                       >
-                        Delete Login
+                        Delete
                       </button>
                     </td>
                   </tr>
@@ -552,6 +684,168 @@ const OpdRoles = () => {
           </div>
         )}
       </div>
+
+      {/* Edit Staff Modal */}
+      {editingStaff && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 max-w-lg w-full p-6 sm:p-7 relative overflow-hidden animate-scale-in">
+            <div className="flex items-center justify-between pb-4 border-b border-gray-100 mb-5">
+              <div>
+                <h3 className="text-xl font-bold text-teal-950 font-literata">Edit Staff Member</h3>
+                <p className="text-xs text-gray-500 mt-0.5">Update credentials, role assignment, DOJ, and base salary</p>
+              </div>
+              <button
+                onClick={() => setEditingStaff(null)}
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center font-bold text-sm cursor-pointer transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {editStaffSuccess && (
+              <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-xl font-medium">
+                {editStaffSuccess}
+              </div>
+            )}
+            {editStaffError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl font-medium">
+                {editStaffError}
+              </div>
+            )}
+
+            <form onSubmit={handleUpdateStaff} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Staff Full Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={editStaffName}
+                  onChange={(e) => setEditStaffName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Email Address *</label>
+                <input
+                  type="email"
+                  required
+                  value={editStaffEmail}
+                  onChange={(e) => setEditStaffEmail(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-600 uppercase mb-1">New Password (Optional)</label>
+                <input
+                  type="password"
+                  placeholder="Leave empty to keep current password"
+                  value={editStaffPassword}
+                  onChange={(e) => setEditStaffPassword(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Role Profile *</label>
+                  <select
+                    value={editStaffRoleId}
+                    onChange={(e) => {
+                      setEditStaffRoleId(e.target.value);
+                      const chosen = roles.find(r => r._id === e.target.value);
+                      if (chosen && chosen.name.toLowerCase().includes('doctor')) {
+                        setEditStaffIsDoctor(true);
+                      }
+                    }}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  >
+                    {roles.map(r => (
+                      <option key={r._id} value={r._id}>{r.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Base Monthly Salary (₹)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editStaffBaseSalary}
+                    onChange={(e) => setEditStaffBaseSalary(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                  <label className="flex items-center gap-2.5 cursor-pointer mt-2.5 text-xs font-medium text-slate-600 select-none bg-slate-50 border border-gray-100 rounded-xl px-3 py-2">
+                    <input
+                      type="checkbox"
+                      checked={editStaffUpdatePermanentBase}
+                      onChange={(e) => setEditStaffUpdatePermanentBase(e.target.checked)}
+                      className="w-4 h-4 rounded accent-teal-600 cursor-pointer"
+                    />
+                    <span>Also update permanent default base salary for future months</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Date of Joining (DOJ)</label>
+                  <input
+                    type="date"
+                    value={editStaffDoj}
+                    onChange={(e) => setEditStaffDoj(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+
+                {editStaffIsDoctor && (
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Consultation Fee (₹)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={editStaffFees}
+                      onChange={(e) => setEditStaffFees(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="editIsDoctor"
+                  checked={editStaffIsDoctor}
+                  onChange={(e) => setEditStaffIsDoctor(e.target.checked)}
+                  className="w-4 h-4 rounded text-teal-600 focus:ring-teal-500 cursor-pointer"
+                />
+                <label htmlFor="editIsDoctor" className="text-xs text-gray-700 cursor-pointer font-medium">
+                  Designate as Doctor (can be assigned OPD appointments)
+                </label>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingStaff(null)}
+                  className="px-4 py-2 text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={editStaffLoading}
+                  className="px-5 py-2 text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 rounded-xl transition-all shadow-md shadow-teal-600/20 cursor-pointer disabled:opacity-50"
+                >
+                  {editStaffLoading ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

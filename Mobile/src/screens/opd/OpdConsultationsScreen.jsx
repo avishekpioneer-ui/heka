@@ -3,6 +3,7 @@ import {
   StyleSheet,
   Text,
   View,
+  FlatList,
   ScrollView,
   TextInput,
   TouchableOpacity,
@@ -77,7 +78,7 @@ const QUICK_TESTS = [
   'Ultrasound Whole Abdomen',
 ];
 
-export default function OpdConsultationsScreen({ onNavigate, routeParams }) {
+export default function OpdConsultationsScreen({ onNavigate, routeParams, refreshKey }) {
   const [activeTab, setActiveTab] = useState('active'); // 'active' | 'history'
   const [appointments, setAppointments] = useState([]);
   const [medicinesList, setMedicinesList] = useState([]);
@@ -85,6 +86,10 @@ export default function OpdConsultationsScreen({ onNavigate, routeParams }) {
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -112,8 +117,8 @@ export default function OpdConsultationsScreen({ onNavigate, routeParams }) {
   const [issuedPrescription, setIssuedPrescription] = useState(null);
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    fetchData(1, false);
+  }, [refreshKey]);
 
   // Pre-fill appointment if navigated from Appointments queue
   useEffect(() => {
@@ -124,47 +129,82 @@ export default function OpdConsultationsScreen({ onNavigate, routeParams }) {
     }
   }, [routeParams]);
 
-  const fetchData = async () => {
+  const fetchData = async (pageNum = 1, isAppend = false) => {
     try {
-      setLoading(true);
-      const role = await storage.getItem('userRoleName');
-      const name = await storage.getItem('userName');
-      const uid = await storage.getItem('userId');
+      if (pageNum === 1) {
+        setLoading(true);
+      } else {
+        setLoadingMore(true);
+      }
 
-      // Fetch appointments, medicines, consultations, and registered diagnostic tests
-      const [aRes, mRes, cRes, tRes] = await Promise.all([
-        apiClient.get('/api/opd/appointments').catch(() => ({ data: [] })),
-        apiClient.get('/api/opd/medicines').catch(() => ({ data: [] })),
-        apiClient.get('/api/opd/consultations').catch(() => ({ data: [] })),
-        apiClient.get('/api/opd/tests').catch(() => ({ data: [] })),
-      ]);
+      const promises = [
+        apiClient.get(`/api/opd/consultations?page=${pageNum}&limit=50`).catch(() => ({ data: [] })),
+      ];
 
-      const aData = aRes.data?.appointments || aRes.data || [];
-      let aList = Array.isArray(aData) ? aData : [];
+      // On initial load (page 1), load appts, medicines catalog, and test catalog
+      if (pageNum === 1) {
+        promises.push(apiClient.get('/api/opd/appointments?all=true').catch(() => ({ data: [] })));
+        promises.push(apiClient.get('/api/opd/medicines?all=true').catch(() => ({ data: [] })));
+        promises.push(apiClient.get('/api/opd/tests?all=true').catch(() => ({ data: [] })));
+      }
 
-      // Filter to Scheduled appointments for dropdown
-      const scheduledAppts = aList.filter((a) => a.status === 'Scheduled');
-      setAppointments(scheduledAppts);
+      const [cRes, aRes, mRes, tRes] = await Promise.all(promises);
 
-      const mData = mRes.data?.medicines || mRes.data || [];
-      setMedicinesList(Array.isArray(mData) ? mData : []);
+      const cData = cRes.data?.consultations || cRes.data?.data || (Array.isArray(cRes.data) ? cRes.data : []);
+      const newHasMore = typeof cRes.data?.hasMore === 'boolean' ? cRes.data.hasMore : cData.length === 50;
 
-      const cData = cRes.data?.consultations || cRes.data || [];
-      setConsultations(Array.isArray(cData) ? cData : []);
+      if (isAppend) {
+        setConsultations((prev) => [...prev, ...cData]);
+      } else {
+        setConsultations(cData);
+      }
 
-      const tData = tRes.data?.tests || tRes.data || [];
-      setTestsList(Array.isArray(tData) ? tData : []);
+      setHasMore(newHasMore);
+      setPage(pageNum);
+
+      if (aRes) {
+        const aData = aRes.data?.appointments || aRes.data?.data || (Array.isArray(aRes.data) ? aRes.data : []);
+        const scheduledAppts = (Array.isArray(aData) ? aData : []).filter((a) => a.status === 'Scheduled');
+        setAppointments(scheduledAppts);
+      }
+
+      if (mRes) {
+        const mData = mRes.data?.medicines || mRes.data?.data || (Array.isArray(mRes.data) ? mRes.data : []);
+        setMedicinesList(Array.isArray(mData) ? mData : []);
+      }
+
+      if (tRes) {
+        const tData = tRes.data?.tests || tRes.data?.data || (Array.isArray(tRes.data) ? tRes.data : []);
+        setTestsList(Array.isArray(tData) ? tData : []);
+      }
     } catch (err) {
       console.error('Error fetching consultation data:', err);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
       setRefreshing(false);
+    }
+  };
+
+  const handleLoadMore = () => {
+    if (!loading && !loadingMore && hasMore && activeTab === 'history') {
+      fetchData(page + 1, true);
     }
   };
 
   const onRefresh = () => {
     setRefreshing(true);
-    fetchData();
+    fetchData(1, false);
+  };
+
+  const renderFooter = () => {
+    if (!loadingMore) return <View style={{ height: 24 }} />;
+    return (
+      <View style={{ paddingVertical: 18, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="small" color="#0D9488" />
+        <Text style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Loading more case history (50 per page)...</Text>
+      </View>
+    );
   };
 
   // ── Appointment Selection ───────────────────────────────────────────────
@@ -373,50 +413,188 @@ export default function OpdConsultationsScreen({ onNavigate, routeParams }) {
     return pName.includes(q) || dName.includes(q) || diag.includes(q);
   });
 
+  const renderHeader = () => (
+    <View>
+      {/* Header */}
+      <View style={styles.headerRow}>
+        <View style={{ flex: 1, marginRight: 10 }}>
+          <Text style={styles.title}>Doctor EMR Workspace</Text>
+          <Text style={styles.subtitle}>
+            Clinical examination, prescription builder & patient case history
+          </Text>
+        </View>
+      </View>
+
+      {/* Tab Selector */}
+      <View style={styles.tabContainer}>
+        <TouchableOpacity
+          style={[styles.tabBtn, activeTab === 'active' && styles.tabBtnActive]}
+          onPress={() => setActiveTab('active')}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.tabText, activeTab === 'active' && styles.tabTextActive]}>
+            🩺 Active Consult {selectedAppt ? '(1 Loaded)' : ''}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tabBtn, activeTab === 'history' && styles.tabBtnActive]}
+          onPress={() => setActiveTab('history')}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.tabText, activeTab === 'history' && styles.tabTextActive]}>
+            📋 Case History ({consultations.length})
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  const renderHistoryCard = ({ item: cons }) => (
+    <View key={cons._id || cons.id} style={styles.historyCard}>
+      <View style={styles.historyCardHeader}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.historyPatientName}>
+            {cons.patientName || cons.patientId?.name || 'Walk-in Patient'}
+          </Text>
+          <Text style={styles.historyDoctorName}>
+            👨‍⚕️ Dr. {cons.doctorName || 'Consultant In-Charge'}
+          </Text>
+        </View>
+
+        <View style={{ flexDirection: 'row', gap: 6 }}>
+          <TouchableOpacity
+            style={styles.printSlipBtn}
+            onPress={() => printPrescription(cons)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.printSlipBtnText}>📄 PDF</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.shareSlipBtn}
+            onPress={() => sharePrescriptionPdf(cons)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.shareSlipBtnText}>📤 Share</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <Text style={styles.historyDate}>
+        📅 {new Date(cons.createdAt || Date.now()).toLocaleString()}
+      </Text>
+
+      {cons.symptoms ? (
+        <View style={styles.historyDetailRow}>
+          <Text style={styles.historyDetailLabel}>Symptoms:</Text>
+          <Text style={styles.historyDetailVal}>{cons.symptoms}</Text>
+        </View>
+      ) : null}
+
+      {cons.diagnosis ? (
+        <View style={styles.diagnosisTagBox}>
+          <Text style={styles.diagnosisTagLabel}>Dx:</Text>
+          <Text style={styles.diagnosisTagText}>{cons.diagnosis}</Text>
+        </View>
+      ) : null}
+
+      {cons.prescription && cons.prescription.length > 0 && (
+        <View style={styles.historyRxBox}>
+          <Text style={styles.historyRxTitle}>💊 PRESCRIBED MEDICINES:</Text>
+          {cons.prescription.map((rx, rIdx) => (
+            <Text key={rIdx} style={styles.historyRxItem}>
+              • {rx.medicineName}{' '}
+              <Text style={styles.historyRxDosage}>
+                ({rx.dosage} • {rx.duration})
+              </Text>
+            </Text>
+          ))}
+        </View>
+      )}
+
+      {cons.tests && cons.tests.length > 0 && (
+        <View style={styles.historyTestsBox}>
+          <Text style={styles.historyTestsTitle}>🔬 RECOMMENDED TESTS:</Text>
+          {cons.tests.map((t, tIdx) => (
+            <Text key={tIdx} style={styles.historyTestItem}>
+              • {typeof t === 'string' ? t : (t.testName || t.name)}{' '}
+              {t.notes ? (
+                <Text style={styles.historyTestNotes}>({t.notes})</Text>
+              ) : null}
+            </Text>
+          ))}
+        </View>
+      )}
+
+      {cons.followUpDate ? (
+        <View style={styles.historyFollowUpBox}>
+          <Text style={styles.historyFollowUpText}>
+            ⏰ Follow-up Scheduled: {new Date(cons.followUpDate).toLocaleDateString()}
+          </Text>
+        </View>
+      ) : null}
+    </View>
+  );
+
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-      <ScrollView
-        contentContainerStyle={styles.container}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        automaticallyAdjustKeyboardInsets={true}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#0D9488']} />}
-      >
-        {/* Header */}
-        <View style={styles.headerRow}>
-          <View style={{ flex: 1, marginRight: 10 }}>
-            <Text style={styles.title}>Doctor EMR Workspace</Text>
-            <Text style={styles.subtitle}>
-              Clinical examination, prescription builder & patient case history
-            </Text>
-          </View>
-        </View>
-
-        {/* Tab Selector */}
-        <View style={styles.tabContainer}>
-          <TouchableOpacity
-            style={[styles.tabBtn, activeTab === 'active' && styles.tabBtnActive]}
-            onPress={() => setActiveTab('active')}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.tabText, activeTab === 'active' && styles.tabTextActive]}>
-              🩺 Active Consult {selectedAppt ? '(1 Loaded)' : ''}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.tabBtn, activeTab === 'history' && styles.tabBtnActive]}
-            onPress={() => setActiveTab('history')}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.tabText, activeTab === 'history' && styles.tabTextActive]}>
-              📋 Case History ({consultations.length})
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {activeTab === 'active' ? (
-          // ── TAB 1: ACTIVE CONSULTATION WORKSPACE ─────────────────────────────
+      {activeTab === 'history' ? (
+        <FlatList
+          data={filteredHistory}
+          keyExtractor={(cons, idx) => String(cons._id || cons.id || idx)}
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#0D9488']} />}
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.4}
+          ListFooterComponent={renderFooter}
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
+          windowSize={7}
+          removeClippedSubviews={Platform.OS === 'android'}
+          ListHeaderComponent={(
+            <View>
+              {renderHeader()}
+              <View style={[styles.searchBox, { marginTop: 12, marginBottom: 8 }]}>
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="🔍 Search case sheets by patient, doctor, or diagnosis..."
+                  placeholderTextColor="#94a3b8"
+                  value={historySearch}
+                  onChangeText={setHistorySearch}
+                />
+              </View>
+            </View>
+          )}
+          ListEmptyComponent={(
+            loading ? (
+              <View style={styles.centerBox}>
+                <ActivityIndicator size="large" color="#0D9488" />
+                <Text style={styles.loadingText}>Loading Case History...</Text>
+              </View>
+            ) : filteredHistory.length === 0 ? (
+              <View style={styles.emptyBox}>
+                <Text style={styles.emptyIcon}>📋</Text>
+                <Text style={styles.emptyTitle}>No Consultation History Found</Text>
+                <Text style={styles.emptyText}>
+                  Completed patient prescriptions and diagnostic notes appear here.
+                </Text>
+              </View>
+            ) : null
+          )}
+          renderItem={renderHistoryCard}
+        />
+      ) : (
+        <ScrollView
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          automaticallyAdjustKeyboardInsets={true}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#0D9488']} />}
+        >
+          {renderHeader()}
+          {/* ── TAB 1: ACTIVE CONSULTATION WORKSPACE ───────────────────────────── */}
           <View style={{ gap: 14 }}>
             {/* Feedback Banners */}
             {success ? (
@@ -992,123 +1170,8 @@ export default function OpdConsultationsScreen({ onNavigate, routeParams }) {
               )}
             </TouchableOpacity>
           </View>
-        ) : (
-          // ── TAB 2: CONSULTATION CASE SHEET HISTORY ──────────────────────────
-          <View style={{ gap: 12 }}>
-            <View style={styles.searchBox}>
-              <TextInput
-                style={styles.searchInput}
-                placeholder="🔍 Search case sheets by patient, doctor, or diagnosis..."
-                placeholderTextColor="#94a3b8"
-                value={historySearch}
-                onChangeText={setHistorySearch}
-              />
-            </View>
-
-            {loading ? (
-              <View style={styles.centerBox}>
-                <ActivityIndicator size="large" color="#0D9488" />
-                <Text style={styles.loadingText}>Loading Case History...</Text>
-              </View>
-            ) : filteredHistory.length === 0 ? (
-              <View style={styles.emptyBox}>
-                <Text style={styles.emptyIcon}>📋</Text>
-                <Text style={styles.emptyTitle}>No Consultation History Found</Text>
-                <Text style={styles.emptyText}>
-                  Completed patient prescriptions and diagnostic notes appear here.
-                </Text>
-              </View>
-            ) : (
-              filteredHistory.map((cons) => (
-                <View key={cons._id || cons.id} style={styles.historyCard}>
-                  <View style={styles.historyCardHeader}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.historyPatientName}>
-                        {cons.patientName || cons.patientId?.name || 'Walk-in Patient'}
-                      </Text>
-                      <Text style={styles.historyDoctorName}>
-                        👨‍⚕️ Dr. {cons.doctorName || 'Consultant In-Charge'}
-                      </Text>
-                    </View>
-
-                    <View style={{ flexDirection: 'row', gap: 6 }}>
-                      <TouchableOpacity
-                        style={styles.printSlipBtn}
-                        onPress={() => printPrescription(cons)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={styles.printSlipBtnText}>📄 PDF</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={styles.shareSlipBtn}
-                        onPress={() => sharePrescriptionPdf(cons)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={styles.shareSlipBtnText}>📤 Share</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-
-                  <Text style={styles.historyDate}>
-                    📅 {new Date(cons.createdAt || Date.now()).toLocaleString()}
-                  </Text>
-
-                  {cons.symptoms ? (
-                    <View style={styles.historyDetailRow}>
-                      <Text style={styles.historyDetailLabel}>Symptoms:</Text>
-                      <Text style={styles.historyDetailVal}>{cons.symptoms}</Text>
-                    </View>
-                  ) : null}
-
-                  {cons.diagnosis ? (
-                    <View style={styles.diagnosisTagBox}>
-                      <Text style={styles.diagnosisTagLabel}>Dx:</Text>
-                      <Text style={styles.diagnosisTagText}>{cons.diagnosis}</Text>
-                    </View>
-                  ) : null}
-
-                  {cons.prescription && cons.prescription.length > 0 && (
-                    <View style={styles.historyRxBox}>
-                      <Text style={styles.historyRxTitle}>💊 PRESCRIBED MEDICINES:</Text>
-                      {cons.prescription.map((rx, rIdx) => (
-                        <Text key={rIdx} style={styles.historyRxItem}>
-                          • {rx.medicineName}{' '}
-                          <Text style={styles.historyRxDosage}>
-                            ({rx.dosage} • {rx.duration})
-                          </Text>
-                        </Text>
-                      ))}
-                    </View>
-                  )}
-
-                  {cons.tests && cons.tests.length > 0 && (
-                    <View style={styles.historyTestsBox}>
-                      <Text style={styles.historyTestsTitle}>🔬 RECOMMENDED TESTS:</Text>
-                      {cons.tests.map((t, tIdx) => (
-                        <Text key={tIdx} style={styles.historyTestItem}>
-                          • {typeof t === 'string' ? t : (t.testName || t.name)}{' '}
-                          {t.notes ? (
-                            <Text style={styles.historyTestNotes}>({t.notes})</Text>
-                          ) : null}
-                        </Text>
-                      ))}
-                    </View>
-                  )}
-
-                  {cons.followUpDate ? (
-                    <View style={styles.historyFollowUpBox}>
-                      <Text style={styles.historyFollowUpText}>
-                        ⏰ Follow-up Scheduled: {new Date(cons.followUpDate).toLocaleDateString()}
-                      </Text>
-                    </View>
-                  ) : null}
-                </View>
-              ))
-            )}
-          </View>
-        )}
-      </ScrollView>
+        </ScrollView>
+      )}
 
       {/* Issued Prescription PDF Actions Modal */}
       {issuedPrescription && (

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -10,6 +10,8 @@ import {
   Modal,
   Platform,
   Image,
+  BackHandler,
+  ToastAndroid,
 } from 'react-native';
 import storage from '../utils/storage';
 import apiClient from '../config/api';
@@ -21,10 +23,12 @@ import OpdPatientsScreen from '../screens/opd/OpdPatientsScreen';
 import OpdAppointmentsScreen from '../screens/opd/OpdAppointmentsScreen';
 import OpdConsultationsScreen from '../screens/opd/OpdConsultationsScreen';
 import OpdBillingScreen from '../screens/opd/OpdBillingScreen';
+import OpdBillingSummaryScreen from '../screens/opd/OpdBillingSummaryScreen';
 import OpdDiagnosticTestsScreen from '../screens/opd/OpdDiagnosticTestsScreen';
 import OpdMedicinesScreen from '../screens/opd/OpdMedicinesScreen';
 import OpdRolesScreen from '../screens/opd/OpdRolesScreen';
 import OpdRemindersScreen from '../screens/opd/OpdRemindersScreen';
+import OpdAccountsScreen from '../screens/opd/OpdAccountsScreen';
 import { OpdSocketProvider } from '../context/OpdSocketContext';
 import { useOpdSocketEvent } from '../context/useOpdSocket';
 
@@ -41,6 +45,7 @@ function RealtimeSocketSubscriber({ onNewReminder }) {
 export default function AppNavigator() {
   const [opdSubTab, setOpdSubTab] = useState('dashboard');
   const [opdRouteParams, setOpdRouteParams] = useState(null); // cross-screen params
+  const [navHistory, setNavHistory] = useState([]); // screen history stack
 
   const [currentUser, setCurrentUser] = useState(null);
   const [userPermissions, setUserPermissions] = useState(['*']);
@@ -49,6 +54,63 @@ export default function AppNavigator() {
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [refreshCounter, setRefreshCounter] = useState(0);
+
+  const lastBackPressRef = useRef(0);
+
+  // Handle hardware and UI back button actions
+  const handleGoBack = () => {
+    // 1. If notification panel is open, close it
+    if (isNotificationOpen) {
+      setIsNotificationOpen(false);
+      return true;
+    }
+
+    // 2. If sidebar drawer is open, close it
+    if (isSidebarOpen) {
+      setIsSidebarOpen(false);
+      return true;
+    }
+
+    // 3. If there is history in the navigation stack, navigate to previous screen
+    if (navHistory.length > 0) {
+      const prevScreen = navHistory[navHistory.length - 1];
+      setNavHistory((prev) => prev.slice(0, -1));
+      setOpdSubTab(prevScreen.tab);
+      setOpdRouteParams(prevScreen.params || null);
+      return true;
+    }
+
+    // 4. If on an inner tab with no prior history, return to dashboard
+    if (opdSubTab !== 'dashboard') {
+      setOpdSubTab('dashboard');
+      setOpdRouteParams(null);
+      return true;
+    }
+
+    // 5. If already on dashboard, double-press back to exit app cleanly
+    if (Platform.OS === 'android') {
+      const now = Date.now();
+      if (now - lastBackPressRef.current < 2000) {
+        BackHandler.exitApp();
+        return true;
+      }
+      lastBackPressRef.current = now;
+      ToastAndroid.show('Press back again to exit', ToastAndroid.SHORT);
+      return true;
+    }
+
+    return false;
+  };
+
+  // Android hardware back button listener
+  useEffect(() => {
+    const onBackPress = () => {
+      return handleGoBack();
+    };
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => subscription.remove();
+  }, [isSidebarOpen, isNotificationOpen, navHistory, opdSubTab, opdRouteParams]);
 
   useEffect(() => {
     checkAuthSession();
@@ -67,7 +129,7 @@ export default function AppNavigator() {
       if (Array.isArray(data)) {
         setNotifications(data.slice(0, 15));
       }
-    } catch (e) {}
+    } catch (e) { }
   };
 
   const checkAuthSession = async () => {
@@ -96,13 +158,15 @@ export default function AppNavigator() {
   const handleLogout = async () => {
     setIsSidebarOpen(false);
     setIsNotificationOpen(false);
+    setNavHistory([]);
+    setOpdSubTab('dashboard');
+    setOpdRouteParams(null);
     await storage.clear();
     setCurrentUser(null);
   };
 
   const handleHeaderRefresh = () => {
     setRefreshCounter((prev) => prev + 1);
-    fetchNotifications();
   };
 
   const LEGACY_APP_PERM_MAP = {
@@ -113,6 +177,8 @@ export default function AppNavigator() {
     manage_tests: ['tests:read', 'tests:add', 'tests:edit', 'tests:delete'],
     manage_billing: ['billing:read', 'billing:add', 'billing:edit', 'billing:delete'],
     manage_roles: ['roles:read', 'roles:add', 'roles:edit', 'roles:delete'],
+    manage_accounts: ['accounts:read', 'accounts:add', 'accounts:edit', 'accounts:delete'],
+    manage_reports: ['reports:read', 'reports:add', 'reports:edit', 'reports:delete'],
   };
 
   const hasPermission = (perm) => {
@@ -144,6 +210,9 @@ export default function AppNavigator() {
 
   // Cross-screen navigation handler — carries params to destination tab
   const handleOpdNavigate = (tab, params) => {
+    if (tab !== opdSubTab) {
+      setNavHistory((prev) => [...prev, { tab: opdSubTab, params: opdRouteParams }]);
+    }
     setOpdRouteParams(params || null);
     setOpdSubTab(tab);
   };
@@ -152,25 +221,29 @@ export default function AppNavigator() {
   const renderOpdContent = () => {
     switch (opdSubTab) {
       case 'dashboard':
-        return <OpdDashboardScreen onNavigate={handleOpdNavigate} />;
+        return <OpdDashboardScreen onNavigate={handleOpdNavigate} refreshKey={refreshCounter} />;
       case 'patients':
-        return <OpdPatientsScreen onNavigate={handleOpdNavigate} routeParams={opdRouteParams} />;
+        return <OpdPatientsScreen onNavigate={handleOpdNavigate} routeParams={opdRouteParams} refreshKey={refreshCounter} />;
       case 'appointments':
-        return <OpdAppointmentsScreen onNavigate={handleOpdNavigate} routeParams={opdRouteParams} />;
+        return <OpdAppointmentsScreen onNavigate={handleOpdNavigate} routeParams={opdRouteParams} refreshKey={refreshCounter} />;
       case 'consultations':
-        return <OpdConsultationsScreen onNavigate={handleOpdNavigate} routeParams={opdRouteParams} />;
+        return <OpdConsultationsScreen onNavigate={handleOpdNavigate} routeParams={opdRouteParams} refreshKey={refreshCounter} />;
       case 'billing':
-        return <OpdBillingScreen onNavigate={handleOpdNavigate} routeParams={opdRouteParams} />;
+        return <OpdBillingScreen onNavigate={handleOpdNavigate} routeParams={opdRouteParams} refreshKey={refreshCounter} />;
+      case 'billing-summary':
+        return <OpdBillingSummaryScreen onNavigate={handleOpdNavigate} refreshKey={refreshCounter} />;
       case 'tests':
-        return <OpdDiagnosticTestsScreen onNavigate={handleOpdNavigate} />;
+        return <OpdDiagnosticTestsScreen onNavigate={handleOpdNavigate} refreshKey={refreshCounter} />;
       case 'medicines':
-        return <OpdMedicinesScreen onNavigate={handleOpdNavigate} />;
+        return <OpdMedicinesScreen onNavigate={handleOpdNavigate} refreshKey={refreshCounter} />;
       case 'roles':
-        return <OpdRolesScreen onNavigate={handleOpdNavigate} />;
+        return <OpdRolesScreen onNavigate={handleOpdNavigate} refreshKey={refreshCounter} />;
       case 'reminders':
-        return <OpdRemindersScreen onNavigate={handleOpdNavigate} />;
+        return <OpdRemindersScreen onNavigate={handleOpdNavigate} refreshKey={refreshCounter} />;
+      case 'accounts':
+        return <OpdAccountsScreen onNavigate={handleOpdNavigate} refreshKey={refreshCounter} />;
       default:
-        return <OpdDashboardScreen onNavigate={handleOpdNavigate} />;
+        return <OpdDashboardScreen onNavigate={handleOpdNavigate} refreshKey={refreshCounter} />;
     }
   };
 
@@ -180,9 +253,11 @@ export default function AppNavigator() {
     { id: 'appointments', label: 'Appointments Queue', icon: '📅', permission: 'appointments:read' },
     { id: 'consultations', label: 'Clinical Consults', icon: '💬', permission: 'consultations:read' },
     { id: 'billing', label: 'Invoices & Billing', icon: '🧾', permission: 'billing:read' },
+    { id: 'billing-summary', label: 'Revenue', icon: '📊', permission: 'reports:read' },
     { id: 'tests', label: 'Diagnostics Catalog', icon: '🧪', permission: 'tests:read' },
     { id: 'medicines', label: 'Pharmacy Inventory', icon: '💊', permission: 'medicines:read' },
     { id: 'roles', label: 'Staff Roles & Roster', icon: '🛡️', permission: 'roles:read' },
+    { id: 'accounts', label: 'Accounts & Payroll', icon: '💳', permission: 'accounts:read' },
     { id: 'reminders', label: 'Patient Reminders', icon: '🔔', permission: 'reminders:read' },
   ];
 
@@ -202,6 +277,17 @@ export default function AppNavigator() {
         {/* Top Bar Header */}
         <View style={[styles.topHeader, styles.opdBg]}>
           <View style={styles.topHeaderRow}>
+            {/* Back Button (if not on dashboard) */}
+            {opdSubTab !== 'dashboard' && (
+              <TouchableOpacity
+                style={styles.backIconBtn}
+                onPress={handleGoBack}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.menuIconText}>←</Text>
+              </TouchableOpacity>
+            )}
+
             {/* Hamburger Menu Button */}
             <TouchableOpacity
               style={styles.menuIconBtn}
@@ -252,13 +338,18 @@ export default function AppNavigator() {
           </View>
         </View>
 
-        {/* Screen Body with Refresh Key */}
-        <View style={styles.body} key={`${opdSubTab}-${refreshCounter}`}>
+        {/* Screen Body */}
+        <View style={styles.body} key={opdSubTab}>
           {renderOpdContent()}
         </View>
 
         {/* Role-based Sidebar Drawer Navigation Modal (Left Slide-Out) */}
-        <Modal visible={isSidebarOpen} animationType="fade" transparent>
+        <Modal
+          visible={isSidebarOpen}
+          animationType="fade"
+          transparent
+          onRequestClose={() => setIsSidebarOpen(false)}
+        >
           <View style={styles.drawerOverlay}>
             {/* Sidebar Drawer Container (Positioned on the LEFT side) */}
             <View style={[styles.sidebarDrawer, styles.sidebarOpdBg]}>
@@ -286,6 +377,10 @@ export default function AppNavigator() {
                       key={item.id}
                       style={[styles.sidebarNavItem, isActive && styles.sidebarNavItemActive]}
                       onPress={() => {
+                        if (item.id !== opdSubTab) {
+                          setNavHistory((prev) => [...prev, { tab: opdSubTab, params: opdRouteParams }]);
+                        }
+                        setOpdRouteParams(null);
                         setOpdSubTab(item.id);
                         setIsSidebarOpen(false);
                       }}
@@ -374,6 +469,10 @@ export default function AppNavigator() {
                 style={styles.viewAllRemindersBtn}
                 onPress={() => {
                   setIsNotificationOpen(false);
+                  if (opdSubTab !== 'reminders') {
+                    setNavHistory((prev) => [...prev, { tab: opdSubTab, params: opdRouteParams }]);
+                  }
+                  setOpdRouteParams(null);
                   setOpdSubTab('reminders');
                 }}
               >
@@ -419,6 +518,11 @@ const styles = StyleSheet.create({
     padding: 6,
     borderRadius: 8,
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  backIconBtn: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
   },
   menuIconText: {
     fontSize: 20,

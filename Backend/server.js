@@ -9,6 +9,7 @@ import adminRoutes from "./routes/admin.routes.js";
 import publicRoutes from "./routes/public.routes.js";
 import opdRoutes from "./opd/routes/index.js";
 import { startReminderScheduler } from "./opd/services/reminder.service.js";
+import { startSalaryScheduler } from "./opd/services/salary.service.js";
 import { initOpdSocket } from "./opd/socket.js";
 
 dotenv.config();
@@ -38,6 +39,7 @@ const httpServer = http.createServer(app);
 
 connectDB().then(() => {
     startReminderScheduler();
+    startSalaryScheduler();
     initOpdSocket(httpServer);
     httpServer.listen(PORT, () => {
         console.log(`✅ Server running on http://localhost:${PORT}`);
