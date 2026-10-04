@@ -15,8 +15,10 @@ import {
 } from 'react-native';
 import apiClient from '../../config/api';
 import { useOpdSocketEvent } from '../../context/useOpdSocket';
+import { usePermissions } from '../../utils/permissions';
 
-export default function OpdRemindersScreen({ onNavigate, refreshKey }) {
+export default function OpdRemindersScreen({ onNavigate, refreshKey, hasPermission: propHasPermission, userPermissions }) {
+  const { hasPermission } = usePermissions(userPermissions, propHasPermission);
   const [reminders, setReminders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -299,14 +301,16 @@ export default function OpdRemindersScreen({ onNavigate, refreshKey }) {
             <Text style={styles.title}>Patient Follow-up Advisories</Text>
             <Text style={styles.subtitle}>Earliest due dates first • Instant Call & WhatsApp dispatch</Text>
           </View>
-          <TouchableOpacity
-            style={[styles.syncBtn, scanning && styles.btnDisabled]}
-            onPress={handleSyncConsults}
-            disabled={scanning}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.syncBtnText}>{scanning ? '⏳ Syncing...' : '🔄 Sync Consults'}</Text>
-          </TouchableOpacity>
+          {hasPermission(['reminders:add', 'reminders:edit']) && (
+            <TouchableOpacity
+              style={[styles.syncBtn, scanning && styles.btnDisabled]}
+              onPress={handleSyncConsults}
+              disabled={scanning}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.syncBtnText}>{scanning ? '⏳ Syncing...' : '🔄 Sync Consults'}</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Quick Metrics Bar */}
@@ -421,7 +425,7 @@ export default function OpdRemindersScreen({ onNavigate, refreshKey }) {
             ? 'Try switching date filters (e.g. All Dates) or clearing your search.'
             : 'Follow-up advisories are generated automatically when a doctor sets a "Follow-up Advisory Date" during a Clinical Consultation.'}
         </Text>
-        {onNavigate ? (
+        {onNavigate && hasPermission('consultations:read') ? (
           <View style={styles.emptyActionRow}>
             <TouchableOpacity
               style={styles.emptyBtn}
@@ -534,31 +538,35 @@ export default function OpdRemindersScreen({ onNavigate, refreshKey }) {
           </View>
 
           <View style={styles.cardActionBtns}>
-            {status !== 'Completed' ? (
-              <TouchableOpacity
-                style={styles.doneActionBtn}
-                onPress={() => handleUpdateStatus(r._id, 'Completed')}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.doneActionText}>✓ Mark Done</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={styles.reopenActionBtn}
-                onPress={() => handleUpdateStatus(r._id, 'Scheduled')}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.reopenActionText}>↺ Reopen</Text>
-              </TouchableOpacity>
+            {hasPermission('reminders:edit') && (
+              status !== 'Completed' ? (
+                <TouchableOpacity
+                  style={styles.doneActionBtn}
+                  onPress={() => handleUpdateStatus(r._id, 'Completed')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.doneActionText}>✓ Mark Done</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={styles.reopenActionBtn}
+                  onPress={() => handleUpdateStatus(r._id, 'Scheduled')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.reopenActionText}>↺ Reopen</Text>
+                </TouchableOpacity>
+              )
             )}
 
-            <TouchableOpacity
-              style={styles.deleteActionBtn}
-              onPress={() => handleDeleteReminder(r._id)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.deleteActionText}>🗑️</Text>
-            </TouchableOpacity>
+            {hasPermission('reminders:delete') && (
+              <TouchableOpacity
+                style={styles.deleteActionBtn}
+                onPress={() => handleDeleteReminder(r._id)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.deleteActionText}>🗑️</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </View>

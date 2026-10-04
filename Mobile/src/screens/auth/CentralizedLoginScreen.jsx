@@ -27,8 +27,12 @@ export default function CentralizedLoginScreen({ onLoginSuccess }) {
         await storage.setItem('userName', user.name);
         await storage.setItem('userEmail', user.email);
         await storage.setItem('userCategory', user.category || 'opd');
-        await storage.setItem('userRoleName', user.roleName || 'OPD Staff');
-        await storage.setItem('userPermissions', JSON.stringify(user.permissions || ['*']));
+        const perms = Array.isArray(user.permissions)
+          ? user.permissions
+          : user.category === 'admin'
+          ? ['*']
+          : [];
+        await storage.setItem('userPermissions', JSON.stringify(perms));
 
         if (onLoginSuccess) {
           onLoginSuccess(user);

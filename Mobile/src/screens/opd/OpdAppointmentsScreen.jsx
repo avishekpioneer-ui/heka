@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import apiClient from '../../config/api';
 import storage from '../../utils/storage';
+import { usePermissions } from '../../utils/permissions';
 import CalendarPickerModal from '../../components/CalendarPickerModal';
 
 const TIME_SLOTS = [
@@ -76,7 +77,8 @@ const formatTimeDisplay = (timeVal) => {
   return `${parsed.hour}:${parsed.minute} ${parsed.ampm}`;
 };
 
-export default function OpdAppointmentsScreen({ onNavigate, routeParams, refreshKey }) {
+export default function OpdAppointmentsScreen({ onNavigate, routeParams, refreshKey, hasPermission: propHasPermission, userPermissions: propUserPermissions }) {
+  const { hasPermission, permissions: userPermissions } = usePermissions(propUserPermissions, propHasPermission);
   const [patients, setPatients] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [doctors, setDoctors] = useState([]);
@@ -90,7 +92,6 @@ export default function OpdAppointmentsScreen({ onNavigate, routeParams, refresh
   const [userRoleName, setUserRoleName] = useState('');
   const [currentUserName, setCurrentUserName] = useState('');
   const [currentUserId, setCurrentUserId] = useState('');
-  const [userPermissions, setUserPermissions] = useState([]);
 
   // Modal State for Booking Appointment
   const [isBookingOpen, setIsBookingOpen] = useState(false);
@@ -124,9 +125,6 @@ export default function OpdAppointmentsScreen({ onNavigate, routeParams, refresh
   const [patientSearchQuery, setPatientSearchQuery] = useState('');
   const [isDoctorDropdownOpen, setIsDoctorDropdownOpen] = useState(false);
 
-  const hasPermission = (perm) =>
-    userPermissions.includes('*') || userPermissions.includes(perm);
-
   useEffect(() => {
     fetchUserRoleInfo();
     fetchData(1, false);
@@ -137,11 +135,9 @@ export default function OpdAppointmentsScreen({ onNavigate, routeParams, refresh
       const role = await storage.getItem('userRoleName');
       const name = await storage.getItem('userName');
       const uid = await storage.getItem('userId');
-      const permStr = await storage.getItem('userPermissions');
       if (role) setUserRoleName(role);
       if (name) setCurrentUserName(name);
       if (uid) setCurrentUserId(uid);
-      if (permStr) setUserPermissions(JSON.parse(permStr));
     } catch (e) {}
   };
 
@@ -413,13 +409,15 @@ export default function OpdAppointmentsScreen({ onNavigate, routeParams, refresh
               </Text>
             </View>
 
-            <TouchableOpacity
-              style={styles.addBtn}
-              onPress={() => setIsBookingOpen(true)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.addBtnText}>+ Book Visit</Text>
-            </TouchableOpacity>
+            {hasPermission('appointments:add') ? (
+              <TouchableOpacity
+                style={styles.addBtn}
+                onPress={() => setIsBookingOpen(true)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.addBtnText}>+ Book Visit</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
         )}
         ListEmptyComponent={(
@@ -485,7 +483,7 @@ export default function OpdAppointmentsScreen({ onNavigate, routeParams, refresh
             {/* Action Buttons based on status */}
             {appt.status !== 'Completed' && appt.status !== 'Cancelled' ? (
               <View style={styles.actionsRow}>
-                {appt.status === 'Scheduled' && (
+                {appt.status === 'Scheduled' && hasPermission(['consultations:add', 'consultations:edit']) && (
                   <TouchableOpacity
                     style={styles.inProgressBtn}
                     onPress={() => handleStartConsult(appt)}
@@ -494,7 +492,7 @@ export default function OpdAppointmentsScreen({ onNavigate, routeParams, refresh
                   </TouchableOpacity>
                 )}
 
-                {appt.status === 'In-Progress' && (
+                {appt.status === 'In-Progress' && hasPermission(['consultations:add', 'consultations:edit']) && (
                   <TouchableOpacity
                     style={styles.consultBtn}
                     onPress={() => handleStartConsult(appt)}
@@ -503,21 +501,25 @@ export default function OpdAppointmentsScreen({ onNavigate, routeParams, refresh
                   </TouchableOpacity>
                 )}
 
-                <TouchableOpacity
-                  style={styles.completeBtn}
-                  onPress={() => handleCompleteAndBill(appt)}
-                >
-                  <Text style={styles.completeBtnText}>✓ Finish & Bill</Text>
-                </TouchableOpacity>
+                {hasPermission(['billing:add', 'billing:edit', 'appointments:edit']) && (
+                  <TouchableOpacity
+                    style={styles.completeBtn}
+                    onPress={() => handleCompleteAndBill(appt)}
+                  >
+                    <Text style={styles.completeBtnText}>✓ Finish & Bill</Text>
+                  </TouchableOpacity>
+                )}
 
-                <TouchableOpacity
-                  style={styles.cancelBtn}
-                  onPress={() =>
-                    handleStatusChange(appt._id || appt.id, 'Cancelled')
-                  }
-                >
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
-                </TouchableOpacity>
+                {hasPermission(['appointments:edit', 'appointments:delete']) && (
+                  <TouchableOpacity
+                    style={styles.cancelBtn}
+                    onPress={() =>
+                      handleStatusChange(appt._id || appt.id, 'Cancelled')
+                    }
+                  >
+                    <Text style={styles.cancelBtnText}>Cancel</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             ) : null}
           </View>
@@ -791,18 +793,20 @@ export default function OpdAppointmentsScreen({ onNavigate, routeParams, refresh
                   )}
                 </View>
 
-                <TouchableOpacity
-                  style={[styles.submitBtn, submitting && styles.btnDisabled]}
-                  onPress={handleBookingSubmit}
-                  disabled={submitting}
-                  activeOpacity={0.8}
-                >
-                  {submitting ? (
-                    <ActivityIndicator color="#ffffff" />
-                  ) : (
-                    <Text style={styles.submitBtnText}>Book Appointment</Text>
-                  )}
-                </TouchableOpacity>
+                {hasPermission('appointments:add') && (
+                  <TouchableOpacity
+                    style={[styles.submitBtn, submitting && styles.btnDisabled]}
+                    onPress={handleBookingSubmit}
+                    disabled={submitting}
+                    activeOpacity={0.8}
+                  >
+                    {submitting ? (
+                      <ActivityIndicator color="#ffffff" />
+                    ) : (
+                      <Text style={styles.submitBtnText}>Book Appointment</Text>
+                    )}
+                  </TouchableOpacity>
+                )}
               </ScrollView>
             </View>
           </View>

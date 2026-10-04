@@ -14,9 +14,11 @@ import {
   RefreshControl,
 } from 'react-native';
 import apiClient from '../../config/api';
+import { usePermissions } from '../../utils/permissions';
 import CalendarPickerModal from '../../components/CalendarPickerModal';
 
-export default function OpdDiagnosticTestsScreen() {
+export default function OpdDiagnosticTestsScreen({ onNavigate, refreshKey, hasPermission: propHasPermission, userPermissions }) {
+  const { hasPermission } = usePermissions(userPermissions, propHasPermission);
   const [tests, setTests] = useState([]);
   const [testOrders, setTestOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -305,7 +307,7 @@ export default function OpdDiagnosticTestsScreen() {
             <Text style={styles.subtitle}>Test catalog rates & lab investigation orders</Text>
           </View>
 
-          {activeTab === 'catalog' && (
+          {activeTab === 'catalog' && hasPermission('tests:add') && (
             <TouchableOpacity
               style={styles.addBtn}
               onPress={() => {
@@ -391,23 +393,29 @@ export default function OpdDiagnosticTestsScreen() {
                       <Text style={styles.testPrice}>₹{t.price}</Text>
                     </View>
 
-                    <View style={styles.cardActions}>
-                      <TouchableOpacity
-                        style={styles.actionBtn}
-                        onPress={() => handleOpenEdit(t)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={styles.actionBtnText}>Edit</Text>
-                      </TouchableOpacity>
+                    {(hasPermission('tests:edit') || hasPermission('tests:delete')) && (
+                      <View style={styles.cardActions}>
+                        {hasPermission('tests:edit') && (
+                          <TouchableOpacity
+                            style={styles.actionBtn}
+                            onPress={() => handleOpenEdit(t)}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={styles.actionBtnText}>Edit</Text>
+                          </TouchableOpacity>
+                        )}
 
-                      <TouchableOpacity
-                        style={[styles.actionBtn, styles.deleteBtn]}
-                        onPress={() => handleDelete(t)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[styles.actionBtnText, styles.deleteBtnText]}>Delete</Text>
-                      </TouchableOpacity>
-                    </View>
+                        {hasPermission('tests:delete') && (
+                          <TouchableOpacity
+                            style={[styles.actionBtn, styles.deleteBtn]}
+                            onPress={() => handleDelete(t)}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={[styles.actionBtnText, styles.deleteBtnText]}>Delete</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    )}
                   </View>
                 ))}
 
@@ -490,7 +498,7 @@ export default function OpdDiagnosticTestsScreen() {
 
                 {ord.notes ? <Text style={styles.orderNotes}>Note: {ord.notes}</Text> : null}
 
-                {ord.status === 'Ordered' && (
+                {hasPermission('tests:edit') && ord.status === 'Ordered' && (
                   <View style={styles.orderActions}>
                     <TouchableOpacity
                       style={styles.collectBtn}
@@ -502,7 +510,7 @@ export default function OpdDiagnosticTestsScreen() {
                   </View>
                 )}
 
-                {(ord.status === 'Collected' || ord.status === 'Sample Collected') && (
+                {hasPermission('tests:edit') && (ord.status === 'Collected' || ord.status === 'Sample Collected') && (
                   <View style={styles.orderActions}>
                     <TouchableOpacity
                       style={styles.submitLabBtn}
@@ -521,7 +529,7 @@ export default function OpdDiagnosticTestsScreen() {
                   </View>
                 )}
 
-                {ord.status === 'Submitted to Lab' && (
+                {hasPermission('tests:edit') && ord.status === 'Submitted to Lab' && (
                   <View style={styles.orderActions}>
                     <TouchableOpacity
                       style={styles.reportBtn}
@@ -576,10 +584,12 @@ export default function OpdDiagnosticTestsScreen() {
                   </View>
                 </View>
 
-                <TouchableOpacity style={[styles.submitBtn, submitting && styles.btnDisabled]}
-                  onPress={handleAddTest} disabled={submitting} activeOpacity={0.8}>
-                  {submitting ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.submitBtnText}>Add Test to Catalog</Text>}
-                </TouchableOpacity>
+                {hasPermission('tests:add') && (
+                  <TouchableOpacity style={[styles.submitBtn, submitting && styles.btnDisabled]}
+                    onPress={handleAddTest} disabled={submitting} activeOpacity={0.8}>
+                    {submitting ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.submitBtnText}>Add Test to Catalog</Text>}
+                  </TouchableOpacity>
+                )}
               </ScrollView>
             </View>
           </View>
@@ -624,10 +634,12 @@ export default function OpdDiagnosticTestsScreen() {
                   </View>
                 </View>
 
-                <TouchableOpacity style={[styles.submitBtn, submitting && styles.btnDisabled]}
-                  onPress={handleEditTest} disabled={submitting} activeOpacity={0.8}>
-                  {submitting ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.submitBtnText}>Save Changes</Text>}
-                </TouchableOpacity>
+                {hasPermission('tests:edit') && (
+                  <TouchableOpacity style={[styles.submitBtn, submitting && styles.btnDisabled]}
+                    onPress={handleEditTest} disabled={submitting} activeOpacity={0.8}>
+                    {submitting ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.submitBtnText}>Save Changes</Text>}
+                  </TouchableOpacity>
+                )}
               </ScrollView>
             </View>
           </View>

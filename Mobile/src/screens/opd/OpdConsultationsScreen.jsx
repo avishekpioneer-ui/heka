@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import apiClient from '../../config/api';
 import storage from '../../utils/storage';
+import { usePermissions } from '../../utils/permissions';
 import { printPrescription, sharePrescriptionPdf } from '../../utils/prescriptionPdf';
 
 const QUICK_SYMPTOMS = [
@@ -78,8 +79,16 @@ const QUICK_TESTS = [
   'Ultrasound Whole Abdomen',
 ];
 
-export default function OpdConsultationsScreen({ onNavigate, routeParams, refreshKey }) {
-  const [activeTab, setActiveTab] = useState('active'); // 'active' | 'history'
+export default function OpdConsultationsScreen({ onNavigate, routeParams, refreshKey, hasPermission: propHasPermission, userPermissions }) {
+  const { hasPermission } = usePermissions(userPermissions, propHasPermission);
+  const canWriteConsult = hasPermission(['consultations:add', 'consultations:edit']);
+  const [activeTab, setActiveTab] = useState(canWriteConsult ? 'active' : 'history'); // 'active' | 'history'
+
+  useEffect(() => {
+    if (!canWriteConsult && activeTab === 'active') {
+      setActiveTab('history');
+    }
+  }, [canWriteConsult, activeTab]);
   const [appointments, setAppointments] = useState([]);
   const [medicinesList, setMedicinesList] = useState([]);
   const [consultations, setConsultations] = useState([]);
@@ -427,15 +436,17 @@ export default function OpdConsultationsScreen({ onNavigate, routeParams, refres
 
       {/* Tab Selector */}
       <View style={styles.tabContainer}>
-        <TouchableOpacity
-          style={[styles.tabBtn, activeTab === 'active' && styles.tabBtnActive]}
-          onPress={() => setActiveTab('active')}
-          activeOpacity={0.8}
-        >
-          <Text style={[styles.tabText, activeTab === 'active' && styles.tabTextActive]}>
-            🩺 Active Consult {selectedAppt ? '(1 Loaded)' : ''}
-          </Text>
-        </TouchableOpacity>
+        {canWriteConsult ? (
+          <TouchableOpacity
+            style={[styles.tabBtn, activeTab === 'active' && styles.tabBtnActive]}
+            onPress={() => setActiveTab('active')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.tabText, activeTab === 'active' && styles.tabTextActive]}>
+              🩺 Active Consult {selectedAppt ? '(1 Loaded)' : ''}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
 
         <TouchableOpacity
           style={[styles.tabBtn, activeTab === 'history' && styles.tabBtnActive]}
@@ -1152,23 +1163,25 @@ export default function OpdConsultationsScreen({ onNavigate, routeParams, refres
             </View>
 
             {/* Submit Action Button */}
-            <TouchableOpacity
-              style={[
-                styles.submitBtn,
-                (!selectedAppt || submitting) && styles.submitBtnDisabled,
-              ]}
-              onPress={handleSubmitConsultation}
-              disabled={submitting || !selectedAppt}
-              activeOpacity={0.8}
-            >
-              {submitting ? (
-                <ActivityIndicator color="#ffffff" />
-              ) : (
-                <Text style={styles.submitBtnText}>
-                  💾 Finalize & Issue Digital Prescription
-                </Text>
-              )}
-            </TouchableOpacity>
+            {canWriteConsult ? (
+              <TouchableOpacity
+                style={[
+                  styles.submitBtn,
+                  (!selectedAppt || submitting) && styles.submitBtnDisabled,
+                ]}
+                onPress={handleSubmitConsultation}
+                disabled={submitting || !selectedAppt}
+                activeOpacity={0.8}
+              >
+                {submitting ? (
+                  <ActivityIndicator color="#ffffff" />
+                ) : (
+                  <Text style={styles.submitBtnText}>
+                    💾 Finalize & Issue Digital Prescription
+                  </Text>
+                )}
+              </TouchableOpacity>
+            ) : null}
           </View>
         </ScrollView>
       )}

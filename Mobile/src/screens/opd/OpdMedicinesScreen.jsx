@@ -14,13 +14,15 @@ import {
   RefreshControl,
 } from 'react-native';
 import apiClient from '../../config/api';
+import { usePermissions } from '../../utils/permissions';
 import {
   printPharmacyReport,
   sharePharmacyPdf,
   sharePharmacyCsv,
 } from '../../utils/pharmacyExport';
 
-export default function OpdMedicinesScreen() {
+export default function OpdMedicinesScreen({ onNavigate, refreshKey, hasPermission: propHasPermission, userPermissions }) {
+  const { hasPermission } = usePermissions(userPermissions, propHasPermission);
   const [medicines, setMedicines] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -397,13 +399,15 @@ export default function OpdMedicinesScreen() {
             >
               <Text style={styles.exportBtnText}>📄 Export</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.addBtn}
-              onPress={() => setIsAddModalOpen(true)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.addBtnText}>+ Add</Text>
-            </TouchableOpacity>
+            {hasPermission('medicines:add') && (
+              <TouchableOpacity
+                style={styles.addBtn}
+                onPress={() => setIsAddModalOpen(true)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.addBtnText}>+ Add</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -600,31 +604,39 @@ export default function OpdMedicinesScreen() {
                     </Text>
                   </View>
 
-                  <View style={styles.cardActions}>
-                    <TouchableOpacity
-                      style={[styles.actionBtn, styles.restockBtn]}
-                      onPress={() => handleOpenRestock(med)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[styles.actionBtnText, styles.restockBtnText]}>+ Restock</Text>
-                    </TouchableOpacity>
+                  {(hasPermission('medicines:edit') || hasPermission('medicines:delete')) && (
+                    <View style={styles.cardActions}>
+                      {hasPermission('medicines:edit') && (
+                        <TouchableOpacity
+                          style={[styles.actionBtn, styles.restockBtn]}
+                          onPress={() => handleOpenRestock(med)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={[styles.actionBtnText, styles.restockBtnText]}>+ Restock</Text>
+                        </TouchableOpacity>
+                      )}
 
-                    <TouchableOpacity
-                      style={styles.actionBtn}
-                      onPress={() => handleOpenEdit(med)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.actionBtnText}>✏️ Edit</Text>
-                    </TouchableOpacity>
+                      {hasPermission('medicines:edit') && (
+                        <TouchableOpacity
+                          style={styles.actionBtn}
+                          onPress={() => handleOpenEdit(med)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.actionBtnText}>✏️ Edit</Text>
+                        </TouchableOpacity>
+                      )}
 
-                    <TouchableOpacity
-                      style={[styles.actionBtn, styles.deleteBtn]}
-                      onPress={() => handleDelete(med)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[styles.actionBtnText, styles.deleteBtnText]}>🗑️ Delete</Text>
-                    </TouchableOpacity>
-                  </View>
+                      {hasPermission('medicines:delete') && (
+                        <TouchableOpacity
+                          style={[styles.actionBtn, styles.deleteBtn]}
+                          onPress={() => handleDelete(med)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={[styles.actionBtnText, styles.deleteBtnText]}>🗑️ Delete</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  )}
                 </View>
               );
             })}
@@ -835,14 +847,16 @@ export default function OpdMedicinesScreen() {
                   </View>
                 </View>
 
-                <TouchableOpacity
-                  style={[styles.submitBtn, submitting && styles.btnDisabled]}
-                  onPress={handleAddMedicine}
-                  disabled={submitting}
-                  activeOpacity={0.8}
-                >
-                  {submitting ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.submitBtnText}>Add Stock to Pharmacy</Text>}
-                </TouchableOpacity>
+                {hasPermission('medicines:add') && (
+                  <TouchableOpacity
+                    style={[styles.submitBtn, submitting && styles.btnDisabled]}
+                    onPress={handleAddMedicine}
+                    disabled={submitting}
+                    activeOpacity={0.8}
+                  >
+                    {submitting ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.submitBtnText}>Add Stock to Pharmacy</Text>}
+                  </TouchableOpacity>
+                )}
               </ScrollView>
             </View>
           </View>
@@ -903,14 +917,16 @@ export default function OpdMedicinesScreen() {
                   </View>
                 </View>
 
-                <TouchableOpacity
-                  style={[styles.submitBtn, submitting && styles.btnDisabled]}
-                  onPress={handleEditMedicine}
-                  disabled={submitting}
-                  activeOpacity={0.8}
-                >
-                  {submitting ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.submitBtnText}>Save Changes</Text>}
-                </TouchableOpacity>
+                {hasPermission('medicines:edit') && (
+                  <TouchableOpacity
+                    style={[styles.submitBtn, submitting && styles.btnDisabled]}
+                    onPress={handleEditMedicine}
+                    disabled={submitting}
+                    activeOpacity={0.8}
+                  >
+                    {submitting ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.submitBtnText}>Save Changes</Text>}
+                  </TouchableOpacity>
+                )}
               </ScrollView>
             </View>
           </View>
@@ -956,14 +972,16 @@ export default function OpdMedicinesScreen() {
                   />
                 </View>
 
-                <TouchableOpacity
-                  style={[styles.submitBtn, submitting && styles.btnDisabled]}
-                  onPress={handleRestock}
-                  disabled={submitting}
-                  activeOpacity={0.8}
-                >
-                  {submitting ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.submitBtnText}>Confirm Restock</Text>}
-                </TouchableOpacity>
+                {hasPermission('medicines:edit') && (
+                  <TouchableOpacity
+                    style={[styles.submitBtn, submitting && styles.btnDisabled]}
+                    onPress={handleRestock}
+                    disabled={submitting}
+                    activeOpacity={0.8}
+                  >
+                    {submitting ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.submitBtnText}>Confirm Restock</Text>}
+                  </TouchableOpacity>
+                )}
               </ScrollView>
             </View>
           </View>

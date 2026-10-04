@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { hasPermission as checkPermission } from '../utils/permissions';
 import {
   StyleSheet,
   Text,
@@ -48,7 +49,7 @@ export default function AppNavigator() {
   const [navHistory, setNavHistory] = useState([]); // screen history stack
 
   const [currentUser, setCurrentUser] = useState(null);
-  const [userPermissions, setUserPermissions] = useState(['*']);
+  const [userPermissions, setUserPermissions] = useState([]);
   const [userRoleName, setUserRoleName] = useState('Staff');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
@@ -143,9 +144,16 @@ export default function AppNavigator() {
       setCurrentUser({ id: userId, name: userName, category: userCat });
       setUserRoleName(roleName || 'OPD Staff');
       try {
-        setUserPermissions(permStr ? JSON.parse(permStr) : ['*']);
+        if (permStr) {
+          const parsed = JSON.parse(permStr);
+          setUserPermissions(Array.isArray(parsed) ? parsed : []);
+        } else if (userCat === 'admin') {
+          setUserPermissions(['*']);
+        } else {
+          setUserPermissions([]);
+        }
       } catch (e) {
-        setUserPermissions(['*']);
+        setUserPermissions(userCat === 'admin' ? ['*'] : []);
       }
     }
   };
@@ -169,34 +177,10 @@ export default function AppNavigator() {
     setRefreshCounter((prev) => prev + 1);
   };
 
-  const LEGACY_APP_PERM_MAP = {
-    manage_patients: ['patients:read', 'patients:add', 'patients:edit', 'patients:delete'],
-    manage_appointments: ['appointments:read', 'appointments:add', 'appointments:edit', 'appointments:delete'],
-    manage_consultations: ['consultations:read', 'consultations:add', 'consultations:edit', 'consultations:delete'],
-    manage_medicines: ['medicines:read', 'medicines:add', 'medicines:edit', 'medicines:delete'],
-    manage_tests: ['tests:read', 'tests:add', 'tests:edit', 'tests:delete'],
-    manage_billing: ['billing:read', 'billing:add', 'billing:edit', 'billing:delete'],
-    manage_roles: ['roles:read', 'roles:add', 'roles:edit', 'roles:delete'],
-    manage_accounts: ['accounts:read', 'accounts:add', 'accounts:edit', 'accounts:delete'],
-    manage_reports: ['reports:read', 'reports:add', 'reports:edit', 'reports:delete'],
-  };
-
-  const hasPermission = (perm) => {
-    if (!perm) return true;
-    if (userPermissions.includes('*')) return true;
-    if (userPermissions.includes(perm)) return true;
-
-    // Check legacy aliases if perm is legacy or granular
-    for (const [legacy, canonicals] of Object.entries(LEGACY_APP_PERM_MAP)) {
-      if (userPermissions.includes(legacy) && canonicals.includes(perm)) {
-        return true;
-      }
-      if (perm === legacy && canonicals.some((c) => userPermissions.includes(c))) {
-        return true;
-      }
-    }
-    return false;
-  };
+  const hasPermission = useCallback(
+    (perm) => checkPermission(userPermissions, perm),
+    [userPermissions]
+  );
 
   // If no user is logged in, show Login Screen
   if (!currentUser) {
@@ -221,29 +205,117 @@ export default function AppNavigator() {
   const renderOpdContent = () => {
     switch (opdSubTab) {
       case 'dashboard':
-        return <OpdDashboardScreen onNavigate={handleOpdNavigate} refreshKey={refreshCounter} />;
+        return (
+          <OpdDashboardScreen
+            onNavigate={handleOpdNavigate}
+            refreshKey={refreshCounter}
+            hasPermission={hasPermission}
+            userPermissions={userPermissions}
+          />
+        );
       case 'patients':
-        return <OpdPatientsScreen onNavigate={handleOpdNavigate} routeParams={opdRouteParams} refreshKey={refreshCounter} />;
+        return (
+          <OpdPatientsScreen
+            onNavigate={handleOpdNavigate}
+            routeParams={opdRouteParams}
+            refreshKey={refreshCounter}
+            hasPermission={hasPermission}
+            userPermissions={userPermissions}
+          />
+        );
       case 'appointments':
-        return <OpdAppointmentsScreen onNavigate={handleOpdNavigate} routeParams={opdRouteParams} refreshKey={refreshCounter} />;
+        return (
+          <OpdAppointmentsScreen
+            onNavigate={handleOpdNavigate}
+            routeParams={opdRouteParams}
+            refreshKey={refreshCounter}
+            hasPermission={hasPermission}
+            userPermissions={userPermissions}
+          />
+        );
       case 'consultations':
-        return <OpdConsultationsScreen onNavigate={handleOpdNavigate} routeParams={opdRouteParams} refreshKey={refreshCounter} />;
+        return (
+          <OpdConsultationsScreen
+            onNavigate={handleOpdNavigate}
+            routeParams={opdRouteParams}
+            refreshKey={refreshCounter}
+            hasPermission={hasPermission}
+            userPermissions={userPermissions}
+          />
+        );
       case 'billing':
-        return <OpdBillingScreen onNavigate={handleOpdNavigate} routeParams={opdRouteParams} refreshKey={refreshCounter} />;
+        return (
+          <OpdBillingScreen
+            onNavigate={handleOpdNavigate}
+            routeParams={opdRouteParams}
+            refreshKey={refreshCounter}
+            hasPermission={hasPermission}
+            userPermissions={userPermissions}
+          />
+        );
       case 'billing-summary':
-        return <OpdBillingSummaryScreen onNavigate={handleOpdNavigate} refreshKey={refreshCounter} />;
+        return (
+          <OpdBillingSummaryScreen
+            onNavigate={handleOpdNavigate}
+            refreshKey={refreshCounter}
+            hasPermission={hasPermission}
+            userPermissions={userPermissions}
+          />
+        );
       case 'tests':
-        return <OpdDiagnosticTestsScreen onNavigate={handleOpdNavigate} refreshKey={refreshCounter} />;
+        return (
+          <OpdDiagnosticTestsScreen
+            onNavigate={handleOpdNavigate}
+            refreshKey={refreshCounter}
+            hasPermission={hasPermission}
+            userPermissions={userPermissions}
+          />
+        );
       case 'medicines':
-        return <OpdMedicinesScreen onNavigate={handleOpdNavigate} refreshKey={refreshCounter} />;
+        return (
+          <OpdMedicinesScreen
+            onNavigate={handleOpdNavigate}
+            refreshKey={refreshCounter}
+            hasPermission={hasPermission}
+            userPermissions={userPermissions}
+          />
+        );
       case 'roles':
-        return <OpdRolesScreen onNavigate={handleOpdNavigate} refreshKey={refreshCounter} />;
+        return (
+          <OpdRolesScreen
+            onNavigate={handleOpdNavigate}
+            refreshKey={refreshCounter}
+            hasPermission={hasPermission}
+            userPermissions={userPermissions}
+          />
+        );
       case 'reminders':
-        return <OpdRemindersScreen onNavigate={handleOpdNavigate} refreshKey={refreshCounter} />;
+        return (
+          <OpdRemindersScreen
+            onNavigate={handleOpdNavigate}
+            refreshKey={refreshCounter}
+            hasPermission={hasPermission}
+            userPermissions={userPermissions}
+          />
+        );
       case 'accounts':
-        return <OpdAccountsScreen onNavigate={handleOpdNavigate} refreshKey={refreshCounter} />;
+        return (
+          <OpdAccountsScreen
+            onNavigate={handleOpdNavigate}
+            refreshKey={refreshCounter}
+            hasPermission={hasPermission}
+            userPermissions={userPermissions}
+          />
+        );
       default:
-        return <OpdDashboardScreen onNavigate={handleOpdNavigate} refreshKey={refreshCounter} />;
+        return (
+          <OpdDashboardScreen
+            onNavigate={handleOpdNavigate}
+            refreshKey={refreshCounter}
+            hasPermission={hasPermission}
+            userPermissions={userPermissions}
+          />
+        );
     }
   };
 
@@ -465,19 +537,21 @@ export default function AppNavigator() {
                 )}
               </ScrollView>
 
-              <TouchableOpacity
-                style={styles.viewAllRemindersBtn}
-                onPress={() => {
-                  setIsNotificationOpen(false);
-                  if (opdSubTab !== 'reminders') {
-                    setNavHistory((prev) => [...prev, { tab: opdSubTab, params: opdRouteParams }]);
-                  }
-                  setOpdRouteParams(null);
-                  setOpdSubTab('reminders');
-                }}
-              >
-                <Text style={styles.viewAllRemindersText}>View All Reminders Feed →</Text>
-              </TouchableOpacity>
+              {hasPermission('reminders:read') && (
+                <TouchableOpacity
+                  style={styles.viewAllRemindersBtn}
+                  onPress={() => {
+                    setIsNotificationOpen(false);
+                    if (opdSubTab !== 'reminders') {
+                      setNavHistory((prev) => [...prev, { tab: opdSubTab, params: opdRouteParams }]);
+                    }
+                    setOpdRouteParams(null);
+                    setOpdSubTab('reminders');
+                  }}
+                >
+                  <Text style={styles.viewAllRemindersText}>View All Reminders Feed →</Text>
+                </TouchableOpacity>
+              )}
             </TouchableOpacity>
           </TouchableOpacity>
         </Modal>

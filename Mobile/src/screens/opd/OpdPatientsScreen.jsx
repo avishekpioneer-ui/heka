@@ -17,8 +17,10 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import apiClient from '../../config/api';
+import { usePermissions } from '../../utils/permissions';
 
-export default function OpdPatientsScreen({ onNavigate, routeParams, refreshKey }) {
+export default function OpdPatientsScreen({ onNavigate, routeParams, refreshKey, hasPermission: propHasPermission, userPermissions }) {
+  const { hasPermission } = usePermissions(userPermissions, propHasPermission);
   const { width } = useWindowDimensions();
   const isTablet = width >= 600;
 
@@ -425,19 +427,21 @@ export default function OpdPatientsScreen({ onNavigate, routeParams, refreshKey 
               <Text style={styles.heroSubtitle}>Manage medical profiles, records, and OPD visits</Text>
             </View>
 
-            <TouchableOpacity
-              style={styles.heroRegisterBtn}
-              onPress={() => {
-                setFormError('');
-                setFormSuccess('');
-                setDuplicatePatient(null);
-                setIsModalOpen(true);
-              }}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.heroRegisterBtnIcon}>＋</Text>
-              <Text style={styles.heroRegisterBtnText}>New Patient</Text>
-            </TouchableOpacity>
+            {hasPermission('patients:add') ? (
+              <TouchableOpacity
+                style={styles.heroRegisterBtn}
+                onPress={() => {
+                  setFormError('');
+                  setFormSuccess('');
+                  setDuplicatePatient(null);
+                  setIsModalOpen(true);
+                }}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.heroRegisterBtnIcon}>＋</Text>
+                <Text style={styles.heroRegisterBtnText}>New Patient</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
 
           {/* ═══ Responsive Metric Stats Badges ═══ */}
@@ -629,7 +633,7 @@ export default function OpdPatientsScreen({ onNavigate, routeParams, refreshKey 
             >
               <Text style={styles.resetFilterBtnText}>Reset Filters</Text>
             </TouchableOpacity>
-          ) : (
+          ) : hasPermission('patients:add') ? (
             <TouchableOpacity
               style={styles.primaryEmptyBtn}
               onPress={() => {
@@ -640,7 +644,7 @@ export default function OpdPatientsScreen({ onNavigate, routeParams, refreshKey 
             >
               <Text style={styles.primaryEmptyBtnText}>＋ Register First Patient</Text>
             </TouchableOpacity>
-          )}
+          ) : null}
         </View>
       ) : null
     )}
@@ -720,24 +724,30 @@ export default function OpdPatientsScreen({ onNavigate, routeParams, refreshKey 
                   </View>
 
                   {/* Top Action Menu (Edit / Delete) */}
-                  <View style={styles.cardHeaderMenu}>
-                    <TouchableOpacity
-                      style={styles.iconMiniBtn}
-                      onPress={() => handleOpenEdit(p)}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.iconMiniBtnText}>✏️</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.iconMiniBtn, styles.iconMiniBtnDanger]}
-                      onPress={() => handleDeletePatient(p)}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.iconMiniBtnText}>🗑️</Text>
-                    </TouchableOpacity>
-                  </View>
+                  {(hasPermission('patients:edit') || hasPermission('patients:delete')) ? (
+                    <View style={styles.cardHeaderMenu}>
+                      {hasPermission('patients:edit') ? (
+                        <TouchableOpacity
+                          style={styles.iconMiniBtn}
+                          onPress={() => handleOpenEdit(p)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.iconMiniBtnText}>✏️</Text>
+                        </TouchableOpacity>
+                      ) : null}
+                      {hasPermission('patients:delete') ? (
+                        <TouchableOpacity
+                          style={[styles.iconMiniBtn, styles.iconMiniBtnDanger]}
+                          onPress={() => handleDeletePatient(p)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.iconMiniBtnText}>🗑️</Text>
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+                  ) : null}
                 </View>
 
                 {/* Details Section: Phone, Email, Address, Registration */}
@@ -799,25 +809,29 @@ export default function OpdPatientsScreen({ onNavigate, routeParams, refreshKey 
 
                 {/* Bottom Clinical Actions Row */}
                 <View style={styles.cardActionGrid}>
-                  <TouchableOpacity
-                    style={styles.actionBtnPrimary}
-                    onPress={() => {
-                      if (onNavigate) onNavigate('appointments', { patient: p });
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.actionBtnPrimaryText}>📅 Book Visit</Text>
-                  </TouchableOpacity>
+                  {hasPermission('appointments:add') ? (
+                    <TouchableOpacity
+                      style={styles.actionBtnPrimary}
+                      onPress={() => {
+                        if (onNavigate) onNavigate('appointments', { patient: p });
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.actionBtnPrimaryText}>📅 Book Visit</Text>
+                    </TouchableOpacity>
+                  ) : null}
 
-                  <TouchableOpacity
-                    style={styles.actionBtnSecondary}
-                    onPress={() => {
-                      if (onNavigate) onNavigate('billing', { patientId: p._id || p.id });
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.actionBtnSecondaryText}>💳 Bill</Text>
-                  </TouchableOpacity>
+                  {hasPermission('billing:add') ? (
+                    <TouchableOpacity
+                      style={styles.actionBtnSecondary}
+                      onPress={() => {
+                        if (onNavigate) onNavigate('billing', { patientId: p._id || p.id });
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.actionBtnSecondaryText}>💳 Bill</Text>
+                    </TouchableOpacity>
+                  ) : null}
 
                   <TouchableOpacity
                     style={styles.actionBtnHistory}
@@ -1217,15 +1231,17 @@ export default function OpdPatientsScreen({ onNavigate, routeParams, refreshKey 
                   <Text style={styles.historyEmptyText}>
                     This patient has no logged clinical consultations or prescriptions yet.
                   </Text>
-                  <TouchableOpacity
-                    style={styles.historyBookBtn}
-                    onPress={() => {
-                      setIsHistoryModalOpen(false);
-                      if (onNavigate) onNavigate('appointments', { patient: selectedPatientForHistory });
-                    }}
-                  >
-                    <Text style={styles.historyBookBtnText}>📅 Schedule First Visit</Text>
-                  </TouchableOpacity>
+                  {hasPermission('appointments:add') ? (
+                    <TouchableOpacity
+                      style={styles.historyBookBtn}
+                      onPress={() => {
+                        setIsHistoryModalOpen(false);
+                        if (onNavigate) onNavigate('appointments', { patient: selectedPatientForHistory });
+                      }}
+                    >
+                      <Text style={styles.historyBookBtnText}>📅 Schedule First Visit</Text>
+                    </TouchableOpacity>
+                  ) : null}
                 </View>
               ) : (
                 <View style={styles.historyList}>

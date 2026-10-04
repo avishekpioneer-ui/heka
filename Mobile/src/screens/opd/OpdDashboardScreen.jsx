@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import apiClient from '../../config/api';
-import storage from '../../utils/storage';
+import { usePermissions } from '../../utils/permissions';
 
-export default function OpdDashboardScreen({ onNavigate }) {
+export default function OpdDashboardScreen({ onNavigate, hasPermission: propHasPermission, userPermissions }) {
+  const { hasPermission } = usePermissions(userPermissions, propHasPermission);
   const [stats, setStats] = useState({
     patients: 0,
     appointments: 0,
@@ -13,41 +14,6 @@ export default function OpdDashboardScreen({ onNavigate }) {
   });
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [permissions, setPermissions] = useState([]);
-
-  useEffect(() => {
-    loadPermissions();
-  }, []);
-
-  const loadPermissions = async () => {
-    const permStr = await storage.getItem('userPermissions');
-    try {
-      setPermissions(permStr ? JSON.parse(permStr) : ['*']);
-    } catch (e) {
-      setPermissions(['*']);
-    }
-  };
-
-  const LEGACY_MAP = {
-    manage_patients: ['patients:read', 'patients:add', 'patients:edit', 'patients:delete'],
-    manage_appointments: ['appointments:read', 'appointments:add', 'appointments:edit', 'appointments:delete'],
-    manage_consultations: ['consultations:read', 'consultations:add', 'consultations:edit', 'consultations:delete'],
-    manage_medicines: ['medicines:read', 'medicines:add', 'medicines:edit', 'medicines:delete'],
-    manage_tests: ['tests:read', 'tests:add', 'tests:edit', 'tests:delete'],
-    manage_billing: ['billing:read', 'billing:add', 'billing:edit', 'billing:delete'],
-    manage_roles: ['roles:read', 'roles:add', 'roles:edit', 'roles:delete'],
-  };
-
-  const hasPermission = (perm) => {
-    if (!perm) return true;
-    if (permissions.includes('*')) return true;
-    if (permissions.includes(perm)) return true;
-    for (const [legacy, canonicals] of Object.entries(LEGACY_MAP)) {
-      if (permissions.includes(legacy) && canonicals.includes(perm)) return true;
-      if (perm === legacy && canonicals.some((c) => permissions.includes(c))) return true;
-    }
-    return false;
-  };
 
   const fetchDashboardData = useCallback(async () => {
     try {
@@ -220,9 +186,11 @@ export default function OpdDashboardScreen({ onNavigate }) {
       <View style={styles.feedCard}>
         <View style={styles.feedHeader}>
           <Text style={styles.feedTitle}>Active Consultations Feed</Text>
-          <TouchableOpacity onPress={() => onNavigate && onNavigate('appointments')}>
-            <Text style={styles.feedLink}>View All →</Text>
-          </TouchableOpacity>
+          {hasPermission('appointments:read') ? (
+            <TouchableOpacity onPress={() => onNavigate && onNavigate('appointments')}>
+              <Text style={styles.feedLink}>View All →</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
 
         {appointments.length === 0 ? (

@@ -14,6 +14,7 @@ import {
   Switch
 } from 'react-native';
 import apiClient from '../../config/api';
+import { usePermissions } from '../../utils/permissions';
 
 const formatINR = (val) => {
   const num = Number(val) || 0;
@@ -27,7 +28,8 @@ const formatMonthDisplay = (monthStr) => {
   return date.toLocaleString('en-US', { month: 'short', year: 'numeric' });
 };
 
-export default function OpdAccountsScreen({ onNavigate, refreshKey }) {
+export default function OpdAccountsScreen({ onNavigate, refreshKey, hasPermission: propHasPermission, userPermissions }) {
+  const { hasPermission } = usePermissions(userPermissions, propHasPermission);
   const currentMonthStr = useMemo(() => new Date().toISOString().slice(0, 7), []);
   const [selectedMonth, setSelectedMonth] = useState(currentMonthStr);
 
@@ -249,7 +251,7 @@ export default function OpdAccountsScreen({ onNavigate, refreshKey }) {
       </View>
 
       {/* Generate Payroll Action Banner if ungenerated records exist */}
-      {salariesData.unGeneratedCount > 0 && (
+      {salariesData.unGeneratedCount > 0 && hasPermission(['accounts:add', 'accounts:edit']) && (
         <View style={styles.generateBanner}>
           <Text style={styles.generateBannerText}>
             ⚡ {salariesData.unGeneratedCount} staff pending salary generation
@@ -304,12 +306,21 @@ export default function OpdAccountsScreen({ onNavigate, refreshKey }) {
 
                 {/* Salary Calculation Breakdown */}
                 <View style={styles.calcRow}>
-                  <TouchableOpacity onPress={() => openEditModal(item)} style={styles.calcItem}>
-                    <Text style={styles.calcLabel}>Salary ✏️</Text>
-                    <Text style={[styles.calcVal, { color: '#0d9488', textDecorationLine: 'underline' }]}>
-                      {formatINR(item.salary.baseSalary)}
-                    </Text>
-                  </TouchableOpacity>
+                  {hasPermission('accounts:edit') ? (
+                    <TouchableOpacity onPress={() => openEditModal(item)} style={styles.calcItem}>
+                      <Text style={styles.calcLabel}>Salary ✏️</Text>
+                      <Text style={[styles.calcVal, { color: '#0d9488', textDecorationLine: 'underline' }]}>
+                        {formatINR(item.salary.baseSalary)}
+                      </Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={styles.calcItem}>
+                      <Text style={styles.calcLabel}>Salary</Text>
+                      <Text style={[styles.calcVal, { color: '#0d9488' }]}>
+                        {formatINR(item.salary.baseSalary)}
+                      </Text>
+                    </View>
+                  )}
                   <View style={styles.calcItem}>
                     <Text style={styles.calcLabel}>Carry-over</Text>
                     <Text style={[styles.calcVal, carry > 0 ? { color: '#d97706' } : carry < 0 ? { color: '#7c3aed' } : { color: '#6b7280' }]}>
@@ -332,20 +343,24 @@ export default function OpdAccountsScreen({ onNavigate, refreshKey }) {
 
                 {/* Action Buttons */}
                 <View style={styles.actionRow}>
-                  <TouchableOpacity
-                    onPress={() => openEditModal(item)}
-                    style={styles.editBtn}
-                  >
-                    <Text style={styles.editBtnText}>✏️ Edit Salary/DOJ</Text>
-                  </TouchableOpacity>
+                  {hasPermission('accounts:edit') && (
+                    <TouchableOpacity
+                      onPress={() => openEditModal(item)}
+                      style={styles.editBtn}
+                    >
+                      <Text style={styles.editBtnText}>✏️ Edit Salary/DOJ</Text>
+                    </TouchableOpacity>
+                  )}
 
                   {!item.isGenerated ? (
-                    <TouchableOpacity
-                      onPress={() => handleGeneratePayroll(item.staff._id)}
-                      style={styles.payBtn}
-                    >
-                      <Text style={styles.payBtnText}>⚡ Generate</Text>
-                    </TouchableOpacity>
+                    hasPermission(['accounts:add', 'accounts:edit']) && (
+                      <TouchableOpacity
+                        onPress={() => handleGeneratePayroll(item.staff._id)}
+                        style={styles.payBtn}
+                      >
+                        <Text style={styles.payBtnText}>⚡ Generate</Text>
+                      </TouchableOpacity>
+                    )
                   ) : (
                     <>
                       <TouchableOpacity
@@ -357,12 +372,14 @@ export default function OpdAccountsScreen({ onNavigate, refreshKey }) {
                       >
                         <Text style={styles.historyBtnText}>📜 Slip</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() => openPayModal(item)}
-                        style={styles.payBtn}
-                      >
-                        <Text style={styles.payBtnText}>+ Pay Part</Text>
-                      </TouchableOpacity>
+                      {hasPermission(['accounts:add', 'accounts:edit']) && (
+                        <TouchableOpacity
+                          onPress={() => openPayModal(item)}
+                          style={styles.payBtn}
+                        >
+                          <Text style={styles.payBtnText}>+ Pay Part</Text>
+                        </TouchableOpacity>
+                      )}
                     </>
                   )}
                 </View>
@@ -428,13 +445,15 @@ export default function OpdAccountsScreen({ onNavigate, refreshKey }) {
               <TouchableOpacity onPress={() => setEditModalVisible(false)} style={styles.modalCancelBtn}>
                 <Text style={styles.modalCancelText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleSaveSalaryAndDoj}
-                disabled={submittingEdit}
-                style={styles.modalSubmitBtn}
-              >
-                <Text style={styles.modalSubmitText}>{submittingEdit ? 'Saving...' : 'Save Changes'}</Text>
-              </TouchableOpacity>
+              {hasPermission('accounts:edit') && (
+                <TouchableOpacity
+                  onPress={handleSaveSalaryAndDoj}
+                  disabled={submittingEdit}
+                  style={styles.modalSubmitBtn}
+                >
+                  <Text style={styles.modalSubmitText}>{submittingEdit ? 'Saving...' : 'Save Changes'}</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </View>
@@ -474,13 +493,15 @@ export default function OpdAccountsScreen({ onNavigate, refreshKey }) {
               <TouchableOpacity onPress={() => setPaymentModalVisible(false)} style={styles.modalCancelBtn}>
                 <Text style={styles.modalCancelText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleRecordPayment}
-                disabled={submittingPayment}
-                style={styles.modalSubmitBtn}
-              >
-                <Text style={styles.modalSubmitText}>{submittingPayment ? 'Saving...' : 'Confirm'}</Text>
-              </TouchableOpacity>
+              {hasPermission(['accounts:add', 'accounts:edit']) && (
+                <TouchableOpacity
+                  onPress={handleRecordPayment}
+                  disabled={submittingPayment}
+                  style={styles.modalSubmitBtn}
+                >
+                  <Text style={styles.modalSubmitText}>{submittingPayment ? 'Saving...' : 'Confirm'}</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </View>

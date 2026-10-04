@@ -15,6 +15,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import apiClient from '../../config/api';
+import { usePermissions } from '../../utils/permissions';
 
 export const PERMISSION_ACTIONS = [
   { id: 'read', label: 'Read', color: '#0369a1', bg: '#e0f2fe', border: '#bae6fd' },
@@ -49,7 +50,8 @@ const LEGACY_MAP = {
 };
 
 
-export default function OpdRolesScreen() {
+export default function OpdRolesScreen({ onNavigate, refreshKey, hasPermission: propHasPermission, userPermissions }) {
+  const { hasPermission } = usePermissions(userPermissions, propHasPermission);
   const [activeTab, setActiveTab] = useState('staff'); // 'staff' | 'roles'
   const [staffList, setStaffList] = useState([]);
   const [roles, setRoles] = useState([]);
@@ -450,15 +452,17 @@ export default function OpdRolesScreen() {
             </Text>
           </View>
 
-          <TouchableOpacity
-            style={styles.addBtn}
-            onPress={() => (activeTab === 'staff' ? handleOpenAddStaff() : handleOpenCreateRole())}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.addBtnText}>
-              + {activeTab === 'staff' ? 'Add Staff' : 'Create Role'}
-            </Text>
-          </TouchableOpacity>
+          {hasPermission('roles:add') && (
+            <TouchableOpacity
+              style={styles.addBtn}
+              onPress={() => (activeTab === 'staff' ? handleOpenAddStaff() : handleOpenCreateRole())}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.addBtnText}>
+                + {activeTab === 'staff' ? 'Add Staff' : 'Create Role'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Stats Strip */}
@@ -516,12 +520,14 @@ export default function OpdRolesScreen() {
               <Text style={styles.emptyText}>
                 Tap "+ Add Staff" to register doctors, receptionists, or clinic personnel.
               </Text>
-              <TouchableOpacity
-                style={[styles.addBtn, { marginTop: 12 }]}
-                onPress={handleOpenAddStaff}
-              >
-                <Text style={styles.addBtnText}>+ Register Staff Member</Text>
-              </TouchableOpacity>
+              {hasPermission('roles:add') && (
+                <TouchableOpacity
+                  style={[styles.addBtn, { marginTop: 12 }]}
+                  onPress={handleOpenAddStaff}
+                >
+                  <Text style={styles.addBtnText}>+ Register Staff Member</Text>
+                </TouchableOpacity>
+              )}
             </View>
           ) : (
             staffList.map((s) => {
@@ -543,21 +549,25 @@ export default function OpdRolesScreen() {
                     </View>
 
                     <View style={styles.cardHeaderActions}>
-                      <TouchableOpacity
-                        style={styles.editStaffBtn}
-                        onPress={() => handleOpenEditStaff(s)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={styles.editStaffBtnText}>✏️ Edit</Text>
-                      </TouchableOpacity>
+                      {hasPermission('roles:edit') && (
+                        <TouchableOpacity
+                          style={styles.editStaffBtn}
+                          onPress={() => handleOpenEditStaff(s)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.editStaffBtnText}>✏️ Edit</Text>
+                        </TouchableOpacity>
+                      )}
 
-                      <TouchableOpacity
-                        style={styles.deleteStaffBtn}
-                        onPress={() => handleDeleteStaff(s._id || s.id, s.name)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={styles.deleteStaffBtnText}>✕</Text>
-                      </TouchableOpacity>
+                      {hasPermission('roles:delete') && (
+                        <TouchableOpacity
+                          style={styles.deleteStaffBtn}
+                          onPress={() => handleDeleteStaff(s._id || s.id, s.name)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.deleteStaffBtnText}>✕</Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
                   </View>
 
@@ -601,12 +611,14 @@ export default function OpdRolesScreen() {
               <Text style={styles.emptyText}>
                 Tap "+ Create Role" to create customized permission sets.
               </Text>
-              <TouchableOpacity
-                style={[styles.addBtn, { marginTop: 12 }]}
-                onPress={handleOpenCreateRole}
-              >
-                <Text style={styles.addBtnText}>+ Create Access Role</Text>
-              </TouchableOpacity>
+              {hasPermission('roles:add') && (
+                <TouchableOpacity
+                  style={[styles.addBtn, { marginTop: 12 }]}
+                  onPress={handleOpenCreateRole}
+                >
+                  <Text style={styles.addBtnText}>+ Create Access Role</Text>
+                </TouchableOpacity>
+              )}
             </View>
           ) : (
             roles.map((r) => {
@@ -631,15 +643,17 @@ export default function OpdRolesScreen() {
                     </View>
 
                     <View style={styles.roleHeaderActions}>
-                      <TouchableOpacity
-                        style={styles.editBtn}
-                        onPress={() => handleOpenEditRole(r)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={styles.editBtnText}>✏️ Edit</Text>
-                      </TouchableOpacity>
+                      {hasPermission('roles:edit') && (
+                        <TouchableOpacity
+                          style={styles.editBtn}
+                          onPress={() => handleOpenEditRole(r)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.editBtnText}>✏️ Edit</Text>
+                        </TouchableOpacity>
+                      )}
 
-                      {!isDefaultDoctor && (
+                      {!isDefaultDoctor && hasPermission('roles:delete') && (
                         <TouchableOpacity
                           style={styles.deleteRoleIconBtn}
                           onPress={() => handleDeleteRole(r._id || r.id, r.name)}
@@ -876,18 +890,20 @@ export default function OpdRolesScreen() {
                   </View>
                 )}
 
-                <TouchableOpacity
-                  style={[styles.submitBtn, submitting && styles.btnDisabled]}
-                  onPress={handleRegisterStaff}
-                  disabled={submitting}
-                  activeOpacity={0.8}
-                >
-                  {submitting ? (
-                    <ActivityIndicator color="#ffffff" />
-                  ) : (
-                    <Text style={styles.submitBtnText}>Create Staff Account</Text>
-                  )}
-                </TouchableOpacity>
+                {hasPermission('roles:add') && (
+                  <TouchableOpacity
+                    style={[styles.submitBtn, submitting && styles.btnDisabled]}
+                    onPress={handleRegisterStaff}
+                    disabled={submitting}
+                    activeOpacity={0.8}
+                  >
+                    {submitting ? (
+                      <ActivityIndicator color="#ffffff" />
+                    ) : (
+                      <Text style={styles.submitBtnText}>Create Staff Account</Text>
+                    )}
+                  </TouchableOpacity>
+                )}
               </ScrollView>
             </View>
           </View>
@@ -1080,18 +1096,20 @@ export default function OpdRolesScreen() {
                     <Text style={{ color: '#475569', fontWeight: '700', fontSize: 14 }}>Cancel</Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={[styles.submitBtn, { flex: 1.5 }, submittingEditStaff && styles.btnDisabled]}
-                    onPress={handleUpdateStaff}
-                    disabled={submittingEditStaff}
-                    activeOpacity={0.8}
-                  >
-                    {submittingEditStaff ? (
-                      <ActivityIndicator color="#ffffff" />
-                    ) : (
-                      <Text style={styles.submitBtnText}>Save Changes</Text>
-                    )}
-                  </TouchableOpacity>
+                  {hasPermission('roles:edit') && (
+                    <TouchableOpacity
+                      style={[styles.submitBtn, { flex: 1.5 }, submittingEditStaff && styles.btnDisabled]}
+                      onPress={handleUpdateStaff}
+                      disabled={submittingEditStaff}
+                      activeOpacity={0.8}
+                    >
+                      {submittingEditStaff ? (
+                        <ActivityIndicator color="#ffffff" />
+                      ) : (
+                        <Text style={styles.submitBtnText}>Save Changes</Text>
+                      )}
+                    </TouchableOpacity>
+                  )}
                 </View>
               </ScrollView>
             </View>
@@ -1232,20 +1250,22 @@ export default function OpdRolesScreen() {
                   })}
                 </View>
 
-                <TouchableOpacity
-                  style={[styles.submitBtn, submitting && styles.btnDisabled]}
-                  onPress={handleSaveRole}
-                  disabled={submitting}
-                  activeOpacity={0.8}
-                >
-                  {submitting ? (
-                    <ActivityIndicator color="#ffffff" />
-                  ) : (
-                    <Text style={styles.submitBtnText}>
-                      {editingRoleId ? 'Update Role Permissions' : 'Save Custom Role'}
-                    </Text>
-                  )}
-                </TouchableOpacity>
+                {(editingRoleId ? hasPermission('roles:edit') : hasPermission('roles:add')) && (
+                  <TouchableOpacity
+                    style={[styles.submitBtn, submitting && styles.btnDisabled]}
+                    onPress={handleSaveRole}
+                    disabled={submitting}
+                    activeOpacity={0.8}
+                  >
+                    {submitting ? (
+                      <ActivityIndicator color="#ffffff" />
+                    ) : (
+                      <Text style={styles.submitBtnText}>
+                        {editingRoleId ? 'Update Role Permissions' : 'Save Custom Role'}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                )}
               </ScrollView>
             </View>
           </View>

@@ -13,6 +13,7 @@ import {
   Platform
 } from 'react-native';
 import apiClient from '../../config/api';
+import { usePermissions } from '../../utils/permissions';
 
 const formatINR = (val) => {
   const num = Number(val) || 0;
@@ -29,7 +30,8 @@ const formatDate = (dateStr) => {
   });
 };
 
-export default function OpdBillingSummaryScreen({ onNavigate, refreshKey }) {
+export default function OpdBillingSummaryScreen({ onNavigate, refreshKey, hasPermission: propHasPermission, userPermissions }) {
+  const { hasPermission } = usePermissions(userPermissions, propHasPermission);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -347,7 +349,7 @@ export default function OpdBillingSummaryScreen({ onNavigate, refreshKey }) {
         </View>
 
         {/* Action Button for Unpaid Invoices */}
-        {!isPaid && (
+        {!isPaid && hasPermission('billing:edit') && (
           <TouchableOpacity
             style={styles.payActionBtn}
             onPress={() => handleMarkPaid(item._id, patientName, item.totalAmount)}

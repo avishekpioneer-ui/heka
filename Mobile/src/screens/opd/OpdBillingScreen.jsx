@@ -16,9 +16,11 @@ import {
   RefreshControl,
 } from 'react-native';
 import apiClient from '../../config/api';
+import { usePermissions } from '../../utils/permissions';
 import CalendarPickerModal from '../../components/CalendarPickerModal';
 
-export default function OpdBillingScreen({ routeParams, onNavigate, refreshKey }) {
+export default function OpdBillingScreen({ routeParams, onNavigate, refreshKey, hasPermission: propHasPermission, userPermissions }) {
+  const { hasPermission } = usePermissions(userPermissions, propHasPermission);
   const [bills, setBills] = useState([]);
   const [patients, setPatients] = useState([]);
   const [testsCatalog, setTestsCatalog] = useState([]);
@@ -764,7 +766,7 @@ export default function OpdBillingScreen({ routeParams, onNavigate, refreshKey }
         </View>
 
         <View style={{ flexDirection: 'row', gap: 6 }}>
-          {onNavigate && (
+          {onNavigate && hasPermission('reports:read') && (
             <TouchableOpacity
               style={[styles.addBtn, { backgroundColor: '#134e4a' }]}
               onPress={() => onNavigate('billing-summary')}
@@ -774,13 +776,15 @@ export default function OpdBillingScreen({ routeParams, onNavigate, refreshKey }
             </TouchableOpacity>
           )}
 
-          <TouchableOpacity
-            style={styles.addBtn}
-            onPress={() => setIsModalOpen(true)}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.addBtnText}>+ New</Text>
-          </TouchableOpacity>
+          {hasPermission('billing:add') && (
+            <TouchableOpacity
+              style={styles.addBtn}
+              onPress={() => setIsModalOpen(true)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.addBtnText}>+ New</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -1026,7 +1030,7 @@ export default function OpdBillingScreen({ routeParams, onNavigate, refreshKey }
 
           {/* Actions */}
           <View style={styles.billActions}>
-            {!isPaid && (
+            {!isPaid && hasPermission('billing:edit') && (
               <TouchableOpacity
                 style={[styles.payBtn, isPaying && styles.btnDisabled]}
                 onPress={() => handlePayBill(bId)}
@@ -1041,19 +1045,23 @@ export default function OpdBillingScreen({ routeParams, onNavigate, refreshKey }
             )}
 
             <View style={styles.cardBtnRow}>
-              <TouchableOpacity
-                style={styles.editCardBtn}
-                onPress={() => handleStartEdit(b)}
-              >
-                <Text style={styles.editCardBtnText}>✏️ Edit</Text>
-              </TouchableOpacity>
+              {hasPermission('billing:edit') && (
+                <TouchableOpacity
+                  style={styles.editCardBtn}
+                  onPress={() => handleStartEdit(b)}
+                >
+                  <Text style={styles.editCardBtnText}>✏️ Edit</Text>
+                </TouchableOpacity>
+              )}
 
-              <TouchableOpacity
-                style={styles.deleteCardBtn}
-                onPress={() => handleDeleteBill(b)}
-              >
-                <Text style={styles.deleteCardBtnText}>🗑️ Delete</Text>
-              </TouchableOpacity>
+              {hasPermission('billing:delete') && (
+                <TouchableOpacity
+                  style={styles.deleteCardBtn}
+                  onPress={() => handleDeleteBill(b)}
+                >
+                  <Text style={styles.deleteCardBtnText}>🗑️ Delete</Text>
+                </TouchableOpacity>
+              )}
 
               <TouchableOpacity
                 style={styles.shareCardBtn}
@@ -1844,20 +1852,22 @@ export default function OpdBillingScreen({ routeParams, onNavigate, refreshKey }
                     </View>
                   )}
 
-                <TouchableOpacity
-                  style={[styles.submitBtn, submitting && styles.btnDisabled]}
-                  onPress={() => handleCreateBill('Pending')}
-                  disabled={submitting}
-                  activeOpacity={0.8}
-                >
-                  {submitting ? (
-                    <ActivityIndicator color="#ffffff" />
-                  ) : (
-                    <Text style={styles.submitBtnText}>
-                      {editingBillId ? 'Save Changes' : 'Generate & Issue Invoice'}
-                    </Text>
-                  )}
-                </TouchableOpacity>
+                {(editingBillId ? hasPermission('billing:edit') : hasPermission('billing:add')) && (
+                  <TouchableOpacity
+                    style={[styles.submitBtn, submitting && styles.btnDisabled]}
+                    onPress={() => handleCreateBill('Pending')}
+                    disabled={submitting}
+                    activeOpacity={0.8}
+                  >
+                    {submitting ? (
+                      <ActivityIndicator color="#ffffff" />
+                    ) : (
+                      <Text style={styles.submitBtnText}>
+                        {editingBillId ? 'Save Changes' : 'Generate & Issue Invoice'}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                )}
               </ScrollView>
             </View>
           </View>
