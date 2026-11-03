@@ -37,6 +37,20 @@ export default function OpdBillingScreen({ routeParams, onNavigate, refreshKey, 
   const [submitting, setSubmitting] = useState(false);
   const [payingBillId, setPayingBillId] = useState(null);
 
+  // Payment Record Modal State (Supports Part Payments)
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [paymentModalBill, setPaymentModalBill] = useState(null);
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('Cash');
+  const [paymentNotes, setPaymentNotes] = useState('');
+  const [paymentDate, setPaymentDate] = useState('');
+  const [paymentSubmitting, setPaymentSubmitting] = useState(false);
+
+  // Initial payment state for new invoice creation
+  const [initialPaymentOption, setInitialPaymentOption] = useState('unpaid'); // 'unpaid' | 'full' | 'partial'
+  const [initialPaymentAmount, setInitialPaymentAmount] = useState('');
+  const [initialPaymentMethod, setInitialPaymentMethod] = useState('Cash');
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBillId, setEditingBillId] = useState(null);
   const [error, setError] = useState('');
@@ -157,6 +171,9 @@ export default function OpdBillingScreen({ routeParams, onNavigate, refreshKey, 
     setIsTestDropdownOpen(false);
     setMedicineSearchQuery('');
     setIsMedicineDropdownOpen(false);
+    setInitialPaymentOption('unpaid');
+    setInitialPaymentAmount('');
+    setInitialPaymentMethod('Cash');
     setError('');
     setSuccess('');
   };
@@ -515,6 +532,9 @@ export default function OpdBillingScreen({ routeParams, onNavigate, refreshKey, 
     setIsTestDropdownOpen(false);
     setMedicineSearchQuery('');
     setIsMedicineDropdownOpen(false);
+    setInitialPaymentOption('unpaid');
+    setInitialPaymentAmount('');
+    setInitialPaymentMethod('Cash');
     setError('');
     setSuccess('');
     setIsModalOpen(true);
@@ -574,6 +594,9 @@ export default function OpdBillingScreen({ routeParams, onNavigate, refreshKey, 
       }
     }
 
+    setInitialPaymentOption('unpaid');
+    setInitialPaymentAmount('');
+    setInitialPaymentMethod('Cash');
     setError('');
     setSuccess('');
     setSubmitting(true);
@@ -648,6 +671,22 @@ export default function OpdBillingScreen({ routeParams, onNavigate, refreshKey, 
         discountType: m.discountType || 'fixed',
       }));
 
+      let computedPaidAmount = 0;
+      let computedStatus = status;
+
+      if (!editingBillId) {
+        if (initialPaymentOption === 'full') {
+          computedPaidAmount = grandTotal;
+          computedStatus = 'Paid';
+        } else if (initialPaymentOption === 'partial') {
+          computedPaidAmount = Math.min(grandTotal, Math.max(0, parseFloat(initialPaymentAmount || 0)));
+          computedStatus = computedPaidAmount >= grandTotal ? 'Paid' : 'Partially Paid';
+        } else {
+          computedPaidAmount = 0;
+          computedStatus = 'Pending';
+        }
+      }
+
       const payload = {
         patientId: selectedPatientId,
         consultationFee: grossConsultation,
@@ -661,7 +700,10 @@ export default function OpdBillingScreen({ routeParams, onNavigate, refreshKey, 
         discountType,
         discountReason,
         totalAmount: grandTotal,
-        status,
+        paidAmount: computedPaidAmount,
+        paymentMethod: initialPaymentMethod || 'Cash',
+        paymentNotes: initialPaymentOption === 'partial' ? 'Initial part payment' : '',
+        status: computedStatus,
         items,
         followUpDate: followUpDate || null,
         followUpNote: followUpNote || '',
@@ -766,31 +808,96 @@ export default function OpdBillingScreen({ routeParams, onNavigate, refreshKey, 
     );
   };
 
-  const handlePayBill = (billId) => {
-    if (!billId) return;
-    Alert.alert(
-      'Record Payment',
-      'Mark this invoice as Paid? This will update the invoice status.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Mark as Paid',
-          onPress: async () => {
-            try {
-              setPayingBillId(billId);
-              await apiClient.put(`/api/opd/billing/${billId}/pay`, {});
-              await fetchData();
-              Alert.alert('Payment Recorded', 'Invoice has been marked as Paid successfully.');
-            } catch (err) {
-              console.error('Error processing payment:', err);
-              Alert.alert('Payment Error', err.response?.data?.message || 'Failed to record payment.');
-            } finally {
-              setPayingBillId(null);
-            }
+  const openPaymentModal = (bill) => {
+    if (!bill) return;
+    const isPaid = bill.status === 'Paid';
+    const total = parseFloat(bill.totalAmount || 0);
+    let paid = 0;
+    if (Array.isArray(bill.payments) && bill.payments.length > 0) {
+      paid = bill.payments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+    } else if (isPaid) {
+      paid = total;
+    } else {
+      paid = parseFloat(bill.paidAmount) || 0;
+    }
+    const due = bill.dueAmount !== undefined ? parseFloat(bill.dueAmount) : Math.max(0, total - paid);
+
+    setPaymentModalBill(bill);
+    setPaymentAmount(due > 0 ? String(due) : '');
+    setPaymentMethod('Cash');
+    setPaymentNotes('');
+    setPaymentDate(new Date().toISOString().substring(0, 10));
+    setIsPaymentModalOpen(true);
+  };
+
+  const handleRecordPaymentSubmit = async () => {
+    if (!paymentModalBill) return;
+    const billId = paymentModalBill._id || paymentModalBill.id;
+    const numAmt = parseFloat(paymentAmount);
+    if (isNaN(numAmt) || numAmt <= 0) {
+      Alert.alert('Invalid Amount', 'Please enter a valid payment amount greater than 0.');
+      return;
+    }
+
+    try {
+      setPaymentSubmitting(true);
+      const res = await apiClient.put(`/api/opd/billing/${billId}/pay`, {
+        amount: numAmt,
+        paymentMethod,
+        notes: paymentNotes || '',
+        paidAt: paymentDate || new Date().toISOString()
+      });
+
+      setIsPaymentModalOpen(false);
+      setPaymentModalBill(null);
+      await fetchData();
+
+      Alert.alert(
+        'Payment Recorded',
+        res.data?.message || `Payment of ₹${numAmt} recorded successfully.`
+      );
+    } catch (err) {
+      console.error('Error recording payment:', err);
+      Alert.alert('Payment Error', err.response?.data?.message || 'Failed to record payment.');
+    } finally {
+      setPaymentSubmitting(false);
+    }
+  };
+
+  const handlePayBill = (billOrId) => {
+    if (!billOrId) return;
+    if (typeof billOrId === 'object') {
+      openPaymentModal(billOrId);
+      return;
+    }
+    const foundBill = bills.find((b) => (b._id || b.id) === billOrId);
+    if (foundBill) {
+      openPaymentModal(foundBill);
+    } else {
+      Alert.alert(
+        'Record Payment',
+        'Mark this invoice as Paid? This will update the invoice status.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Mark as Paid',
+            onPress: async () => {
+              try {
+                setPayingBillId(billOrId);
+                await apiClient.put(`/api/opd/billing/${billOrId}/pay`, {});
+                await fetchData();
+                Alert.alert('Payment Recorded', 'Invoice has been marked as Paid successfully.');
+              } catch (err) {
+                console.error('Error processing payment:', err);
+                Alert.alert('Payment Error', err.response?.data?.message || 'Failed to record payment.');
+              } finally {
+                setPayingBillId(null);
+              }
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+    }
   };
 
   const renderHeader = () => (
@@ -867,8 +974,20 @@ export default function OpdBillingScreen({ routeParams, onNavigate, refreshKey, 
 
   const renderBillItem = ({ item: b, index: bIdx }) => {
     const isPaid = b.status === 'Paid';
+    const isPartial = b.status === 'Partially Paid';
     const bId = b._id || b.id;
     const isPaying = payingBillId === bId;
+
+    const totalAmt = parseFloat(b.totalAmount || 0);
+    let paidAmt = 0;
+    if (Array.isArray(b.payments) && b.payments.length > 0) {
+      paidAmt = b.payments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+    } else if (isPaid) {
+      paidAmt = totalAmt;
+    } else {
+      paidAmt = parseFloat(b.paidAmount) || 0;
+    }
+    const dueAmt = b.dueAmount !== undefined ? parseFloat(b.dueAmount) : Math.max(0, totalAmt - paidAmt);
 
     const consultDiscAmt = (b.consultationFee > 0 && b.consultationDiscount > 0)
       ? (b.consultationDiscountType === 'percentage'
@@ -908,9 +1027,9 @@ export default function OpdBillingScreen({ routeParams, onNavigate, refreshKey, 
             <Text style={styles.patientName}>{b.patientName || b.patientId?.name || 'Walk-in Patient'}</Text>
           </View>
 
-          <View style={[styles.statusBadge, isPaid ? styles.statusPaid : styles.statusPending]}>
-            <Text style={[styles.statusBadgeText, isPaid ? styles.statusBadgeTextPaid : styles.statusBadgeTextPending]}>
-              {isPaid ? '✓ PAID' : '⏳ PENDING'}
+          <View style={[styles.statusBadge, isPaid ? styles.statusPaid : (isPartial ? styles.statusPartial : styles.statusPending)]}>
+            <Text style={[styles.statusBadgeText, isPaid ? styles.statusBadgeTextPaid : (isPartial ? styles.statusBadgeTextPartial : styles.statusBadgeTextPending)]}>
+              {isPaid ? '✓ PAID' : (isPartial ? '🔶 PARTIAL' : '⏳ PENDING')}
             </Text>
           </View>
         </View>
@@ -1041,9 +1160,43 @@ export default function OpdBillingScreen({ routeParams, onNavigate, refreshKey, 
               <Text style={styles.totalLabel}>Total Amount</Text>
             </View>
             <View style={styles.itemColRight}>
-              <Text style={styles.totalValue}>₹{parseFloat(b.totalAmount || 0).toFixed(2)}</Text>
+              <Text style={styles.totalValue}>₹{totalAmt.toFixed(2)}</Text>
             </View>
           </View>
+
+          <View style={[styles.itemRow, { paddingTop: 4 }]}>
+            <View style={styles.itemColLeft}>
+              <Text style={{ fontSize: 12, fontWeight: '600', color: '#047857' }}>Paid Amount</Text>
+            </View>
+            <View style={styles.itemColRight}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: '#047857' }}>₹{paidAmt.toFixed(2)}</Text>
+            </View>
+          </View>
+
+          {dueAmt > 0 && (
+            <View style={[styles.itemRow, { paddingTop: 2 }]}>
+              <View style={styles.itemColLeft}>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: '#b91c1c' }}>Remaining Due</Text>
+              </View>
+              <View style={styles.itemColRight}>
+                <Text style={{ fontSize: 13, fontWeight: '800', color: '#b91c1c' }}>₹{dueAmt.toFixed(2)}</Text>
+              </View>
+            </View>
+          )}
+
+          {/* Past Installments Preview */}
+          {Array.isArray(b.payments) && b.payments.length > 0 && (
+            <View style={{ backgroundColor: '#f8fafc', borderRadius: 8, padding: 8, marginTop: 4, borderWidth: 1, borderColor: '#e2e8f0' }}>
+              <Text style={{ fontSize: 11, fontWeight: '800', color: '#0f766e', marginBottom: 2 }}>
+                💳 Payment Records ({b.payments.length}):
+              </Text>
+              {b.payments.map((p, idx) => (
+                <Text key={`card-p-${idx}`} style={{ fontSize: 10.5, color: '#334155', marginTop: 1 }}>
+                  • {new Date(p.paidAt || b.createdAt).toLocaleDateString('en-GB')}: ₹{p.amount} via {p.paymentMethod || 'Cash'} {p.notes ? `(${p.notes})` : ''}
+                </Text>
+              ))}
+            </View>
+          )}
 
           {b.followUpDate ? (
             <View style={styles.followUpCardRow}>
@@ -1070,13 +1223,15 @@ export default function OpdBillingScreen({ routeParams, onNavigate, refreshKey, 
             {!isPaid && hasPermission('billing:edit') && (
               <TouchableOpacity
                 style={[styles.payBtn, isPaying && styles.btnDisabled]}
-                onPress={() => handlePayBill(bId)}
+                onPress={() => openPaymentModal(b)}
                 disabled={isPaying}
               >
                 {isPaying ? (
                   <ActivityIndicator size="small" color="#0f766e" />
                 ) : (
-                  <Text style={styles.payBtnText}>💳 Record Payment (Mark Paid)</Text>
+                  <Text style={styles.payBtnText}>
+                    💳 {isPartial ? `Record Next Payment (Due: ₹${dueAmt.toFixed(0)})` : 'Record Payment / Part Payment'}
+                  </Text>
                 )}
               </TouchableOpacity>
             )}
@@ -1893,6 +2048,119 @@ export default function OpdBillingScreen({ routeParams, onNavigate, refreshKey, 
                         </View>
                         <Text style={styles.grandTotalValue}>₹{grandTotal.toFixed(2)}</Text>
                       </View>
+
+                      {/* Payment Collection Option (When creating a new invoice) */}
+                      {!editingBillId && (
+                        <View style={{ marginTop: 10, padding: 12, backgroundColor: '#ffffff', borderRadius: 12, borderWidth: 1, borderColor: '#ccfbf1', gap: 10 }}>
+                          <Text style={{ fontSize: 12, fontWeight: '800', color: '#0f766e' }}>
+                            💳 Payment at Checkout
+                          </Text>
+                          <View style={{ flexDirection: 'row', gap: 6 }}>
+                            <TouchableOpacity
+                              style={{
+                                flex: 1,
+                                paddingVertical: 8,
+                                paddingHorizontal: 6,
+                                borderRadius: 8,
+                                borderWidth: 1.5,
+                                borderColor: initialPaymentOption === 'unpaid' ? '#0D9488' : '#e2e8f0',
+                                backgroundColor: initialPaymentOption === 'unpaid' ? '#f0fdfa' : '#f8fafc',
+                                alignItems: 'center',
+                              }}
+                              onPress={() => setInitialPaymentOption('unpaid')}
+                            >
+                              <Text style={{ fontSize: 11, fontWeight: '700', color: initialPaymentOption === 'unpaid' ? '#0f766e' : '#64748b' }}>
+                                ⏳ Pay Later
+                              </Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                              style={{
+                                flex: 1,
+                                paddingVertical: 8,
+                                paddingHorizontal: 6,
+                                borderRadius: 8,
+                                borderWidth: 1.5,
+                                borderColor: initialPaymentOption === 'partial' ? '#0D9488' : '#e2e8f0',
+                                backgroundColor: initialPaymentOption === 'partial' ? '#f0fdfa' : '#f8fafc',
+                                alignItems: 'center',
+                              }}
+                              onPress={() => {
+                                setInitialPaymentOption('partial');
+                                if (!initialPaymentAmount) {
+                                  setInitialPaymentAmount(String(Math.round(grandTotal / 2)));
+                                }
+                              }}
+                            >
+                              <Text style={{ fontSize: 11, fontWeight: '700', color: initialPaymentOption === 'partial' ? '#0f766e' : '#64748b' }}>
+                                🔶 Part Payment
+                              </Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                              style={{
+                                flex: 1,
+                                paddingVertical: 8,
+                                paddingHorizontal: 6,
+                                borderRadius: 8,
+                                borderWidth: 1.5,
+                                borderColor: initialPaymentOption === 'full' ? '#0D9488' : '#e2e8f0',
+                                backgroundColor: initialPaymentOption === 'full' ? '#f0fdfa' : '#f8fafc',
+                                alignItems: 'center',
+                              }}
+                              onPress={() => setInitialPaymentOption('full')}
+                            >
+                              <Text style={{ fontSize: 11, fontWeight: '700', color: initialPaymentOption === 'full' ? '#0f766e' : '#64748b' }}>
+                                ✓ Pay Full
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+
+                          {initialPaymentOption === 'partial' && (
+                            <View style={{ gap: 6, marginTop: 4 }}>
+                              <Text style={{ fontSize: 11, fontWeight: '700', color: '#475569' }}>
+                                Initial Amount Paid Now (₹):
+                              </Text>
+                              <TextInput
+                                style={[styles.fieldInput, { fontSize: 15, fontWeight: '800', color: '#0f766e' }]}
+                                keyboardType="numeric"
+                                placeholder="0.00"
+                                value={initialPaymentAmount}
+                                onChangeText={setInitialPaymentAmount}
+                              />
+                              <Text style={{ fontSize: 11, color: '#b91c1c', fontWeight: '700' }}>
+                                Remaining Balance Due: ₹{Math.max(0, grandTotal - (parseFloat(initialPaymentAmount) || 0)).toFixed(2)}
+                              </Text>
+                            </View>
+                          )}
+
+                          {initialPaymentOption !== 'unpaid' && (
+                            <View style={{ gap: 6, marginTop: 2 }}>
+                              <Text style={{ fontSize: 11, fontWeight: '700', color: '#475569' }}>Payment Mode:</Text>
+                              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                                {['Cash', 'UPI', 'Card', 'Bank Transfer'].map((pm) => (
+                                  <TouchableOpacity
+                                    key={`init-pm-${pm}`}
+                                    style={{
+                                      paddingVertical: 5,
+                                      paddingHorizontal: 10,
+                                      borderRadius: 6,
+                                      borderWidth: 1,
+                                      borderColor: initialPaymentMethod === pm ? '#0D9488' : '#cbd5e1',
+                                      backgroundColor: initialPaymentMethod === pm ? '#ccfbf1' : '#ffffff',
+                                    }}
+                                    onPress={() => setInitialPaymentMethod(pm)}
+                                  >
+                                    <Text style={{ fontSize: 11, fontWeight: '700', color: initialPaymentMethod === pm ? '#0f766e' : '#475569' }}>
+                                      {pm}
+                                    </Text>
+                                  </TouchableOpacity>
+                                ))}
+                              </View>
+                            </View>
+                          )}
+                        </View>
+                      )}
                     </View>
                   )}
 
@@ -1907,7 +2175,13 @@ export default function OpdBillingScreen({ routeParams, onNavigate, refreshKey, 
                       <ActivityIndicator color="#ffffff" />
                     ) : (
                       <Text style={styles.submitBtnText}>
-                        {editingBillId ? 'Save Changes' : 'Generate & Issue Invoice'}
+                        {editingBillId ? 'Save Changes' : (
+                          initialPaymentOption === 'full'
+                            ? 'Checkout (Pay Full: ₹' + grandTotal.toFixed(0) + ')'
+                            : initialPaymentOption === 'partial'
+                              ? 'Checkout (Part Paid: ₹' + (parseFloat(initialPaymentAmount) || 0).toFixed(0) + ')'
+                              : 'Generate Invoice (Pay Later)'
+                        )}
                       </Text>
                     )}
                   </TouchableOpacity>
@@ -1951,6 +2225,205 @@ export default function OpdBillingScreen({ routeParams, onNavigate, refreshKey, 
         }}
       />
 
+      {/* Record Payment / Part Payment Modal */}
+      <Modal
+        visible={isPaymentModalOpen}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setIsPaymentModalOpen(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
+          <View style={[styles.modalContainer, { maxHeight: '90%' }]}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <View>
+                  <Text style={styles.modalTitle}>💳 Record Payment</Text>
+                  <Text style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+                    Accept full or installment part payments
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={() => setIsPaymentModalOpen(false)}>
+                  <Text style={styles.modalClose}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              {paymentModalBill && (() => {
+                const total = parseFloat(paymentModalBill.totalAmount || 0);
+                let paid = 0;
+                if (Array.isArray(paymentModalBill.payments) && paymentModalBill.payments.length > 0) {
+                  paid = paymentModalBill.payments.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+                } else if (paymentModalBill.status === 'Paid') {
+                  paid = total;
+                } else {
+                  paid = parseFloat(paymentModalBill.paidAmount) || 0;
+                }
+                const due = paymentModalBill.dueAmount !== undefined
+                  ? parseFloat(paymentModalBill.dueAmount)
+                  : Math.max(0, total - paid);
+
+                return (
+                  <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingBottom: 20 }}>
+                    {/* Bill Info Card */}
+                    <View style={{ backgroundColor: '#f8fafc', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0' }}>
+                      <Text style={{ fontSize: 13, fontWeight: '800', color: '#0f766e' }}>
+                        Invoice #{formatBillId(paymentModalBill)}
+                      </Text>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#0f172a', marginTop: 2 }}>
+                        {paymentModalBill.patientName || paymentModalBill.patientId?.name || 'Patient'}
+                      </Text>
+                    </View>
+
+                    {/* Balance Summary Card */}
+                    <View style={{ flexDirection: 'row', backgroundColor: '#f0fdfa', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#99f6e4' }}>
+                      <View style={{ flex: 1, alignItems: 'center' }}>
+                        <Text style={{ fontSize: 10, fontWeight: '700', color: '#64748b' }}>TOTAL BILL</Text>
+                        <Text style={{ fontSize: 16, fontWeight: '800', color: '#0f172a', marginTop: 2 }}>₹{total.toFixed(0)}</Text>
+                      </View>
+                      <View style={{ width: 1, backgroundColor: '#cbd5e1' }} />
+                      <View style={{ flex: 1, alignItems: 'center' }}>
+                        <Text style={{ fontSize: 10, fontWeight: '700', color: '#047857' }}>PAID SO FAR</Text>
+                        <Text style={{ fontSize: 16, fontWeight: '800', color: '#047857', marginTop: 2 }}>₹{paid.toFixed(0)}</Text>
+                      </View>
+                      <View style={{ width: 1, backgroundColor: '#cbd5e1' }} />
+                      <View style={{ flex: 1, alignItems: 'center' }}>
+                        <Text style={{ fontSize: 10, fontWeight: '700', color: '#b91c1c' }}>BALANCE DUE</Text>
+                        <Text style={{ fontSize: 16, fontWeight: '900', color: '#b91c1c', marginTop: 2 }}>₹{due.toFixed(0)}</Text>
+                      </View>
+                    </View>
+
+                    {/* Quick Amount Chips */}
+                    <View style={{ gap: 6 }}>
+                      <Text style={styles.fieldLabel}>QUICK AMOUNTS</Text>
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                        <TouchableOpacity
+                          style={{ backgroundColor: '#ccfbf1', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#5eead4' }}
+                          onPress={() => setPaymentAmount(String(due))}
+                        >
+                          <Text style={{ color: '#0f766e', fontWeight: '800', fontSize: 12 }}>Pay Full: ₹{due.toFixed(0)}</Text>
+                        </TouchableOpacity>
+                        {due > 100 && (
+                          <TouchableOpacity
+                            style={{ backgroundColor: '#f1f5f9', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#cbd5e1' }}
+                            onPress={() => setPaymentAmount(String(Math.round(due / 2)))}
+                          >
+                            <Text style={{ color: '#334155', fontWeight: '700', fontSize: 12 }}>50%: ₹{Math.round(due / 2)}</Text>
+                          </TouchableOpacity>
+                        )}
+                        {due >= 500 && (
+                          <TouchableOpacity
+                            style={{ backgroundColor: '#f1f5f9', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#cbd5e1' }}
+                            onPress={() => setPaymentAmount('500')}
+                          >
+                            <Text style={{ color: '#334155', fontWeight: '700', fontSize: 12 }}>₹500</Text>
+                          </TouchableOpacity>
+                        )}
+                        {due >= 200 && (
+                          <TouchableOpacity
+                            style={{ backgroundColor: '#f1f5f9', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#cbd5e1' }}
+                            onPress={() => setPaymentAmount('200')}
+                          >
+                            <Text style={{ color: '#334155', fontWeight: '700', fontSize: 12 }}>₹200</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    </View>
+
+                    {/* Payment Amount Input */}
+                    <View style={styles.fieldGroup}>
+                      <Text style={styles.fieldLabel}>AMOUNT TO PAY TODAY (₹) *</Text>
+                      <TextInput
+                        style={[styles.fieldInput, { fontSize: 18, fontWeight: '800', color: '#0f766e' }]}
+                        keyboardType="numeric"
+                        placeholder="0.00"
+                        value={paymentAmount}
+                        onChangeText={setPaymentAmount}
+                      />
+                    </View>
+
+                    {/* Payment Method */}
+                    <View style={styles.fieldGroup}>
+                      <Text style={styles.fieldLabel}>PAYMENT METHOD</Text>
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                        {['Cash', 'UPI', 'Card', 'Bank Transfer'].map((m) => {
+                          const isSel = paymentMethod === m;
+                          return (
+                            <TouchableOpacity
+                              key={`pay-m-${m}`}
+                              style={{
+                                paddingHorizontal: 12,
+                                paddingVertical: 8,
+                                borderRadius: 8,
+                                borderWidth: 1.5,
+                                borderColor: isSel ? '#0D9488' : '#e2e8f0',
+                                backgroundColor: isSel ? '#f0fdfa' : '#ffffff',
+                              }}
+                              onPress={() => setPaymentMethod(m)}
+                            >
+                              <Text style={{ fontSize: 12, fontWeight: isSel ? '800' : '600', color: isSel ? '#0f766e' : '#475569' }}>
+                                {m === 'Cash' ? '💵 Cash' : m === 'UPI' ? '📱 UPI' : m === 'Card' ? '💳 Card' : '🏦 Bank'}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    </View>
+
+                    {/* Notes / Remarks */}
+                    <View style={styles.fieldGroup}>
+                      <Text style={styles.fieldLabel}>NOTES / REMARKS (OPTIONAL)</Text>
+                      <TextInput
+                        style={styles.fieldInput}
+                        placeholder="e.g. Part payment, installment 2, paid by relative"
+                        placeholderTextColor="#94a3b8"
+                        value={paymentNotes}
+                        onChangeText={setPaymentNotes}
+                      />
+                    </View>
+
+                    {/* Previous Payments History */}
+                    {Array.isArray(paymentModalBill.payments) && paymentModalBill.payments.length > 0 && (
+                      <View style={{ backgroundColor: '#f8fafc', padding: 10, borderRadius: 10, borderWidth: 1, borderColor: '#e2e8f0' }}>
+                        <Text style={{ fontSize: 11, fontWeight: '800', color: '#334155', marginBottom: 4 }}>
+                          Previous Installments ({paymentModalBill.payments.length})
+                        </Text>
+                        {paymentModalBill.payments.map((p, idx) => (
+                          <View key={`hist-${idx}`} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' }}>
+                            <Text style={{ fontSize: 11, color: '#64748b' }}>
+                              #{idx + 1} • {new Date(p.paidAt || paymentModalBill.createdAt).toLocaleDateString('en-GB')} ({p.paymentMethod || 'Cash'})
+                            </Text>
+                            <Text style={{ fontSize: 11, fontWeight: '700', color: '#047857' }}>
+                              ₹{parseFloat(p.amount || 0).toFixed(2)}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+
+                    {/* Submit Button */}
+                    <TouchableOpacity
+                      style={[styles.submitBtn, paymentSubmitting && styles.btnDisabled, { marginTop: 8 }]}
+                      onPress={handleRecordPaymentSubmit}
+                      disabled={paymentSubmitting}
+                    >
+                      {paymentSubmitting ? (
+                        <ActivityIndicator color="#ffffff" />
+                      ) : (
+                        <Text style={styles.submitBtnText}>
+                          ✓ Confirm & Save Payment (₹{parseFloat(paymentAmount || 0).toFixed(2)})
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  </ScrollView>
+                );
+              })()}
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
       {/* Official Cash Memo / Bill Invoice Modal */}
       <InvoiceModal
         visible={!!selectedBillForInvoice}
@@ -1989,9 +2462,11 @@ const styles = StyleSheet.create({
   invoiceNo: { fontSize: 13, fontWeight: '700', color: '#0f766e' },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
   statusPaid: { backgroundColor: '#f0fdf4' },
+  statusPartial: { backgroundColor: '#fef3c7', borderColor: '#fde68a', borderWidth: 1 },
   statusPending: { backgroundColor: '#fff7ed' },
   statusBadgeText: { fontSize: 11, fontWeight: '700' },
   statusBadgeTextPaid: { color: '#16a34a' },
+  statusBadgeTextPartial: { color: '#b45309' },
   statusBadgeTextPending: { color: '#d97706' },
   patientName: { fontSize: 16, fontWeight: '700', color: '#0f172a' },
   billType: { fontSize: 11, color: '#64748b', fontWeight: '600' },

@@ -37,6 +37,14 @@ const OpdBillingSummary = () => {
   const [payingBillId, setPayingBillId] = useState(null);
   const [actionSuccess, setActionSuccess] = useState('');
 
+  // Payment Recording Modal State
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [paymentModalBill, setPaymentModalBill] = useState(null);
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('Cash');
+  const [paymentNotes, setPaymentNotes] = useState('');
+  const [paymentSubmitting, setPaymentSubmitting] = useState(false);
+
   const fetchSummary = useCallback(async () => {
     try {
       setError('');
@@ -66,12 +74,77 @@ const OpdBillingSummary = () => {
     fetchSummary();
   };
 
-  const handleMarkPaid = async (billId) => {
-    if (!billId) return;
+  const openPaymentModal = (bill) => {
+    if (!bill) return;
+    const isPaid = (bill.status === 'Paid' || bill.status === 'PAID');
+    const total = parseFloat(bill.totalAmount || 0);
+    let paid = 0;
+    if (Array.isArray(bill.payments) && bill.payments.length > 0) {
+      paid = bill.payments.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+    } else if (isPaid) {
+      paid = total;
+    } else {
+      paid = parseFloat(bill.paidAmount) || 0;
+    }
+    const due = bill.dueAmount !== undefined ? parseFloat(bill.dueAmount) : Math.max(0, total - paid);
+
+    setPaymentModalBill(bill);
+    setPaymentAmount(due > 0 ? String(due) : '');
+    setPaymentMethod('Cash');
+    setPaymentNotes('');
+    setIsPaymentModalOpen(true);
+  };
+
+  const handleRecordPaymentSubmit = async (e) => {
+    if (e) e.preventDefault();
+    if (!paymentModalBill) return;
+    const billId = paymentModalBill._id;
+    const numAmt = parseFloat(paymentAmount);
+    if (isNaN(numAmt) || numAmt <= 0) {
+      alert('Please enter a valid payment amount greater than zero.');
+      return;
+    }
+
+    try {
+      setPaymentSubmitting(true);
+      const res = await axios.put(
+        `${backendUrl}/api/opd/billing/${billId}/pay`,
+        {
+          amount: numAmt,
+          paymentMethod,
+          notes: paymentNotes
+        },
+        { headers: { 'x-user-id': userId } }
+      );
+
+      setIsPaymentModalOpen(false);
+      setPaymentModalBill(null);
+      setActionSuccess(res.data?.message || 'Payment recorded successfully!');
+      setTimeout(() => setActionSuccess(''), 4000);
+      await fetchSummary();
+    } catch (err) {
+      console.error('Error recording payment:', err);
+      alert(err.response?.data?.message || 'Failed to record payment.');
+    } finally {
+      setPaymentSubmitting(false);
+    }
+  };
+
+  const handleMarkPaid = async (billOrId) => {
+    if (typeof billOrId === 'object' && billOrId !== null) {
+      openPaymentModal(billOrId);
+      return;
+    }
+    const foundBill = (data?.dueInvoices || []).find((b) => b._id === billOrId)
+      || (data?.recentPaidInvoices || []).find((b) => b._id === billOrId);
+    if (foundBill) {
+      openPaymentModal(foundBill);
+      return;
+    }
     if (!window.confirm('Mark this invoice as fully Paid?')) return;
     try {
-      setPayingBillId(billId);
-      await axios.put(`${backendUrl}/api/opd/billing/${billId}/pay`, {}, {
+      setPayingBillId(billOrId);
+      await axios.put(`${backendUrl}/api/opd/billing/${billOrId}/pay`, {}, {
         headers: { 'x-user-id': userId }
       });
       setActionSuccess('Payment recorded successfully! Invoice marked as Paid.');
@@ -471,13 +544,25 @@ const OpdBillingSummary = () => {
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {displayedInvoices.map((inv) => {
-                      const isPaid = (inv.status === 'Paid' || inv.status === 'PAID' || inv.paymentStatus === 'Paid');
+                      const isPaid = (inv.status === 'Paid' || inv.status === 'PAID');
+                      const isPartial = (inv.status === 'Partially Paid');
                       const invId = inv._id;
                       const invCode = String(inv.invoiceNumber || invId || '').slice(-8).toUpperCase();
                       const patient = inv.patientId || {};
                       const testsCount = (inv.tests || []).length;
                       const medsCount = (inv.medicines || []).length;
                       const consultFee = parseFloat(inv.consultationFee || 0);
+
+                      const totalAmt = parseFloat(inv.totalAmount || 0);
+                      let paidAmt = 0;
+                      if (Array.isArray(inv.payments) && inv.payments.length > 0) {
+                        paidAmt = inv.payments.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+                      } else if (isPaid) {
+                        paidAmt = totalAmt;
+                      } else {
+                        paidAmt = parseFloat(inv.paidAmount) || 0;
+                      }
+                      const dueAmt = inv.dueAmount !== undefined ? parseFloat(inv.dueAmount) : Math.max(0, totalAmt - paidAmt);
 
                       return (
                         <tr key={invId} className="hover:bg-gray-50/80 transition-colors">
@@ -516,29 +601,36 @@ const OpdBillingSummary = () => {
                             </div>
                           </td>
                           <td className="py-3.5 px-4 text-right">
-                            <div className={`font-extrabold font-mono text-sm ${isPaid ? 'text-emerald-700' : 'text-rose-600'}`}>
-                              {formatINR(inv.totalAmount)}
+                            <div className={`font-extrabold font-mono text-sm ${isPaid ? 'text-emerald-700' : 'text-gray-900'}`}>
+                              {formatINR(totalAmt)}
                             </div>
+                            {isPartial && (
+                              <div className="text-[10px] text-rose-600 font-bold font-mono">
+                                Due: {formatINR(dueAmt)}
+                              </div>
+                            )}
                           </td>
                           <td className="py-3.5 px-4 text-center">
                             <span
                               className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${
                                 isPaid
                                   ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                  : 'bg-amber-50 text-amber-700 border border-amber-200'
+                                  : isPartial
+                                    ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                    : 'bg-rose-50 text-rose-700 border border-rose-200'
                               }`}
                             >
-                              {isPaid ? '✓ Paid' : '⏳ Pending / Due'}
+                              {isPaid ? '✓ Paid' : (isPartial ? '🔶 Partial' : '⏳ Due')}
                             </span>
                           </td>
                           <td className="py-3.5 px-4 text-center">
                             {!isPaid ? (
                               <button
-                                onClick={() => handleMarkPaid(invId)}
+                                onClick={() => openPaymentModal(inv)}
                                 disabled={payingBillId === invId}
-                                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors disabled:opacity-50"
+                                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
                               >
-                                {payingBillId === invId ? 'Saving...' : '💳 Mark Paid'}
+                                {isPartial ? `💳 Record (Due: ₹${dueAmt.toFixed(0)})` : '💳 Record Payment'}
                               </button>
                             ) : (
                               <span className="text-xs text-gray-400 font-semibold">Settled</span>
@@ -553,6 +645,186 @@ const OpdBillingSummary = () => {
             </div>
           </div>
         </>
+      )}
+
+      {/* Record Payment / Part Payment Modal Dialog */}
+      {isPaymentModalOpen && paymentModalBill && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-100 space-y-4">
+            <div className="flex justify-between items-start border-b border-gray-100 pb-3">
+              <div>
+                <h3 className="text-lg font-bold text-teal-950 font-literata">💳 Record Payment</h3>
+                <p className="text-xs text-gray-500 mt-0.5">Collect part payment or settle invoice</p>
+              </div>
+              <button
+                onClick={() => setIsPaymentModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 text-lg cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Bill Info */}
+            <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-xs space-y-1">
+              <div className="flex justify-between font-bold text-gray-800">
+                <span>Patient: {paymentModalBill.patientId?.name || 'Walk-in Patient'}</span>
+                <span className="text-[#0D9488]">ID: #{String(paymentModalBill.invoiceNumber || paymentModalBill._id).slice(-8).toUpperCase()}</span>
+              </div>
+            </div>
+
+            {/* Balances */}
+            {(() => {
+              const total = parseFloat(paymentModalBill.totalAmount || 0);
+              let paid = 0;
+              if (Array.isArray(paymentModalBill.payments) && paymentModalBill.payments.length > 0) {
+                paid = paymentModalBill.payments.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+              } else if (paymentModalBill.status === 'Paid') {
+                paid = total;
+              } else {
+                paid = parseFloat(paymentModalBill.paidAmount) || 0;
+              }
+              const due = paymentModalBill.dueAmount !== undefined ? parseFloat(paymentModalBill.dueAmount) : Math.max(0, total - paid);
+
+              return (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-3 gap-2 bg-teal-50/50 p-3 rounded-xl border border-teal-100 text-center">
+                    <div>
+                      <span className="text-[10px] text-gray-500 uppercase font-semibold block">Total</span>
+                      <span className="text-sm font-bold text-gray-900 font-mono">₹{total.toFixed(0)}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-emerald-700 uppercase font-semibold block">Paid So Far</span>
+                      <span className="text-sm font-bold text-emerald-700 font-mono">₹{paid.toFixed(0)}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-rose-600 uppercase font-bold block">Remaining Due</span>
+                      <span className="text-sm font-extrabold text-rose-600 font-mono">₹{due.toFixed(0)}</span>
+                    </div>
+                  </div>
+
+                  {/* Quick presets */}
+                  <div className="flex items-center gap-2 flex-wrap text-xs">
+                    <span className="text-gray-400 font-medium text-[11px]">Quick:</span>
+                    <button
+                      type="button"
+                      onClick={() => setPaymentAmount(String(due))}
+                      className="px-2.5 py-1 bg-teal-100/70 hover:bg-teal-200 text-teal-800 rounded-lg font-bold transition-colors cursor-pointer"
+                    >
+                      Pay Full (₹{due.toFixed(0)})
+                    </button>
+                    {due > 100 && (
+                      <button
+                        type="button"
+                        onClick={() => setPaymentAmount(String(Math.round(due / 2)))}
+                        className="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors cursor-pointer"
+                      >
+                        50% (₹{Math.round(due / 2)})
+                      </button>
+                    )}
+                    {due >= 500 && (
+                      <button
+                        type="button"
+                        onClick={() => setPaymentAmount('500')}
+                        className="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors cursor-pointer"
+                      >
+                        ₹500
+                      </button>
+                    )}
+                    {due >= 200 && (
+                      <button
+                        type="button"
+                        onClick={() => setPaymentAmount('200')}
+                        className="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors cursor-pointer"
+                      >
+                        ₹200
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Payment Amount Input */}
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Payment Amount (₹) *</label>
+                    <input
+                      type="number"
+                      step="any"
+                      min="1"
+                      required
+                      value={paymentAmount}
+                      onChange={(e) => setPaymentAmount(e.target.value)}
+                      placeholder="0.00"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl text-lg font-bold font-mono text-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600"
+                    />
+                  </div>
+
+                  {/* Payment Method */}
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Payment Mode</label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {['Cash', 'UPI', 'Card', 'Bank Transfer'].map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => setPaymentMethod(m)}
+                          className={`py-2 px-1 text-xs font-bold rounded-lg border text-center transition-all cursor-pointer ${
+                            paymentMethod === m
+                              ? 'bg-[#0D9488] text-white border-transparent shadow-xs'
+                              : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                          }`}
+                        >
+                          {m === 'Cash' ? '💵 Cash' : m === 'UPI' ? '📱 UPI' : m === 'Card' ? '💳 Card' : '🏦 Bank'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Notes */}
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Notes / Remarks (Optional)</label>
+                    <input
+                      type="text"
+                      value={paymentNotes}
+                      onChange={(e) => setPaymentNotes(e.target.value)}
+                      placeholder="e.g. Part payment, installment 2"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600"
+                    />
+                  </div>
+
+                  {/* Installments History */}
+                  {Array.isArray(paymentModalBill.payments) && paymentModalBill.payments.length > 0 && (
+                    <div className="bg-gray-50 p-2.5 rounded-xl border border-gray-200 text-xs space-y-1">
+                      <span className="font-bold text-gray-700 block text-[11px]">Past Installments:</span>
+                      {paymentModalBill.payments.map((p, idx) => (
+                        <div key={idx} className="flex justify-between text-gray-600">
+                          <span>#{idx + 1} {new Date(p.paidAt || paymentModalBill.createdAt).toLocaleDateString()} ({p.paymentMethod || 'Cash'})</span>
+                          <span className="font-mono font-bold text-emerald-700">₹{parseFloat(p.amount || 0).toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Submit Button */}
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsPaymentModalOpen(false)}
+                      className="flex-1 py-2.5 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRecordPaymentSubmit}
+                      disabled={paymentSubmitting}
+                      className="flex-2 py-2.5 px-4 bg-[#0D9488] hover:bg-[#0f766e] text-white rounded-xl text-xs font-bold transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
+                    >
+                      {paymentSubmitting ? 'Saving...' : `✓ Confirm Payment (₹${parseFloat(paymentAmount || 0).toFixed(2)})`}
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
       )}
     </div>
   );

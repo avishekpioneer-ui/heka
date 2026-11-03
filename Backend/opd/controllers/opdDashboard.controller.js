@@ -32,7 +32,7 @@ export const getDashboardStats = async (req, res) => {
             OpdPatient.countDocuments(),
             OpdAppointment.countDocuments(doctorAppointmentQuery),
             OpdConsultation.countDocuments(doctorConsultationQuery),
-            OpdBilling.countDocuments({ status: "Pending" }),
+            OpdBilling.countDocuments({ status: { $in: ["Pending", "Partially Paid"] } }),
             OpdBilling.countDocuments({ status: "Paid" }),
             OpdAppointment.find(doctorAppointmentQuery)
                 .populate("patientId", "name phone age gender")

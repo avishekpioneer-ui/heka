@@ -45,6 +45,40 @@ const sanitizeTests = (tests) => {
     });
 };
 
+export const enrichBillPaymentFields = (b) => {
+    if (!b) return b;
+    const totalAmount = Math.max(0, parseFloat(b.totalAmount || 0));
+    let paidAmount = 0;
+    if (Array.isArray(b.payments) && b.payments.length > 0) {
+        paidAmount = b.payments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+    } else if (b.status === "Paid" || b.status === "PAID" || b.paymentStatus === "Paid") {
+        paidAmount = totalAmount;
+    } else if (b.paidAmount !== undefined && b.paidAmount !== null) {
+        paidAmount = parseFloat(b.paidAmount) || 0;
+    }
+
+    const dueAmount = b.dueAmount !== undefined && b.dueAmount !== null
+        ? Math.max(0, parseFloat(b.dueAmount))
+        : Math.max(0, totalAmount - paidAmount);
+
+    let status = b.status || "Pending";
+    if (paidAmount >= totalAmount && totalAmount > 0) {
+        status = "Paid";
+    } else if (paidAmount > 0 && paidAmount < totalAmount) {
+        status = "Partially Paid";
+    } else if (status === "Paid" && totalAmount === 0) {
+        status = "Paid";
+    }
+
+    return {
+        ...b,
+        paidAmount,
+        dueAmount,
+        status,
+        payments: b.payments || []
+    };
+};
+
 export const createBill = async (req, res) => {
     try {
         let {
@@ -59,6 +93,10 @@ export const createBill = async (req, res) => {
             billingType,
             status,
             paymentStatus,
+            paidAmount,
+            paymentMethod,
+            paymentNotes,
+            paidAt,
             followUpDate,
             followUpNote,
             discount,
@@ -216,6 +254,38 @@ export const createBill = async (req, res) => {
             invoiceNumber = `${datePrefix}${String(seq).padStart(6, '0')}`;
         }
 
+        const rawPaid = parseFloat(paidAmount || 0);
+        let finalStatus = status || paymentStatus || "Pending";
+        let finalPaid = 0;
+        let initialPayments = [];
+
+        if (finalStatus === "Paid" || rawPaid >= total) {
+            finalPaid = total;
+            finalStatus = "Paid";
+            if (total > 0) {
+                initialPayments.push({
+                    amount: total,
+                    paymentMethod: paymentMethod || "Cash",
+                    paidAt: paidAt ? new Date(paidAt) : new Date(),
+                    notes: paymentNotes || "Full payment at checkout"
+                });
+            }
+        } else if (rawPaid > 0) {
+            finalPaid = Math.min(total, rawPaid);
+            finalStatus = finalPaid >= total ? "Paid" : "Partially Paid";
+            initialPayments.push({
+                amount: finalPaid,
+                paymentMethod: paymentMethod || "Cash",
+                paidAt: paidAt ? new Date(paidAt) : new Date(),
+                notes: paymentNotes || "Initial part payment"
+            });
+        } else {
+            finalPaid = 0;
+            finalStatus = "Pending";
+        }
+
+        const finalDue = Math.max(0, total - finalPaid);
+
         const bill = await OpdBilling.create({
             patientId,
             appointmentId: appointmentId || null,
@@ -230,7 +300,11 @@ export const createBill = async (req, res) => {
             discountType: resolvedDiscountType,
             discountReason: discountReason || "",
             totalAmount: total,
-            status: resolvedStatus,
+            paidAmount: finalPaid,
+            dueAmount: finalDue,
+            payments: initialPayments,
+            paymentMethod: paymentMethod || "Cash",
+            status: finalStatus,
             billingType: billingType || "Combined"
         });
 
@@ -286,12 +360,12 @@ export const createBill = async (req, res) => {
             .populate("appointmentId")
             .lean();
 
-        const enrichedBill = {
+        const enrichedBill = enrichBillPaymentFields({
             ...populatedBill,
             followUpDate: createdReminder?.followUpDate || null,
             reminderId: createdReminder?._id || null,
             followUpReminder: createdReminder ? createdReminder.toObject() : null
-        };
+        });
 
         emitOpdEvent("opd:bill", { type: "created", bill: enrichedBill });
 
@@ -323,7 +397,7 @@ export const getBills = async (req, res) => {
             const enrichedBills = bills.map(b => {
                 const rem = reminderMap[b._id.toString()];
                 const sub = (b.subtotal !== undefined && b.subtotal > 0) ? b.subtotal : ((b.totalAmount || 0) + (b.discount || 0));
-                return {
+                return enrichBillPaymentFields({
                     ...b,
                     subtotal: sub,
                     discount: b.discount || 0,
@@ -332,7 +406,7 @@ export const getBills = async (req, res) => {
                     followUpDate: rem?.followUpDate || null,
                     reminderId: rem?._id || null,
                     followUpReminder: rem || null
-                };
+                });
             });
 
             return res.status(200).json({ bills: enrichedBills, data: enrichedBills, total: enrichedBills.length, all: true, hasMore: false });
@@ -363,7 +437,7 @@ export const getBills = async (req, res) => {
         const enrichedBills = bills.map(b => {
             const rem = reminderMap[b._id.toString()];
             const sub = (b.subtotal !== undefined && b.subtotal > 0) ? b.subtotal : ((b.totalAmount || 0) + (b.discount || 0));
-            return {
+            return enrichBillPaymentFields({
                 ...b,
                 subtotal: sub,
                 discount: b.discount || 0,
@@ -372,7 +446,7 @@ export const getBills = async (req, res) => {
                 followUpDate: rem?.followUpDate || null,
                 reminderId: rem?._id || null,
                 followUpReminder: rem || null
-            };
+            });
         });
 
         const hasMore = skip + bills.length < total;
@@ -403,7 +477,7 @@ export const getBillById = async (req, res) => {
         }
         const rem = await OpdReminder.findOne({ billId: id }).lean();
         const sub = (bill.subtotal !== undefined && bill.subtotal > 0) ? bill.subtotal : ((bill.totalAmount || 0) + (bill.discount || 0));
-        res.status(200).json({
+        res.status(200).json(enrichBillPaymentFields({
             ...bill,
             subtotal: sub,
             discount: bill.discount || 0,
@@ -412,7 +486,7 @@ export const getBillById = async (req, res) => {
             followUpDate: rem?.followUpDate || null,
             reminderId: rem?._id || null,
             followUpReminder: rem || null
-        });
+        }));
     } catch (error) {
         console.error("Get Bill By ID Error:", error);
         res.status(500).json({ message: "Server error" });
@@ -595,6 +669,26 @@ export const updateBill = async (req, res) => {
         }
         bill.totalAmount = Math.max(0, calculatedSubtotal - (itemDiscountsTotal + overallDiscountDeduction));
 
+        // Recalculate payments and dueAmount
+        let currentPaid = 0;
+        if (bill.payments && bill.payments.length > 0) {
+            currentPaid = bill.payments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+        } else if (bill.status === "Paid") {
+            currentPaid = bill.totalAmount;
+        } else {
+            currentPaid = parseFloat(bill.paidAmount) || 0;
+        }
+        bill.paidAmount = currentPaid;
+        bill.dueAmount = Math.max(0, bill.totalAmount - currentPaid);
+
+        if (bill.paidAmount >= bill.totalAmount && bill.totalAmount > 0) {
+            bill.status = "Paid";
+        } else if (bill.paidAmount > 0) {
+            bill.status = "Partially Paid";
+        } else if (status !== undefined || paymentStatus !== undefined) {
+            bill.status = status || paymentStatus;
+        }
+
         await bill.save();
 
         // Handle Follow-up Date via OpdReminder model
@@ -655,12 +749,12 @@ export const updateBill = async (req, res) => {
             .populate("appointmentId")
             .lean();
 
-        const enrichedUpdatedBill = {
+        const enrichedUpdatedBill = enrichBillPaymentFields({
             ...updatedBill,
             followUpDate: currentReminder?.followUpDate || null,
             reminderId: currentReminder?._id || null,
             followUpReminder: currentReminder
-        };
+        });
 
         emitOpdEvent("opd:bill", { type: "updated", bill: enrichedUpdatedBill });
 
@@ -713,17 +807,133 @@ export const deleteBill = async (req, res) => {
 export const payBill = async (req, res) => {
     try {
         const { id } = req.params;
-        const bill = await OpdBilling.findByIdAndUpdate(id, { status: "Paid" }, { new: true })
-            .populate("patientId")
-            .populate("appointmentId");
+        const {
+            amount,
+            paymentMethod = "Cash",
+            paidAt,
+            notes = "",
+            transactionId = "",
+            receiptNumber = ""
+        } = req.body;
+
+        const bill = await OpdBilling.findById(id);
         if (!bill) {
             return res.status(404).json({ message: "Bill not found" });
         }
-        emitOpdEvent("opd:bill", { type: "paid", bill });
 
-        res.status(200).json({ message: "Payment processed. Bill marked as Paid.", bill });
+        let currentPaid = 0;
+        if (Array.isArray(bill.payments) && bill.payments.length > 0) {
+            currentPaid = bill.payments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+        } else if (bill.status === "Paid") {
+            currentPaid = parseFloat(bill.totalAmount) || 0;
+        } else {
+            currentPaid = parseFloat(bill.paidAmount) || 0;
+        }
+
+        const remainingDue = Math.max(0, (parseFloat(bill.totalAmount) || 0) - currentPaid);
+
+        let payAmount = remainingDue;
+        if (amount !== undefined && amount !== null && amount !== "") {
+            payAmount = parseFloat(amount);
+        }
+
+        if (isNaN(payAmount) || payAmount <= 0) {
+            return res.status(400).json({ message: "Payment amount must be greater than zero." });
+        }
+
+        const newPayment = {
+            amount: payAmount,
+            paymentMethod: paymentMethod || "Cash",
+            paidAt: paidAt ? new Date(paidAt) : new Date(),
+            notes: notes || (payAmount >= remainingDue ? "Final settlement payment" : "Part payment installment"),
+            transactionId: transactionId || "",
+            receiptNumber: receiptNumber || ""
+        };
+
+        if (!bill.payments) {
+            bill.payments = [];
+        }
+        bill.payments.push(newPayment);
+
+        const newTotalPaid = currentPaid + payAmount;
+        bill.paidAmount = newTotalPaid;
+        bill.dueAmount = Math.max(0, (parseFloat(bill.totalAmount) || 0) - newTotalPaid);
+        bill.paymentMethod = paymentMethod || "Cash";
+
+        if (newTotalPaid >= (parseFloat(bill.totalAmount) || 0)) {
+            bill.status = "Paid";
+        } else {
+            bill.status = "Partially Paid";
+        }
+
+        await bill.save();
+
+        const populatedBill = await OpdBilling.findById(id)
+            .populate("patientId")
+            .populate("appointmentId")
+            .lean();
+
+        const rem = await OpdReminder.findOne({ billId: id }).lean();
+        const enrichedBill = enrichBillPaymentFields({
+            ...populatedBill,
+            followUpDate: rem?.followUpDate || null,
+            reminderId: rem?._id || null,
+            followUpReminder: rem || null
+        });
+
+        emitOpdEvent("opd:bill", { type: bill.status === "Paid" ? "paid" : "updated", bill: enrichedBill });
+
+        const message = bill.status === "Paid"
+            ? "Full payment recorded. Invoice marked as Paid."
+            : `Part payment of ₹${payAmount} recorded successfully. Remaining balance: ₹${bill.dueAmount}.`;
+
+        res.status(200).json({ message, bill: enrichedBill });
     } catch (error) {
         console.error("Pay Bill Error:", error);
+        res.status(500).json({ message: "Server error" });
+    }
+};
+
+export const deletePayment = async (req, res) => {
+    try {
+        const { id, paymentId } = req.params;
+        const bill = await OpdBilling.findById(id);
+        if (!bill) {
+            return res.status(404).json({ message: "Bill not found" });
+        }
+
+        bill.payments = (bill.payments || []).filter(p => p._id.toString() !== paymentId);
+        const newTotalPaid = bill.payments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+        bill.paidAmount = newTotalPaid;
+        bill.dueAmount = Math.max(0, (parseFloat(bill.totalAmount) || 0) - newTotalPaid);
+
+        if (newTotalPaid >= (parseFloat(bill.totalAmount) || 0) && (parseFloat(bill.totalAmount) || 0) > 0) {
+            bill.status = "Paid";
+        } else if (newTotalPaid > 0) {
+            bill.status = "Partially Paid";
+        } else {
+            bill.status = "Pending";
+        }
+
+        await bill.save();
+
+        const populatedBill = await OpdBilling.findById(id)
+            .populate("patientId")
+            .populate("appointmentId")
+            .lean();
+
+        const rem = await OpdReminder.findOne({ billId: id }).lean();
+        const enrichedBill = enrichBillPaymentFields({
+            ...populatedBill,
+            followUpDate: rem?.followUpDate || null,
+            reminderId: rem?._id || null,
+            followUpReminder: rem || null
+        });
+
+        emitOpdEvent("opd:bill", { type: "updated", bill: enrichedBill });
+        res.status(200).json({ message: "Payment entry removed successfully", bill: enrichedBill });
+    } catch (error) {
+        console.error("Delete Payment Error:", error);
         res.status(500).json({ message: "Server error" });
     }
 };
@@ -754,6 +964,7 @@ export const getBillingSummary = async (req, res) => {
         let totalDue = 0;
         let totalCount = allBills.length;
         let paidCount = 0;
+        let partialCount = 0;
         let dueCount = 0;
 
         let monthBilled = 0;
@@ -780,62 +991,74 @@ export const getBillingSummary = async (req, res) => {
         const dueInvoices = [];
         const recentPaidInvoices = [];
 
-        for (const b of allBills) {
+        for (const rawB of allBills) {
+            const b = enrichBillPaymentFields(rawB);
             const amt = parseFloat(b.totalAmount || 0);
-            const isPaid = (b.status === "Paid" || b.status === "PAID" || b.paymentStatus === "Paid");
+            const paid = parseFloat(b.paidAmount || 0);
+            const due = parseFloat(b.dueAmount || 0);
             const billDate = new Date(b.createdAt || now);
 
             // All Time Totals
             totalBilled += amt;
-            if (isPaid) {
-                totalPaid += amt;
+            totalPaid += paid;
+            totalDue += due;
+
+            if (b.status === "Paid") {
                 paidCount++;
-                if (recentPaidInvoices.length < 10) {
-                    recentPaidInvoices.push(b);
-                }
-            } else {
-                totalDue += amt;
+            } else if (b.status === "Partially Paid") {
+                partialCount++;
                 dueCount++;
+            } else {
+                dueCount++;
+            }
+
+            if (due > 0) {
                 dueInvoices.push(b);
             }
+            if (paid > 0 && recentPaidInvoices.length < 20) {
+                recentPaidInvoices.push(b);
+            }
 
-            // This Month
+            // This Month Billed & Due
             if (billDate >= startOfMonth) {
                 monthBilled += amt;
+                monthDue += due;
                 monthCount++;
-                if (isPaid) {
-                    monthPaid += amt;
-                    monthPaidCount++;
-                } else {
-                    monthDue += amt;
-                    monthDueCount++;
-                }
+                if (b.status === "Paid") monthPaidCount++;
+                if (due > 0) monthDueCount++;
             }
 
-            // This Week
+            // This Week Billed & Due
             if (billDate >= startOfWeek) {
                 weekBilled += amt;
+                weekDue += due;
                 weekCount++;
-                if (isPaid) {
-                    weekPaid += amt;
-                    weekPaidCount++;
-                } else {
-                    weekDue += amt;
-                    weekDueCount++;
-                }
+                if (b.status === "Paid") weekPaidCount++;
+                if (due > 0) weekDueCount++;
             }
 
-            // Today
+            // Today Billed & Due
             if (billDate >= startOfToday) {
                 todayBilled += amt;
+                todayDue += due;
                 todayCount++;
-                if (isPaid) {
-                    todayPaid += amt;
-                    todayPaidCount++;
-                } else {
-                    todayDue += amt;
-                    todayDueCount++;
+                if (b.status === "Paid") todayPaidCount++;
+                if (due > 0) todayDueCount++;
+            }
+
+            // Calculate Period Collections from Payments array
+            if (Array.isArray(b.payments) && b.payments.length > 0) {
+                for (const p of b.payments) {
+                    const pDate = new Date(p.paidAt || b.createdAt || now);
+                    const pAmt = parseFloat(p.amount || 0);
+                    if (pDate >= startOfToday) todayPaid += pAmt;
+                    if (pDate >= startOfWeek) weekPaid += pAmt;
+                    if (pDate >= startOfMonth) monthPaid += pAmt;
                 }
+            } else if (paid > 0) {
+                if (billDate >= startOfToday) todayPaid += paid;
+                if (billDate >= startOfWeek) weekPaid += paid;
+                if (billDate >= startOfMonth) monthPaid += paid;
             }
         }
 
@@ -846,6 +1069,7 @@ export const getBillingSummary = async (req, res) => {
                 totalDue,
                 totalCount,
                 paidCount,
+                partialCount,
                 dueCount
             },
             thisMonth: {

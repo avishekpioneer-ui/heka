@@ -188,7 +188,8 @@ export const generateInvoiceHtml = (bill) => {
     : new Date().toLocaleDateString('en-GB');
 
   const isPaid = (bill.status === 'Paid' || bill.status === 'PAID');
-  const statusLabel = isPaid ? 'PAID' : 'PENDING';
+  const isPartial = (bill.status === 'Partially Paid' || bill.status === 'PARTIALLY PAID');
+  const statusLabel = isPaid ? 'PAID' : (isPartial ? 'PARTIALLY PAID' : 'PENDING');
   const paymentMethod = (bill.paymentMethod || (isPaid ? 'Cash' : '')).toLowerCase();
 
   const isCash = paymentMethod.includes('cash') || (isPaid && !paymentMethod.includes('upi') && !paymentMethod.includes('bank'));
@@ -205,6 +206,19 @@ export const generateInvoiceHtml = (bill) => {
     ? (subtotal * discountVal) / 100
     : discountVal;
   const totalAmount = parseFloat(bill.totalAmount !== undefined ? bill.totalAmount : Math.max(0, subtotal - discountAmt));
+  
+  let paidAmount = 0;
+  if (Array.isArray(bill.payments) && bill.payments.length > 0) {
+    paidAmount = bill.payments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+  } else if (isPaid) {
+    paidAmount = totalAmount;
+  } else if (bill.paidAmount !== undefined && bill.paidAmount !== null) {
+    paidAmount = parseFloat(bill.paidAmount) || 0;
+  }
+  const dueAmount = bill.dueAmount !== undefined && bill.dueAmount !== null
+    ? Math.max(0, parseFloat(bill.dueAmount))
+    : Math.max(0, totalAmount - paidAmount);
+
   const amountWords = numberToWordsINR(totalAmount);
 
   // Pad to at least 10 rows to preserve exact layout
@@ -435,6 +449,12 @@ export const generateInvoiceHtml = (bill) => {
       background-color: #dcfce7;
       color: #16a34a;
       border: 1px solid #86efac;
+    }
+
+    .status-partial {
+      background-color: #fef3c7;
+      color: #b45309;
+      border: 1px solid #fcd34d;
     }
 
     /* ═══ BILL TO & PAYMENT DETAILS ═══ */
@@ -849,7 +869,7 @@ export const generateInvoiceHtml = (bill) => {
       <div class="meta-item" style="border-bottom: none;">
         <span class="meta-label">Status</span>
         <span class="meta-colon">:</span>
-        <span class="status-badge ${isPaid ? 'status-paid' : 'status-pending'}">${statusLabel}</span>
+        <span class="status-badge ${isPaid ? 'status-paid' : (isPartial ? 'status-partial' : 'status-pending')}">${statusLabel}</span>
       </div>
     </div>
   </div>
@@ -972,8 +992,49 @@ export const generateInvoiceHtml = (bill) => {
         <span>₹</span>
         <span>${formatINR(totalAmount)}</span>
       </div>
+      <div class="total-line" style="color: #047857; font-weight: 700;">
+        <span>PAID AMOUNT</span>
+        <span>₹</span>
+        <span>${formatINR(paidAmount)}</span>
+      </div>
+      <div class="total-line" style="color: ${dueAmount > 0 ? '#dc2626' : '#047857'}; font-weight: 800;">
+        <span>BALANCE DUE</span>
+        <span>₹</span>
+        <span>${formatINR(dueAmount)}</span>
+      </div>
     </div>
   </div>
+
+  ${Array.isArray(bill.payments) && bill.payments.length > 0 ? `
+  <!-- ════ PAYMENT RECORDS / INSTALLMENTS ════ -->
+  <div style="margin: 10px 0 6px 0; border: 1.5px solid #01563f; border-radius: 6px; padding: 8px 12px; background: #f8fafc;">
+    <div style="font-size: 11px; font-weight: 900; color: #01563f; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.5px;">
+      💳 Payment Records / Installments (${bill.payments.length})
+    </div>
+    <table style="width: 100%; border-collapse: collapse; font-size: 10.5px;">
+      <thead>
+        <tr style="border-bottom: 1.5px solid #cbd5e1; color: #475569; text-align: left; font-size: 9.5px; text-transform: uppercase;">
+          <th style="padding: 4px 6px;">#</th>
+          <th style="padding: 4px 6px;">Date</th>
+          <th style="padding: 4px 6px;">Mode</th>
+          <th style="padding: 4px 6px;">Note / Remarks</th>
+          <th style="padding: 4px 6px; text-align: right;">Amount Paid</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${bill.payments.map((p, pIdx) => `
+          <tr style="border-bottom: 1px dotted #e2e8f0;">
+            <td style="padding: 4px 6px; color: #64748b; font-weight: 700;">${pIdx + 1}</td>
+            <td style="padding: 4px 6px;">${new Date(p.paidAt || bill.createdAt).toLocaleDateString('en-GB')}</td>
+            <td style="padding: 4px 6px;"><span style="background: #e2e8f0; padding: 1px 6px; border-radius: 4px; font-weight: 600;">${p.paymentMethod || 'Cash'}</span></td>
+            <td style="padding: 4px 6px; color: #64748b;">${p.notes || 'Installment'}</td>
+            <td style="padding: 4px 6px; text-align: right; font-weight: 800; color: #047857;">₹${formatINR(p.amount)}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  </div>
+  ` : ''}
 
   <!-- ════ SIGNATURES & DISCLAIMER ════ -->
   <div class="sign-row">

@@ -35,7 +35,8 @@ export default function InvoiceModal({ visible, bill, onClose }) {
     : new Date().toLocaleDateString('en-GB');
 
   const isPaid = (bill.status === 'Paid' || bill.status === 'PAID');
-  const statusLabel = isPaid ? 'PAID' : 'PENDING';
+  const isPartial = (bill.status === 'Partially Paid' || bill.status === 'PARTIALLY PAID');
+  const statusLabel = isPaid ? 'PAID' : (isPartial ? 'PARTIALLY PAID' : 'PENDING');
   const paymentMethod = (bill.paymentMethod || (isPaid ? 'Cash' : '')).toLowerCase();
 
   const isCash = paymentMethod.includes('cash') || (isPaid && !paymentMethod.includes('upi') && !paymentMethod.includes('bank'));
@@ -51,6 +52,19 @@ export default function InvoiceModal({ visible, bill, onClose }) {
     ? (subtotal * discountVal) / 100
     : discountVal;
   const totalAmount = parseFloat(bill.totalAmount !== undefined ? bill.totalAmount : Math.max(0, subtotal - discountAmt));
+  
+  let paidAmount = 0;
+  if (Array.isArray(bill.payments) && bill.payments.length > 0) {
+    paidAmount = bill.payments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+  } else if (isPaid) {
+    paidAmount = totalAmount;
+  } else if (bill.paidAmount !== undefined && bill.paidAmount !== null) {
+    paidAmount = parseFloat(bill.paidAmount) || 0;
+  }
+  const dueAmount = bill.dueAmount !== undefined && bill.dueAmount !== null
+    ? Math.max(0, parseFloat(bill.dueAmount))
+    : Math.max(0, totalAmount - paidAmount);
+
   const amountWords = numberToWordsINR(totalAmount);
 
   // At least 6-10 rows to maintain aesthetic form proportions
@@ -173,8 +187,14 @@ export default function InvoiceModal({ visible, bill, onClose }) {
                   <View style={[styles.metaFieldRow, { borderBottomWidth: 0 }]}>
                     <Text style={styles.metaFieldLbl}>Status</Text>
                     <Text style={styles.metaFieldColon}>:</Text>
-                    <View style={[styles.statusBadge, isPaid ? styles.statusPaidBadge : styles.statusPendingBadge]}>
-                      <Text style={[styles.statusBadgeText, isPaid ? styles.statusPaidText : styles.statusPendingText]}>
+                    <View style={[
+                      styles.statusBadge,
+                      isPaid ? styles.statusPaidBadge : (isPartial ? styles.statusPartialBadge : styles.statusPendingBadge)
+                    ]}>
+                      <Text style={[
+                        styles.statusBadgeText,
+                        isPaid ? styles.statusPaidText : (isPartial ? styles.statusPartialText : styles.statusPendingText)
+                      ]}>
                         {statusLabel}
                       </Text>
                     </View>
@@ -296,8 +316,53 @@ export default function InvoiceModal({ visible, bill, onClose }) {
                     <Text style={styles.grandTotalCurr}>₹</Text>
                     <Text style={styles.grandTotalVal}>{formatINR(totalAmount)}</Text>
                   </View>
+                  <View style={styles.totalsRow}>
+                    <Text style={styles.totalLbl}>PAID AMOUNT</Text>
+                    <Text style={styles.totalCurr}>₹</Text>
+                    <Text style={[styles.totalVal, { color: '#047857' }]}>{formatINR(paidAmount)}</Text>
+                  </View>
+                  <View style={styles.totalsRow}>
+                    <Text style={styles.totalLbl}>BALANCE DUE</Text>
+                    <Text style={styles.totalCurr}>₹</Text>
+                    <Text style={[styles.totalVal, { color: dueAmount > 0 ? '#b91c1c' : '#047857', fontWeight: '800' }]}>{formatINR(dueAmount)}</Text>
+                  </View>
                 </View>
               </View>
+
+              {/* ═══ PAYMENT RECORDS / INSTALLMENTS ═══ */}
+              {Array.isArray(bill.payments) && bill.payments.length > 0 && (
+                <View style={styles.installmentsContainer}>
+                  <View style={styles.installmentsHeader}>
+                    <Text style={styles.installmentsTitle}>💳 Payment Records / Installments ({bill.payments.length})</Text>
+                  </View>
+                  <View style={styles.installmentsTable}>
+                    <View style={styles.installmentsTableRowHeader}>
+                      <Text style={[styles.instTh, { width: 24 }]}>#</Text>
+                      <Text style={[styles.instTh, { flex: 1.2 }]}>Date</Text>
+                      <Text style={[styles.instTh, { flex: 1 }]}>Mode</Text>
+                      <Text style={[styles.instTh, { flex: 2 }]}>Notes</Text>
+                      <Text style={[styles.instTh, { flex: 1.2, textAlign: 'right' }]}>Amount</Text>
+                    </View>
+                    {bill.payments.map((p, pIdx) => (
+                      <View key={`inst-${pIdx}`} style={styles.installmentsTableRow}>
+                        <Text style={[styles.instTd, { width: 24, color: '#64748b' }]}>{pIdx + 1}</Text>
+                        <Text style={[styles.instTd, { flex: 1.2 }]}>
+                          {new Date(p.paidAt || bill.createdAt).toLocaleDateString('en-GB')}
+                        </Text>
+                        <Text style={[styles.instTd, { flex: 1 }]}>
+                          <Text style={styles.instModeBadge}>{p.paymentMethod || 'Cash'}</Text>
+                        </Text>
+                        <Text style={[styles.instTd, { flex: 2, color: '#64748b' }]} numberOfLines={1}>
+                          {p.notes || 'Payment'}
+                        </Text>
+                        <Text style={[styles.instTd, { flex: 1.2, textAlign: 'right', fontWeight: '800', color: '#047857' }]}>
+                          ₹{formatINR(p.amount)}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
 
               {/* ═══ SIGNATURES & DISCLAIMER ═══ */}
               <View style={styles.signRow}>
@@ -592,6 +657,9 @@ const styles = StyleSheet.create({
   statusPaidBadge: {
     backgroundColor: '#dcfce7',
   },
+  statusPartialBadge: {
+    backgroundColor: '#fef3c7',
+  },
   statusBadgeText: {
     fontSize: 8.5,
     fontWeight: '900',
@@ -601,6 +669,66 @@ const styles = StyleSheet.create({
   },
   statusPaidText: {
     color: '#16a34a',
+  },
+  statusPartialText: {
+    color: '#b45309',
+  },
+
+  /* Installment Records */
+  installmentsContainer: {
+    marginTop: 8,
+    marginBottom: 6,
+    borderWidth: 1.5,
+    borderColor: '#01563f',
+    borderRadius: 6,
+    padding: 8,
+    backgroundColor: '#f8fafc',
+  },
+  installmentsHeader: {
+    marginBottom: 6,
+  },
+  installmentsTitle: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#01563f',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  installmentsTable: {
+    width: '100%',
+  },
+  installmentsTableRowHeader: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#cbd5e1',
+    paddingBottom: 3,
+    marginBottom: 3,
+  },
+  instTh: {
+    fontSize: 8.5,
+    fontWeight: '800',
+    color: '#475569',
+    textTransform: 'uppercase',
+  },
+  installmentsTableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 3,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  instTd: {
+    fontSize: 9,
+    color: '#1e293b',
+  },
+  instModeBadge: {
+    fontSize: 8,
+    fontWeight: '700',
+    color: '#0f766e',
+    backgroundColor: '#ccfbf1',
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 3,
   },
 
   /* Party Row (BILL TO & PAYMENT DETAILS) */

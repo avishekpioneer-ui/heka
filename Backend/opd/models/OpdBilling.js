@@ -63,6 +63,35 @@ const billedMedicineSchema = new mongoose.Schema({
     }
 }, { _id: false });
 
+const paymentRecordSchema = new mongoose.Schema({
+    amount: {
+        type: Number,
+        required: true,
+        min: 0
+    },
+    paymentMethod: {
+        type: String,
+        enum: ["Cash", "UPI", "Card", "Bank Transfer", "Cheque", "Other"],
+        default: "Cash"
+    },
+    paidAt: {
+        type: Date,
+        default: Date.now
+    },
+    notes: {
+        type: String,
+        default: ""
+    },
+    transactionId: {
+        type: String,
+        default: ""
+    },
+    receiptNumber: {
+        type: String,
+        default: ""
+    }
+}, { timestamps: true });
+
 const opdBillingSchema = new mongoose.Schema(
     {
         patientId: {
@@ -112,9 +141,22 @@ const opdBillingSchema = new mongoose.Schema(
             required: true,
             default: 0
         },
+        paidAmount: {
+            type: Number,
+            default: 0
+        },
+        dueAmount: {
+            type: Number,
+            default: 0
+        },
+        payments: [paymentRecordSchema],
+        paymentMethod: {
+            type: String,
+            default: "Cash"
+        },
         status: {
             type: String,
-            enum: ["Pending", "Paid"],
+            enum: ["Pending", "Partially Paid", "Paid"],
             default: "Pending"
         },
         billingType: {

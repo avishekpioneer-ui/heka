@@ -1,5 +1,5 @@
 import express from "express";
-import { createBill, getBills, getBillById, updateBill, deleteBill, payBill, getBillingSummary } from "../controllers/opdBilling.controller.js";
+import { createBill, getBills, getBillById, updateBill, deleteBill, payBill, deletePayment, getBillingSummary } from "../controllers/opdBilling.controller.js";
 import { verifyOpdUser, requirePermission } from "../middleware/opdAuth.js";
 
 const router = express.Router();
@@ -13,5 +13,7 @@ router.get("/:id", requirePermission("billing:read"), getBillById);
 router.put("/:id", requirePermission("billing:edit"), updateBill);
 router.delete("/:id", requirePermission("billing:delete"), deleteBill);
 router.put("/:id/pay", requirePermission("billing:edit"), payBill);
+router.post("/:id/payment", requirePermission("billing:edit"), payBill);
+router.delete("/:id/payment/:paymentId", requirePermission("billing:edit"), deletePayment);
 
 export default router;

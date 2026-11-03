@@ -308,12 +308,21 @@ export default function OpdPatientsScreen({ onNavigate, routeParams, refreshKey,
         map[pId] = { dueCount: 0, dueAmount: 0, paidCount: 0, paidAmount: 0 };
       }
       const amt = Number(b.totalAmount) || 0;
-      if (b.status === 'Paid') {
-        map[pId].paidCount += 1;
-        map[pId].paidAmount += amt;
+      let paid = 0;
+      if (Array.isArray(b.payments) && b.payments.length > 0) {
+        paid = b.payments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+      } else if (b.status === 'Paid') {
+        paid = amt;
       } else {
+        paid = Number(b.paidAmount) || 0;
+      }
+      const due = b.dueAmount !== undefined ? Number(b.dueAmount) : Math.max(0, amt - paid);
+      map[pId].paidAmount += paid;
+      map[pId].dueAmount += due;
+      if (due > 0) {
         map[pId].dueCount += 1;
-        map[pId].dueAmount += amt;
+      } else {
+        map[pId].paidCount += 1;
       }
     });
     return map;
@@ -360,11 +369,17 @@ export default function OpdPatientsScreen({ onNavigate, routeParams, refreshKey,
 
     bills.forEach((b) => {
       const amt = Number(b.totalAmount) || 0;
-      if (b.status === 'Paid') {
-        paidAmount += amt;
+      let paid = 0;
+      if (Array.isArray(b.payments) && b.payments.length > 0) {
+        paid = b.payments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+      } else if (b.status === 'Paid') {
+        paid = amt;
       } else {
-        dueAmount += amt;
+        paid = Number(b.paidAmount) || 0;
       }
+      const due = b.dueAmount !== undefined ? Number(b.dueAmount) : Math.max(0, amt - paid);
+      paidAmount += paid;
+      dueAmount += due;
     });
 
     patients.forEach((p) => {
