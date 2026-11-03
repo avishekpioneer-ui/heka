@@ -14,6 +14,8 @@ import {
 } from 'react-native';
 import apiClient from '../../config/api';
 import { usePermissions } from '../../utils/permissions';
+import InvoiceModal from '../../components/InvoiceModal';
+import { formatBillId } from '../../utils/billingInvoicePdf';
 
 const formatINR = (val) => {
   const num = Number(val) || 0;
@@ -38,6 +40,7 @@ export default function OpdBillingSummaryScreen({ onNavigate, refreshKey, hasPer
   const [activeFilter, setActiveFilter] = useState('all-due'); // 'all-due' | 'this-month' | 'this-week' | 'today' | 'recent-paid'
   const [searchQuery, setSearchQuery] = useState('');
   const [payingBillId, setPayingBillId] = useState(null);
+  const [selectedBillForInvoice, setSelectedBillForInvoice] = useState(null);
 
   const fetchSummary = useCallback(async () => {
     try {
@@ -122,7 +125,8 @@ export default function OpdBillingSummaryScreen({ onNavigate, refreshKey, hasPer
       const pName = (b.patientId?.name || '').toLowerCase();
       const pPhone = (b.patientId?.phone || '').toLowerCase();
       const invNo = String(b.invoiceNumber || b._id || '').toLowerCase();
-      return pName.includes(q) || pPhone.includes(q) || invNo.includes(q);
+      const formattedId = formatBillId(b).toLowerCase();
+      return pName.includes(q) || pPhone.includes(q) || invNo.includes(q) || formattedId.includes(q);
     });
   }, [data, activeFilter, searchQuery]);
 
@@ -295,7 +299,7 @@ export default function OpdBillingSummaryScreen({ onNavigate, refreshKey, hasPer
 
   const renderItem = ({ item }) => {
     const isPaid = (item.status === 'Paid' || item.status === 'PAID' || item.paymentStatus === 'Paid');
-    const invCode = String(item.invoiceNumber || item._id || '').slice(-8).toUpperCase();
+    const invCode = formatBillId(item);
     const patientName = item.patientId?.name || 'Walk-in Patient';
     const patientPhone = item.patientId?.phone || '';
     const testsCount = (item.tests || []).length;
@@ -307,7 +311,7 @@ export default function OpdBillingSummaryScreen({ onNavigate, refreshKey, hasPer
         <View style={styles.cardTopRow}>
           <View style={{ flex: 1 }}>
             <View style={styles.codeRow}>
-              <Text style={styles.invoiceCode}>🧾 #{invCode}</Text>
+              <Text style={styles.invoiceCode}>🧾 ID: {invCode}</Text>
               <Text style={styles.invoiceDate}>{formatDate(item.createdAt)}</Text>
             </View>
             <Text style={styles.patientName}>{patientName}</Text>
@@ -348,21 +352,31 @@ export default function OpdBillingSummaryScreen({ onNavigate, refreshKey, hasPer
           )}
         </View>
 
-        {/* Action Button for Unpaid Invoices */}
-        {!isPaid && hasPermission('billing:edit') && (
+        {/* Actions Row */}
+        <View style={styles.cardActionsRow}>
           <TouchableOpacity
-            style={styles.payActionBtn}
-            onPress={() => handleMarkPaid(item._id, patientName, item.totalAmount)}
-            disabled={payingBillId === item._id}
+            style={styles.invoiceActionBtn}
+            onPress={() => setSelectedBillForInvoice(item)}
             activeOpacity={0.8}
           >
-            {payingBillId === item._id ? (
-              <ActivityIndicator size="small" color="#ffffff" />
-            ) : (
-              <Text style={styles.payActionBtnText}>💳 Record Payment (Mark Paid)</Text>
-            )}
+            <Text style={styles.invoiceActionBtnText}>🧾 Cash Memo</Text>
           </TouchableOpacity>
-        )}
+
+          {!isPaid && hasPermission('billing:edit') && (
+            <TouchableOpacity
+              style={styles.payActionBtn}
+              onPress={() => handleMarkPaid(item._id, patientName, item.totalAmount)}
+              disabled={payingBillId === item._id}
+              activeOpacity={0.8}
+            >
+              {payingBillId === item._id ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <Text style={styles.payActionBtnText}>💳 Record Payment</Text>
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
     );
   };
@@ -410,6 +424,13 @@ export default function OpdBillingSummaryScreen({ onNavigate, refreshKey, hasPer
             tintColor="#0D9488"
           />
         }
+      />
+
+      {/* Official Cash Memo / Bill Invoice Modal */}
+      <InvoiceModal
+        visible={!!selectedBillForInvoice}
+        bill={selectedBillForInvoice}
+        onClose={() => setSelectedBillForInvoice(null)}
       />
     </View>
   );
@@ -554,13 +575,29 @@ const styles = StyleSheet.create({
   tagMed: { backgroundColor: '#fffbeb' },
   tagMedText: { fontSize: 10, fontWeight: '600', color: '#b45309' },
 
+  cardActionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+  },
+  invoiceActionBtn: {
+    flex: 1,
+    backgroundColor: '#ecfdf5',
+    paddingVertical: 9,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#a7f3d0',
+  },
+  invoiceActionBtnText: { color: '#047857', fontWeight: '800', fontSize: 12 },
   payActionBtn: {
+    flex: 1.2,
     backgroundColor: '#059669',
     paddingVertical: 9,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 4,
   },
   payActionBtnText: { color: '#ffffff', fontWeight: '800', fontSize: 12 },
 

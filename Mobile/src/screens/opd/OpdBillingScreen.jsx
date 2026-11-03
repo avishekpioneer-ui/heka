@@ -18,6 +18,8 @@ import {
 import apiClient from '../../config/api';
 import { usePermissions } from '../../utils/permissions';
 import CalendarPickerModal from '../../components/CalendarPickerModal';
+import InvoiceModal from '../../components/InvoiceModal';
+import { printInvoice, shareInvoicePdf, formatBillId } from '../../utils/billingInvoicePdf';
 
 export default function OpdBillingScreen({ routeParams, onNavigate, refreshKey, hasPermission: propHasPermission, userPermissions }) {
   const { hasPermission } = usePermissions(userPermissions, propHasPermission);
@@ -25,6 +27,7 @@ export default function OpdBillingScreen({ routeParams, onNavigate, refreshKey, 
   const [patients, setPatients] = useState([]);
   const [testsCatalog, setTestsCatalog] = useState([]);
   const [medicinesCatalog, setMedicinesCatalog] = useState([]);
+  const [selectedBillForInvoice, setSelectedBillForInvoice] = useState(null);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -92,7 +95,8 @@ export default function OpdBillingScreen({ routeParams, onNavigate, refreshKey, 
     if (!q) return true;
     const pName = (b.patientName || b.patientId?.name || '').toLowerCase();
     const invNum = String(b.invoiceNumber || b._id || b.id || '').toLowerCase();
-    return pName.includes(q) || invNum.includes(q);
+    const formattedId = formatBillId(b).toLowerCase();
+    return pName.includes(q) || invNum.includes(q) || formattedId.includes(q);
   });
 
   const filteredTests = testsCatalog.filter((t) => {
@@ -663,11 +667,14 @@ export default function OpdBillingScreen({ routeParams, onNavigate, refreshKey, 
         followUpNote: followUpNote || '',
       };
 
+      let savedBill = null;
       if (editingBillId) {
-        await apiClient.put(`/api/opd/billing/${editingBillId}`, payload);
+        const res = await apiClient.put(`/api/opd/billing/${editingBillId}`, payload);
+        savedBill = res.data?.bill;
         setSuccess(`Invoice updated successfully!`);
       } else {
-        await apiClient.post('/api/opd/billing', payload);
+        const res = await apiClient.post('/api/opd/billing', payload);
+        savedBill = res.data?.bill;
         setSuccess(
           `Invoice created successfully (${status.toUpperCase()})!`
         );
@@ -678,6 +685,9 @@ export default function OpdBillingScreen({ routeParams, onNavigate, refreshKey, 
 
       setTimeout(() => {
         setIsModalOpen(false);
+        if (savedBill) {
+          setSelectedBillForInvoice(savedBill);
+        }
       }, 1200);
     } catch (err) {
       console.error('Error saving bill:', err);
@@ -688,45 +698,72 @@ export default function OpdBillingScreen({ routeParams, onNavigate, refreshKey, 
   };
 
   const handleShareInvoice = async (bill) => {
-    const isPaid = bill.status === 'Paid';
-    const sub = bill.subtotal || ((bill.totalAmount || 0) + (bill.discount || 0));
-    const disc = bill.discount || 0;
+    Alert.alert(
+      'Invoice Options',
+      `Cash Memo / Bill for ${bill.patientName || bill.patientId?.name || 'Patient'}`,
+      [
+        {
+          text: '🧾 View Bill',
+          onPress: () => setSelectedBillForInvoice(bill),
+        },
+        {
+          text: '🖨️ Print',
+          onPress: () => printInvoice(bill),
+        },
+        {
+          text: '📄 Share PDF',
+          onPress: () => shareInvoicePdf(bill),
+        },
+        {
+          text: '📤 Share Text',
+          onPress: async () => {
+            const isPaid = bill.status === 'Paid';
+            const sub = bill.subtotal || ((bill.totalAmount || 0) + (bill.discount || 0));
+            const disc = bill.discount || 0;
 
-    let itemsBreakdown = '';
-    if (bill.consultationFee > 0) {
-      const cDisc = bill.consultationDiscount > 0
-        ? ` (Disc: ${bill.consultationDiscountType === 'percentage' ? `${bill.consultationDiscount}%` : `₹${bill.consultationDiscount}`})`
-        : '';
-      itemsBreakdown += `• Consultation: ₹${bill.consultationFee}${cDisc}\n`;
-    }
-    (bill.tests || []).forEach((t) => {
-      const tDisc = t.discount > 0 ? ` (Disc: ${t.discountType === 'percentage' ? `${t.discount}%` : `₹${t.discount}`})` : '';
-      itemsBreakdown += `• Diagnostic: ${t.name} ₹${t.price}${tDisc}\n`;
-    });
-    (bill.medicines || []).forEach((m) => {
-      const mDisc = m.discount > 0 ? ` (Disc: ${m.discountType === 'percentage' ? `${m.discount}%` : `₹${m.discount}`})` : '';
-      itemsBreakdown += `• Medicine: ${m.name} x${m.quantity || 1} ₹${((m.price || 0) * (m.quantity || 1)).toFixed(2)}${mDisc}\n`;
-    });
+            let itemsBreakdown = '';
+            if (bill.consultationFee > 0) {
+              const cDisc = bill.consultationDiscount > 0
+                ? ` (Disc: ${bill.consultationDiscountType === 'percentage' ? `${bill.consultationDiscount}%` : `₹${bill.consultationDiscount}`})`
+                : '';
+              itemsBreakdown += `• Consultation: ₹${bill.consultationFee}${cDisc}\n`;
+            }
+            (bill.tests || []).forEach((t) => {
+              const tDisc = t.discount > 0 ? ` (Disc: ${t.discountType === 'percentage' ? `${t.discount}%` : `₹${t.discount}`})` : '';
+              itemsBreakdown += `• Diagnostic: ${t.name} ₹${t.price}${tDisc}\n`;
+            });
+            (bill.medicines || []).forEach((m) => {
+              const mDisc = m.discount > 0 ? ` (Disc: ${m.discountType === 'percentage' ? `${m.discount}%` : `₹${m.discount}`})` : '';
+              itemsBreakdown += `• Medicine: ${m.name} x${m.quantity || 1} ₹${((m.price || 0) * (m.quantity || 1)).toFixed(2)}${mDisc}\n`;
+            });
 
-    const text =
-      `🧾 Rudraksh Foundation Invoice\n` +
-      `----------------------------------------\n` +
-      `Bill ID       : ${bill._id || bill.id}\n` +
-      `Patient       : ${bill.patientName || bill.patientId?.name || 'Patient'}\n` +
-      `Date          : ${new Date(bill.createdAt || Date.now()).toLocaleDateString()}\n` +
-      `Status        : ${isPaid ? 'PAID' : 'PENDING'}\n` +
-      (itemsBreakdown ? `----------------------------------------\n${itemsBreakdown}` : '') +
-      `----------------------------------------\n` +
-      (disc > 0 || (bill.subtotal && bill.subtotal > bill.totalAmount) ? `Subtotal      : ₹${sub}\n` : '') +
-      (disc > 0 ? `Bill Discount : -₹${bill.discountType === 'percentage' ? (((sub * disc) / 100).toFixed(2)) : disc} (${bill.discountType === 'percentage' ? `${disc}%` : 'Flat'}${bill.discountReason ? ` - ${bill.discountReason}` : ''})\n` : '') +
-      `Total Amount  : ₹${bill.totalAmount}\n` +
-      (bill.followUpDate ? `Follow-up     : ${new Date(bill.followUpDate).toLocaleDateString()}\n` : '') +
-      `----------------------------------------\n` +
-      `Powered by HEKA`;
+            const text =
+              `🧾 Rudraksh Foundation Cash Memo / Bill\n` +
+              `----------------------------------------\n` +
+              `Bill ID       : ${formatBillId(bill)}\n` +
+              `Patient       : ${bill.patientName || bill.patientId?.name || 'Patient'}\n` +
+              `Date          : ${new Date(bill.createdAt || Date.now()).toLocaleDateString()}\n` +
+              `Status        : ${isPaid ? 'PAID' : 'PENDING'}\n` +
+              (itemsBreakdown ? `----------------------------------------\n${itemsBreakdown}` : '') +
+              `----------------------------------------\n` +
+              (disc > 0 || (bill.subtotal && bill.subtotal > bill.totalAmount) ? `Subtotal      : ₹${sub}\n` : '') +
+              (disc > 0 ? `Bill Discount : -₹${bill.discountType === 'percentage' ? (((sub * disc) / 100).toFixed(2)) : disc} (${bill.discountType === 'percentage' ? `${disc}%` : 'Flat'}${bill.discountReason ? ` - ${bill.discountReason}` : ''})\n` : '') +
+              `Total Amount  : ₹${bill.totalAmount}\n` +
+              (bill.followUpDate ? `Follow-up     : ${new Date(bill.followUpDate).toLocaleDateString()}\n` : '') +
+              `----------------------------------------\n` +
+              `Powered by HEKA`;
 
-    try {
-      await Share.share({ message: text });
-    } catch (e) { }
+            try {
+              await Share.share({ message: text });
+            } catch (e) { }
+          },
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+      ]
+    );
   };
 
   const handlePayBill = (billId) => {
@@ -867,7 +904,7 @@ export default function OpdBillingScreen({ routeParams, onNavigate, refreshKey, 
       <View key={bId || `bill-card-${bIdx}`} style={styles.card}>
         <View style={styles.cardHeader}>
           <View style={{ flex: 1, marginRight: 8 }}>
-            <Text style={styles.invoiceNo}>🧾 #{String(b.invoiceNumber || bId || '').slice(-8).toUpperCase()}</Text>
+            <Text style={styles.invoiceNo}>🧾 ID: {formatBillId(b)}</Text>
             <Text style={styles.patientName}>{b.patientName || b.patientId?.name || 'Walk-in Patient'}</Text>
           </View>
 
@@ -1045,6 +1082,13 @@ export default function OpdBillingScreen({ routeParams, onNavigate, refreshKey, 
             )}
 
             <View style={styles.cardBtnRow}>
+              <TouchableOpacity
+                style={styles.invoiceCardBtn}
+                onPress={() => setSelectedBillForInvoice(b)}
+              >
+                <Text style={styles.invoiceCardBtnText}>🧾 Bill</Text>
+              </TouchableOpacity>
+
               {hasPermission('billing:edit') && (
                 <TouchableOpacity
                   style={styles.editCardBtn}
@@ -1906,6 +1950,13 @@ export default function OpdBillingScreen({ routeParams, onNavigate, refreshKey, 
           setIsFollowUpCalendarOpen(false);
         }}
       />
+
+      {/* Official Cash Memo / Bill Invoice Modal */}
+      <InvoiceModal
+        visible={!!selectedBillForInvoice}
+        bill={selectedBillForInvoice}
+        onClose={() => setSelectedBillForInvoice(null)}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -1958,7 +2009,9 @@ const styles = StyleSheet.create({
   billActions: { gap: 8, marginTop: 4 },
   payBtn: { backgroundColor: '#ccfbf1', paddingVertical: 8, borderRadius: 8, alignItems: 'center' },
   payBtnText: { color: '#0f766e', fontWeight: '700', fontSize: 12 },
-  cardBtnRow: { flexDirection: 'row', gap: 8 },
+  cardBtnRow: { flexDirection: 'row', gap: 6 },
+  invoiceCardBtn: { flex: 1, backgroundColor: '#ecfdf5', paddingVertical: 8, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#a7f3d0' },
+  invoiceCardBtnText: { color: '#047857', fontWeight: '800', fontSize: 12 },
   editCardBtn: { flex: 1, backgroundColor: '#fef3c7', paddingVertical: 8, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#fde68a' },
   editCardBtnText: { color: '#b45309', fontWeight: '700', fontSize: 12 },
   deleteCardBtn: { flex: 1, backgroundColor: '#ffe4e6', paddingVertical: 8, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#fecdd3' },

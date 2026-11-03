@@ -199,9 +199,27 @@ export const createBill = async (req, res) => {
         const totalDiscountDeduction = itemDiscountsTotal + overallDiscountDeduction;
         const total = Math.max(0, calculatedSubtotal - totalDiscountDeduction);
 
+        // Generate formatted Bill ID (ddmmyyyy000001)
+        const now = new Date();
+        const dd = String(now.getDate()).padStart(2, '0');
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const yyyy = String(now.getFullYear());
+        const datePrefix = `${dd}${mm}${yyyy}`;
+
+        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+        const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+        const countToday = await OpdBilling.countDocuments({ createdAt: { $gte: startOfDay, $lte: endOfDay } });
+        let seq = countToday + 1;
+        let invoiceNumber = `${datePrefix}${String(seq).padStart(6, '0')}`;
+        while (await OpdBilling.exists({ invoiceNumber })) {
+            seq++;
+            invoiceNumber = `${datePrefix}${String(seq).padStart(6, '0')}`;
+        }
+
         const bill = await OpdBilling.create({
             patientId,
             appointmentId: appointmentId || null,
+            invoiceNumber,
             consultationFee: consultationFee || 0,
             consultationDiscount: rawConsultDisc,
             consultationDiscountType: consultDiscType,

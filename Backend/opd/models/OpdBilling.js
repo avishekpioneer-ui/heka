@@ -121,12 +121,18 @@ const opdBillingSchema = new mongoose.Schema(
             type: String,
             enum: ["Consultation", "Diagnostic", "Pharmacy", "Combined"],
             default: "Combined"
+        },
+        invoiceNumber: {
+            type: String,
+            trim: true,
+            index: true
         }
     },
     { timestamps: true }
 );
 
 opdBillingSchema.index({ createdAt: -1 });
+opdBillingSchema.index({ invoiceNumber: 1 });
 opdBillingSchema.index({ patientId: 1 });
 opdBillingSchema.index({ status: 1 });
 opdBillingSchema.index({ appointmentId: 1 });
